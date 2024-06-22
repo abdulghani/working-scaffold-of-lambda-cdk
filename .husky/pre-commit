@@ -23,17 +23,6 @@ get_unstaged_files() {
     fi
 }
 
-# READ ENV FILES
-read_env() {
-    ENV_PATH="$(pwd)/.env"
-
-    if [ -f "$ENV_PATH" ]; then
-        source "$ENV_PATH"
-    else
-        echo "ENV FILE NOT FOUND ($ENV_PATH)"
-    fi
-}
-
 print_green() {
     echo "\033[0;32m$1\033[0m"
 }
@@ -52,6 +41,17 @@ print_grey() {
 
 print_cyan() {
     echo "\033[1;36m$1\033[0m"
+}
+
+# READ ENV FILES
+read_env() {
+    ENV_PATH="$(dirname "$0")/../.env"
+
+    if [ -f "$ENV_PATH" ]; then
+        source "$ENV_PATH"
+    else
+        print_yellow "ENV FILE NOT AVAILABLE ($ENV_PATH)"
+    fi
 }
 
 # FORMAT FILES
