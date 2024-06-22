@@ -56,7 +56,7 @@ read_env() {
 
 # FORMAT FILES
 format_files() {
-    FILES="$(get_staged_files changed | grep -E '.+\.(ts|tsx|js|jsx|css|json|yml|yaml|md)$' || echo)"
+    FILES="$(get_staged_files changed | grep -E '.+\.(ts|tsx|cts|mts|js|jsx|cjs|mjs|css|json|yml|yaml|md)$' || echo)"
 
     if [ "$FILES" ]; then
         print_blue "FORMATTING STAGED FILES"
