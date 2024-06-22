@@ -1,7 +1,27 @@
 #!/bin/bash
 . "$(dirname "$0")/_/husky.sh"
 
-# STAGED FILES
+# COLOR STUFF
+print_green() {
+    echo "\033[0;32m$1\033[0m"
+}
+
+print_blue() {
+    echo "\033[0;34m$1\033[0m"
+}
+
+print_yellow() {
+    echo "\033[1;33m$1\033[0m"
+}
+
+print_grey() {
+    echo "\033[1;30m$1\033[0m"
+}
+
+print_cyan() {
+    echo "\033[1;36m$1\033[0m"
+}
+
 # CHECK GIT STATUS LETTERS https://git-scm.com/docs/git-status
 get_staged_files() {
     if [ "$1" = "changed" ]; then
@@ -21,26 +41,6 @@ get_unstaged_files() {
         echo "$(git status -s | grep -E '(.)([M|T|A|C|U|D])(\s)(.)+' | sed s/^...//)"
         echo "$(git status -s | grep -E '(.)([R])(\s)(.)+' | sed s/^...// | sed -r 's/^(.)+->[[:space:]]//')"
     fi
-}
-
-print_green() {
-    echo "\033[0;32m$1\033[0m"
-}
-
-print_blue() {
-    echo "\033[0;34m$1\033[0m"
-}
-
-print_yellow() {
-    echo "\033[1;33m$1\033[0m"
-}
-
-print_grey() {
-    echo "\033[1;30m$1\033[0m"
-}
-
-print_cyan() {
-    echo "\033[1;36m$1\033[0m"
 }
 
 # READ ENV FILES
@@ -90,6 +90,12 @@ rebuild_graphql() {
     fi
 }
 
+# AUDIT DEPENDENCIES
+run_dependency_audit() {
+    print_blue "RUNNING DEPENDENCY AUDIT"
+    npm audit fix && echo || exit 1
+}
+
 # UPDATE PACKAGE-LOCK
 update_package_lock() {
     FILE="$(get_staged_files | grep -E 'package(-lock)?.json$' || echo)"
@@ -102,8 +108,7 @@ update_package_lock() {
         npm install --ignore-scripts --package-lock-only && echo || exit 1
 
         # RUN NPM AUDIT
-        # print_blue "RUNNING DEPENDENCY AUDIT"
-        # npm audit fix && echo || exit 1
+        # run_dependency_audit
 
         # GET UNSTAGED LOCK FILES
         UNSTAGED_FILES="$(get_unstaged_files | grep -E 'package(-lock)?.json$' || echo)"
