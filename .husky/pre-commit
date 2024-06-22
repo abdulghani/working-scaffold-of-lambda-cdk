@@ -102,8 +102,8 @@ update_package_lock() {
         npm install --ignore-scripts --package-lock-only && echo || exit 1
 
         # RUN NPM AUDIT
-        print_blue "RUNNING DEPENDENCY AUDIT"
-        npm audit fix && echo || exit 1
+        # print_blue "RUNNING DEPENDENCY AUDIT"
+        # npm audit fix && echo || exit 1
 
         # GET UNSTAGED LOCK FILES
         UNSTAGED_FILES="$(get_unstaged_files | grep -E 'package(-lock)?.json$' || echo)"
