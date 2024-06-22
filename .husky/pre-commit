@@ -1,0 +1,8 @@
+#!/bin/sh
+
+format_files() {
+    echo "Formatting files..."
+}
+
+# FORMAT FILES
+format_files

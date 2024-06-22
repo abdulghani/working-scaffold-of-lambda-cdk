@@ -1,0 +1,8 @@
+#!/bin/sh
+
+lint_commit_message() {
+    echo "LINTING COMMIT MESSAGE..."
+    npx --no -- commitlint --edit $1
+}
+
+lint_commit_message $1
