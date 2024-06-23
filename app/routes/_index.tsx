@@ -16,7 +16,7 @@ export default function Root() {
           <img src={reactLogo} className="w-20" alt="React logo" />
         </a>
       </div>
-      <h1 className="mb-2 text-lg">Vite + React</h1>
+      <h1 className="mb-2 text-lg text-gray-50">Vite + React Hello world</h1>
       <div className="flex flex-col items-center">
         <Button
           onClick={() => setCount((count) => count + 1)}
@@ -26,11 +26,11 @@ export default function Root() {
         >
           count is {count}
         </Button>
-        <p>
+        <p className="text-gray-50">
           Edit <code>src/App.tsx</code> and save to test HMR
         </p>
       </div>
-      <p className="read-the-docs">
+      <p className="read-the-docs text-gray-50">
         Click on the Vite and React logos to learn more
       </p>
     </div>
