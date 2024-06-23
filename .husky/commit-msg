@@ -22,6 +22,7 @@ print_cyan() {
 
 lint_commit_message() {
     print_blue "CHECKING COMMIT MESSAGE"
+    print_grey "$1"
     npx --no -- commitlint --edit $1
 }
 
