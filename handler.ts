@@ -21,7 +21,7 @@ export async function handler(...args: any) {
       ])
   ) {
     return {
-      statusCode: 307,
+      statusCode: 301,
       headers: {
         Location: `https://${process.env.BUCKET_NAME}.s3.amazonaws.com/${event.pathParameters.proxy}`
       }

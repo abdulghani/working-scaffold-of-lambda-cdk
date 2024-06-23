@@ -2,8 +2,18 @@ import { useState } from "react";
 import reactLogo from "/react.svg";
 import viteLogo from "/vite.svg";
 import { Button } from "@/components/ui/button";
+import { LoaderFunctionArgs } from "@remix-run/node";
+import { requireAuthCookie } from "app/service/auth";
+import { useLoaderData } from "@remix-run/react";
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const userId = await requireAuthCookie(request);
+
+  return { userId };
+}
 
 export default function Root() {
+  const { userId } = useLoaderData();
   const [count, setCount] = useState(0);
 
   return (
@@ -16,7 +26,7 @@ export default function Root() {
           <img src={reactLogo} className="w-20" alt="React logo" />
         </a>
       </div>
-      <h1 className="mb-2 text-lg text-gray-50">Vite + React Hello world</h1>
+      <h1 className="mb-2 text-lg text-gray-50">Vite + React {userId}</h1>
       <div className="flex flex-col items-center">
         <Button onClick={() => setCount((count) => count + 1)}>
           count is {count}

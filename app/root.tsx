@@ -11,7 +11,6 @@ export default function App() {
   return (
     <html className="">
       <head>
-        <title>Remix starter</title>
         <Meta />
         <Links />
       </head>

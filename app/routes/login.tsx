@@ -3,9 +3,32 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import qrcode from "qrcode";
+import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
+import { loginUser, redirectLoggedInUser } from "app/service/auth";
+import { Form } from "@remix-run/react";
 
 const QRIS_DATA =
   "00020101021226600013ID.CO.BRI.WWW0118936000020110576346021019993407260303UME5204541153033605405520005802ID5925FAMILYMART PURI MANSION P6013JAKARTA BARAT6105116106234011852650028880744696007081057634663049CD2";
+
+export function meta() {
+  return [{ title: "Login" }];
+}
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  await redirectLoggedInUser(request);
+
+  return {};
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  const formData = await request.formData();
+  const email = formData.get("email");
+  const password = formData.get("password");
+
+  await loginUser(email as string);
+
+  return json({ email, password });
+}
 
 export default function Login() {
   const [qrImage, setQrImage] = React.useState<string | null>(null);
@@ -32,13 +55,15 @@ export default function Login() {
               Enter your email below to login to your account
             </p>
           </div>
-          <div className="grid gap-4">
+          <Form className="grid gap-4" method="post">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
+                name="email"
                 type="email"
                 placeholder="m@example.com"
+                autoComplete="email"
                 required
               />
             </div>
@@ -52,15 +77,18 @@ export default function Login() {
                   Forgot your password?
                 </a>
               </div>
-              <Input id="password" type="password" required />
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="password"
+                required
+              />
             </div>
             <Button type="submit" className="w-full">
               Login
             </Button>
-            <Button variant="outline" className="w-full">
-              Login with Google
-            </Button>
-          </div>
+          </Form>
           <div className="mt-4 text-center text-sm">
             Don&apos;t have an account?{" "}
             <a href="#" className="underline">
