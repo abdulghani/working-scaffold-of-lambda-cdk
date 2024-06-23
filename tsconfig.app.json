@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "types": ["vite/client"],
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "target": "ES2020",
@@ -26,8 +27,10 @@
     /* PATHS */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./@/*"]
+      "@/*": ["./@/*"],
+      "app/*": ["./app/*"],
+      "/*": ["./public/*"]
     }
   },
-  "include": ["src", "@"]
+  "include": ["src", "@", "app"]
 }

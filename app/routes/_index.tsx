@@ -1,9 +1,9 @@
 import { useState } from "react";
-import reactLogo from "./assets/react.svg";
+import reactLogo from "/react.svg";
 import viteLogo from "/vite.svg";
 import { Button } from "@/components/ui/button";
 
-function App() {
+export default function Root() {
   const [count, setCount] = useState(0);
 
   return (
@@ -36,5 +36,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
