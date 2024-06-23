@@ -19,14 +19,10 @@ export class LambdaConstruct extends Construct {
       timeout: Duration.seconds(20),
       bundling: {
         minify: true,
+        sourceMap: false,
         keepNames: true,
         bundleAwsSDK: false,
-        nodeModules: [
-          "@remix-run/node",
-          "@remix-run/react",
-          "@remix-run/architect",
-          "react"
-        ]
+        nodeModules: ["@remix-run/node", "@remix-run/react", "react"]
       }
     });
   }

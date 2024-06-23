@@ -8,6 +8,7 @@
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
+    "allowJs": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -32,5 +33,5 @@
       "/*": ["./public/*"]
     }
   },
-  "include": ["src", "@", "app"]
+  "include": ["src", "@", "app", "./handler.ts", "./build/server/index.js"]
 }

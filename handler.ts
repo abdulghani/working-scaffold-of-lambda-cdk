@@ -1,4 +1,4 @@
-import { createRequestHandler } from "@remix-run/architect";
+import { createRequestHandler } from "./@/lib/request-handler";
 import * as build from "./build/server/index.js";
 
 const remixHandler = createRequestHandler({
@@ -29,14 +29,5 @@ export async function handler(...args: any) {
   }
 
   /** INVOKE HANDLER */
-  const result = await (remixHandler as any)(...args);
-
-  /** RESPONSE REMOVED COOKIES TO SET-COOKIE HEADER */
-  return {
-    ...result,
-    cookies: undefined,
-    multiValueHeaders: {
-      "Set-Cookie": result.cookies || []
-    }
-  };
+  return await (remixHandler as any)(...args);
 }
