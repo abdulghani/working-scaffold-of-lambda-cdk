@@ -18,12 +18,7 @@ export default function Root() {
       </div>
       <h1 className="mb-2 text-lg text-gray-50">Vite + React Hello world</h1>
       <div className="flex flex-col items-center">
-        <Button
-          onClick={() => setCount((count) => count + 1)}
-          className="mb-2"
-          variant="default"
-          size="default"
-        >
+        <Button onClick={() => setCount((count) => count + 1)}>
           count is {count}
         </Button>
         <p className="text-gray-50">

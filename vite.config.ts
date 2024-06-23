@@ -5,9 +5,9 @@ import path from "path";
 export default defineConfig({
   plugins: [
     remix({
-      buildDirectory: "dist",
+      buildDirectory: "build",
       serverBuildFile: "index.js",
-      ssr: false
+      ssr: true
     })
   ],
   resolve: {

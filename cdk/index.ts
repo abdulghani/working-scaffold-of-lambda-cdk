@@ -1,10 +1,10 @@
 import "source-map-support/register";
 import { App } from "aws-cdk-lib";
-import { CDKStaticStack } from "./stacks/cdk-static-stack";
+import { CdkRemixStack } from "./stacks/cdk-remix-stack";
 
 function createStack() {
   const app = new App();
-  new CDKStaticStack(app, "CDKStaticStack", {});
+  new CdkRemixStack(app, "CdkRemixStack", {});
 }
 
 createStack();
