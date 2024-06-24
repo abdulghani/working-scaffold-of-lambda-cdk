@@ -1,0 +1,265 @@
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  ActionFunctionArgs,
+  LoaderFunctionArgs,
+  redirect
+} from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
+import { queueCookie } from "app/service/queue";
+import moment from "moment";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog";
+import { useState } from "react";
+
+const invoices = [
+  {
+    invoice: "001",
+    paymentStatus: "Dimas",
+    totalAmount: "5 mins ago",
+    paymentMethod: "3"
+  },
+  {
+    invoice: "001",
+    paymentStatus: "Andi",
+    totalAmount: "5 mins ago",
+    paymentMethod: "3"
+  },
+  {
+    invoice: "001",
+    paymentStatus: "Rina",
+    totalAmount: "5 mins ago",
+    paymentMethod: "3"
+  },
+  {
+    invoice: "001",
+    paymentStatus: "Khairul",
+    totalAmount: "5 mins ago",
+    paymentMethod: "3"
+  }
+];
+
+export async function loader({ request }: LoaderFunctionArgs) {
+  const cookie = await queueCookie.parse(request.headers.get("Cookie"));
+  return {
+    queue: cookie ? JSON.parse(cookie) : null
+  };
+}
+
+export async function action({ request }: ActionFunctionArgs) {
+  const form = await request.formData();
+  const cancel = form.get("cancel");
+
+  if (cancel === "true") {
+    throw redirect("/queue", {
+      headers: {
+        "Set-Cookie": await queueCookie.serialize("")
+      }
+    });
+  }
+  const name = form.get("name");
+  const pax = form.get("pax");
+  const phone = form.get("phone");
+  const time = new Date().toISOString();
+
+  throw redirect("/queue", {
+    headers: {
+      "Set-Cookie": await queueCookie.serialize(
+        JSON.stringify({ name, pax, phone, time })
+      )
+    }
+  });
+}
+
+export default function Queue() {
+  const { queue } = useLoaderData<any>();
+  const [cancelDialog, setCancelDialog] = useState(false);
+  return (
+    <>
+      <Tabs defaultValue="account" className="mt-3 w-[400px]">
+        <TabsList className="sticky top-3 mx-4 grid grid-cols-2">
+          <TabsTrigger value="account">Antrian</TabsTrigger>
+          <TabsTrigger value="password">Antri</TabsTrigger>
+        </TabsList>
+        <TabsContent value="account">
+          <Card className="border-0 shadow-none">
+            <CardHeader>
+              <CardTitle>Antrian</CardTitle>
+              <CardDescription>List antrian restoran</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>PAX</TableHead>
+                    <TableHead className="text-right">Time</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invoices.map((invoice, i) => (
+                    <TableRow key={invoice.invoice}>
+                      <TableCell className="font-medium">00{i + 1}</TableCell>
+                      <TableCell>{invoice.paymentStatus}</TableCell>
+                      <TableCell>{invoice.paymentMethod}</TableCell>
+                      <TableCell className="text-right">
+                        {invoice.totalAmount}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {!!queue && (
+                    <TableRow>
+                      <TableCell className="font-medium">
+                        00{invoices.length + 1}
+                      </TableCell>
+                      <TableCell>{queue.name}</TableCell>
+                      <TableCell>{queue.pax}</TableCell>
+                      <TableCell className="text-right">
+                        {moment(queue.time).fromNow()}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="password">
+          <Card className="border-0 shadow-none">
+            {queue ? (
+              <>
+                <CardHeader>
+                  <CardTitle>
+                    Antrian diproses 00{invoices.length + 1}
+                  </CardTitle>
+                  <CardDescription>
+                    Anda sudah mengantri atas nama {queue.name} (untuk{" "}
+                    {queue.pax} orang)
+                  </CardDescription>
+                  <CardDescription>
+                    {new Date(queue.time).toLocaleString()} (
+                    {moment(queue.time).fromNow()})
+                  </CardDescription>
+                </CardHeader>
+                <CardFooter>
+                  <AlertDialog
+                    open={cancelDialog}
+                    onOpenChange={setCancelDialog}
+                  >
+                    <AlertDialogTrigger asChild>
+                      <Button className="w-full" variant="outline">
+                        Batalkan antrian
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Apakah kamu yakin?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Antrian akan dibatalkan dan tidak bisa dikembalikan
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <Form
+                        method="post"
+                        className="w-full"
+                        onSubmit={() => {
+                          setCancelDialog(false);
+                        }}
+                      >
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Batal</AlertDialogCancel>
+                          <Button type="submit" name="cancel" value={"true"}>
+                            Hapus
+                          </Button>
+                        </AlertDialogFooter>
+                      </Form>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </CardFooter>
+              </>
+            ) : (
+              <>
+                <CardHeader>
+                  <CardTitle>Antri</CardTitle>
+                  <CardDescription>Masukan data antrian kamu</CardDescription>
+                </CardHeader>
+                <Form method="post">
+                  <CardContent className="space-y-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="name">Nama</Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        type="text"
+                        required
+                        value={queue?.name}
+                        disabled={!!queue}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="pax">Jumlah orang (PAX)</Label>
+                      <Input
+                        id="pax"
+                        name="pax"
+                        type="number"
+                        inputmode="numeric"
+                        required
+                        value={queue?.pax}
+                        disabled={!!queue}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="phone">No Handphone</Label>
+                      <Input
+                        id="phone"
+                        name="phone"
+                        type="number"
+                        inputmode="numeric"
+                        value={queue?.phone}
+                        disabled={!!queue}
+                      />
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button className="w-full" type="submit" disabled={!!queue}>
+                      Antri
+                    </Button>
+                  </CardFooter>
+                </Form>
+              </>
+            )}
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </>
+  );
+}

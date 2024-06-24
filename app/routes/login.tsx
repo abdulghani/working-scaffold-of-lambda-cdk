@@ -1,23 +1,31 @@
-import React, { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import qrcode from "qrcode";
 import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
-import { loginUser, redirectLoggedInUser } from "app/service/auth";
-import { Form } from "@remix-run/react";
-
-const QRIS_DATA =
-  "00020101021226600013ID.CO.BRI.WWW0118936000020110576346021019993407260303UME5204541153033605405520005802ID5925FAMILYMART PURI MANSION P6013JAKARTA BARAT6105116106234011852650028880744696007081057634663049CD2";
+import { loginUser, logoutUser } from "app/service/auth";
+import { Form, useLoaderData } from "@remix-run/react";
 
 export function meta() {
   return [{ title: "Login" }];
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  await redirectLoggedInUser(request);
+  await logoutUser(request);
+  const QRIS_DATA =
+    "00020101021226600013ID.CO.BRI.WWW0118936000020110576346021019993407260303UME5204541153033605405520005802ID5925FAMILYMART PURI MANSION P6013JAKARTA BARAT6105116106234011852650028880744696007081057634663049CD2";
+  const qrImage = await qrcode.toDataURL(
+    "https://queue-dev.pranaga.com/queue",
+    {
+      errorCorrectionLevel: "quartile",
+      width: 500,
+      color: {
+        light: "#00000000"
+      }
+    }
+  );
 
-  return {};
+  return { qrImage };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -31,19 +39,7 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function Login() {
-  const [qrImage, setQrImage] = React.useState<string | null>(null);
-
-  useEffect(() => {
-    qrcode
-      .toDataURL(QRIS_DATA, {
-        errorCorrectionLevel: "L",
-        width: 1000,
-        color: {
-          light: "#00000000"
-        }
-      })
-      .then((res) => setQrImage(res));
-  }, []);
+  const { qrImage } = useLoaderData();
 
   return (
     <div className="max-h-screen w-full lg:grid lg:grid-cols-2">
@@ -73,6 +69,7 @@ export default function Login() {
                 <a
                   href="/forgot-password"
                   className="ml-auto inline-block text-sm underline"
+                  tabIndex={-1}
                 >
                   Forgot your password?
                 </a>
