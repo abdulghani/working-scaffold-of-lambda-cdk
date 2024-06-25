@@ -45,57 +45,36 @@ import {
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
+import { validatePOSId } from "app/service/pos";
 
-const invoices = [
-  {
-    invoice: "001",
-    paymentStatus: "Dimas",
-    totalAmount: "5 mins ago",
-    paymentMethod: "3"
-  },
-  {
-    invoice: "001",
-    paymentStatus: "Andi",
-    totalAmount: "5 mins ago",
-    paymentMethod: "3"
-  },
-  {
-    invoice: "001",
-    paymentStatus: "Rina",
-    totalAmount: "5 mins ago",
-    paymentMethod: "3"
-  },
-  {
-    invoice: "001",
-    paymentStatus: "Khairul",
-    totalAmount: "5 mins ago",
-    paymentMethod: "3"
-  }
-];
-
-export async function loader({ request }: LoaderFunctionArgs) {
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  const pos = await validatePOSId?.(params.posId!);
   const cookie = await queueCookie.parse(request.headers.get("Cookie"));
   const list = await getQueueList?.("default");
+
   return {
     queue: cookie ? JSON.parse(cookie) : null,
-    queues: list
+    queues: list,
+    pos
   };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   const form = await request.formData();
   const cancel = form.get("cancel");
-  const queueId = form.get("queueId");
+  const posId = form.get("posId");
+  const cookie = await queueCookie.parse(request.headers.get("Cookie"));
+  const queue = cookie ? JSON.parse(cookie) : null;
 
-  if (cancel === "true" && queueId) {
-    await cancelQueue?.(queueId as string);
-    throw redirect("/queue", {
+  if (cancel === "true" && queue?.id) {
+    await cancelQueue?.(queue.id as string);
+    throw redirect(`/queue/${posId}`, {
       headers: {
         "Set-Cookie": await queueCookie.serialize("")
       }
     });
   } else if (cancel === "true") {
-    throw redirect("/queue", {
+    throw redirect(`/queue/${posId}`, {
       headers: {
         "Set-Cookie": await queueCookie.serialize("")
       }
@@ -105,20 +84,22 @@ export async function action({ request }: ActionFunctionArgs) {
   const name = form.get("name");
   const pax = form.get("pax");
   const phone = form.get("phone");
-  const queue = await addQueue?.({
-    posId: "default",
-    queue: { name, pax, phone }
+  const newQueue = await addQueue?.({
+    name,
+    pax,
+    phone,
+    posId
   });
 
-  throw redirect("/queue", {
+  throw redirect(`/queue/${posId}`, {
     headers: {
-      "Set-Cookie": await queueCookie.serialize(JSON.stringify(queue))
+      "Set-Cookie": await queueCookie.serialize(JSON.stringify(newQueue))
     }
   });
 }
 
 export default function Queue() {
-  const { queue, queues } = useLoaderData<any>();
+  const { queue, queues, pos } = useLoaderData<any>();
   const [cancelDialog, setCancelDialog] = useState(false);
 
   return (
@@ -131,7 +112,7 @@ export default function Queue() {
         <TabsContent value="account">
           <Card className="border-0 shadow-none">
             <CardHeader>
-              <CardTitle>Antrian</CardTitle>
+              <CardTitle>Antrian {pos.name}</CardTitle>
               <CardDescription>List antrian restoran</CardDescription>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -208,8 +189,8 @@ export default function Queue() {
                           <AlertDialogCancel>Batal</AlertDialogCancel>
                           <Input
                             type="hidden"
-                            name="queueId"
-                            value={queue.id}
+                            name="posId"
+                            value={pos.pos_id}
                           />
                           <Button type="submit" name="cancel" value={"true"}>
                             Hapus
@@ -229,6 +210,7 @@ export default function Queue() {
                 <Form method="post">
                   <CardContent className="space-y-2">
                     <div className="space-y-1">
+                      <Input type="hidden" name="posId" value={pos.pos_id} />
                       <Label htmlFor="name">Nama</Label>
                       <Input
                         id="name"

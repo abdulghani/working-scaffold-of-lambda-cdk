@@ -17,23 +17,24 @@ export const queueCookie = createCookie(COOKIE_NAME, {
 
 export const getQueueList = serverOnly$(async (posId: string) => {
   const list = await dbconn?.("queue")
-    .where({ pos_id: posId, is_acknowledged: false })
+    .where({ pos_id: posId, is_acknowledged: false, is_cancelled: false })
     .orderBy("created_at", "asc");
 
   return list;
 });
 
 export const addQueue = serverOnly$(
-  async (options: { posId: string; queue: any }) => {
+  async ({ posId, name, pax, phone }: any) => {
     const queue = await dbconn?.("queue")
       .insert({
         id: ulid(),
-        pos_id: options.posId,
-        name: options.queue.name,
-        pax: options.queue.pax,
-        phone: options.queue.phone,
+        pos_id: posId,
+        name: name,
+        pax: pax,
+        phone: phone,
         created_at: new Date().toISOString(),
-        is_acknowledged: false
+        is_acknowledged: false,
+        is_cancelled: false
       })
       .returning("*");
 
@@ -44,7 +45,7 @@ export const addQueue = serverOnly$(
 export const cancelQueue = serverOnly$(async (queueId: string) => {
   const queue = await dbconn?.("queue")
     .where({ id: queueId })
-    .update({ is_acknowledged: true })
+    .update({ is_cancelled: true })
     .returning("*");
 
   return queue?.find(Boolean);
