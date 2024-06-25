@@ -25,6 +25,7 @@ export class LambdaConstruct extends Construct {
         nodeModules: this.readServerImports()
       },
       environment: {
+        COOKIE_SECRET: process.env.COOKIE_SECRET || "",
         DB_HOST: process.env.DB_HOST || "",
         DB_PORT: process.env.DB_PORT || "",
         DB_USER: process.env.DB_USER || "",

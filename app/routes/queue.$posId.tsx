@@ -49,26 +49,27 @@ import { validatePOSId } from "app/service/pos";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const pos = await validatePOSId?.(params.posId!);
-  const cookie = await queueCookie.parse(request.headers.get("Cookie"));
   const list = await getQueueList?.(params.posId!);
+  const cookie = await queueCookie.parse(request.headers.get("Cookie"));
+  const queue = cookie ? JSON.parse(cookie) : null;
 
   return {
-    queue: cookie ? JSON.parse(cookie) : null,
+    queue: queue ? list?.find((q) => q.id === queue.id) : null,
     queues: list,
     pos
   };
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+export async function action({ request, params }: ActionFunctionArgs) {
+  const { posId } = params;
   const form = await request.formData();
   const cancel = form.get("cancel");
-  const posId = form.get("posId");
   const cookie = await queueCookie.parse(request.headers.get("Cookie"));
   const queue = cookie ? JSON.parse(cookie) : null;
 
-  if (cancel === "true" && queue?.id) {
+  if (cancel === "true" && queue?.id && posId === queue?.pos_id) {
     await cancelQueue?.(queue.id as string);
-    throw redirect(`/queue/${posId}`, {
+    throw redirect(`/queue/${params.posId}`, {
       headers: {
         "Set-Cookie": await queueCookie.serialize("")
       }
@@ -187,11 +188,6 @@ export default function Queue() {
                       >
                         <AlertDialogFooter>
                           <AlertDialogCancel>Batal</AlertDialogCancel>
-                          <Input
-                            type="hidden"
-                            name="posId"
-                            value={pos.pos_id}
-                          />
                           <Button type="submit" name="cancel" value={"true"}>
                             Hapus
                           </Button>
@@ -210,7 +206,6 @@ export default function Queue() {
                 <Form method="post">
                   <CardContent className="space-y-2">
                     <div className="space-y-1">
-                      <Input type="hidden" name="posId" value={pos.pos_id} />
                       <Label htmlFor="name">Nama</Label>
                       <Input
                         id="name"

@@ -4,7 +4,7 @@ import { serverOnly$ } from "vite-env-only/macros";
 import { ulid } from "ulid";
 
 const COOKIE_NAME = "queue";
-const COOKIE_SECRET = process.env.COOKIES_SECRET || "default";
+const COOKIE_SECRET = process.env.COOKIE_SECRET || "default";
 
 export const queueCookie = createCookie(COOKIE_NAME, {
   httpOnly: true,
