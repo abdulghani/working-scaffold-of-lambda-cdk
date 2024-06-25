@@ -26,7 +26,12 @@ import {
   redirect
 } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
-import { queueCookie } from "app/service/queue";
+import {
+  addQueue,
+  cancelQueue,
+  getQueueList,
+  queueCookie
+} from "app/service/queue";
 import moment from "moment";
 import {
   AlertDialog,
@@ -70,39 +75,52 @@ const invoices = [
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const cookie = await queueCookie.parse(request.headers.get("Cookie"));
+  const list = await getQueueList?.("default");
   return {
-    queue: cookie ? JSON.parse(cookie) : null
+    queue: cookie ? JSON.parse(cookie) : null,
+    queues: list
   };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   const form = await request.formData();
   const cancel = form.get("cancel");
+  const queueId = form.get("queueId");
 
-  if (cancel === "true") {
+  if (cancel === "true" && queueId) {
+    await cancelQueue?.(queueId as string);
+    throw redirect("/queue", {
+      headers: {
+        "Set-Cookie": await queueCookie.serialize("")
+      }
+    });
+  } else if (cancel === "true") {
     throw redirect("/queue", {
       headers: {
         "Set-Cookie": await queueCookie.serialize("")
       }
     });
   }
+
   const name = form.get("name");
   const pax = form.get("pax");
   const phone = form.get("phone");
-  const time = new Date().toISOString();
+  const queue = await addQueue?.({
+    posId: "default",
+    queue: { name, pax, phone }
+  });
 
   throw redirect("/queue", {
     headers: {
-      "Set-Cookie": await queueCookie.serialize(
-        JSON.stringify({ name, pax, phone, time })
-      )
+      "Set-Cookie": await queueCookie.serialize(JSON.stringify(queue))
     }
   });
 }
 
 export default function Queue() {
-  const { queue } = useLoaderData<any>();
+  const { queue, queues } = useLoaderData<any>();
   const [cancelDialog, setCancelDialog] = useState(false);
+
   return (
     <>
       <Tabs defaultValue="account" className="mt-3 w-[400px]">
@@ -127,28 +145,19 @@ export default function Queue() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invoices.map((invoice, i) => (
-                    <TableRow key={invoice.invoice}>
-                      <TableCell className="font-medium">00{i + 1}</TableCell>
-                      <TableCell>{invoice.paymentStatus}</TableCell>
-                      <TableCell>{invoice.paymentMethod}</TableCell>
+                  {queues.map((q, i) => (
+                    <TableRow
+                      key={q.id}
+                      className={q.id === queue?.id ? "bg-sky-50" : undefined}
+                    >
+                      <TableCell className="font-medium">{i + 1}</TableCell>
+                      <TableCell>{q.name}</TableCell>
+                      <TableCell>{q.pax}</TableCell>
                       <TableCell className="text-right">
-                        {invoice.totalAmount}
+                        {moment(q.created_at).fromNow()}
                       </TableCell>
                     </TableRow>
                   ))}
-                  {!!queue && (
-                    <TableRow>
-                      <TableCell className="font-medium">
-                        00{invoices.length + 1}
-                      </TableCell>
-                      <TableCell>{queue.name}</TableCell>
-                      <TableCell>{queue.pax}</TableCell>
-                      <TableCell className="text-right">
-                        {moment(queue.time).fromNow()}
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -160,15 +169,15 @@ export default function Queue() {
               <>
                 <CardHeader>
                   <CardTitle>
-                    Antrian diproses 00{invoices.length + 1}
+                    Antrian no {queues.findIndex((q) => q.id === queue.id) + 1}
                   </CardTitle>
                   <CardDescription>
                     Anda sudah mengantri atas nama {queue.name} (untuk{" "}
                     {queue.pax} orang)
                   </CardDescription>
                   <CardDescription>
-                    {new Date(queue.time).toLocaleString()} (
-                    {moment(queue.time).fromNow()})
+                    {new Date(queue.created_at).toLocaleString()} (
+                    {moment(queue.created_at).fromNow()})
                   </CardDescription>
                 </CardHeader>
                 <CardFooter>
@@ -197,6 +206,11 @@ export default function Queue() {
                       >
                         <AlertDialogFooter>
                           <AlertDialogCancel>Batal</AlertDialogCancel>
+                          <Input
+                            type="hidden"
+                            name="queueId"
+                            value={queue.id}
+                          />
                           <Button type="submit" name="cancel" value={"true"}>
                             Hapus
                           </Button>

@@ -6,7 +6,6 @@ import fs from "fs";
 
 export class LambdaConstruct extends Construct {
   private lambdaFunction: NodejsFunction;
-  private static EXCLUDED_IMPORTS = ["node:stream"];
 
   constructor(scope: Construct, id: string, props?: any) {
     super(scope, id);
@@ -23,12 +22,36 @@ export class LambdaConstruct extends Construct {
         sourceMap: false,
         keepNames: true,
         bundleAwsSDK: false,
-        nodeModules: ["@remix-run/node", "@remix-run/react", "react"]
+        nodeModules: this.readServerImports()
+      },
+      environment: {
+        DB_HOST: process.env.DB_HOST || "",
+        DB_PORT: process.env.DB_PORT || "",
+        DB_USER: process.env.DB_USER || "",
+        DB_PASSWORD: process.env.DB_PASSWORD || "",
+        DB_NAME: process.env.DB_NAME || ""
       }
     });
   }
 
   private readServerImports() {
+    const included = [
+      "pg",
+      "react",
+      "react-dom",
+      "@remix-run/node",
+      "@remix-run/react"
+    ];
+    const excluded = [
+      "node:stream",
+      "react",
+      "react-dom",
+      "@radix-ui",
+      "clsx",
+      "tailwind-merge",
+      "lucide-react",
+      "class-variance-authority"
+    ];
     const file = fs.readFileSync(
       __dirname + "/../../build/server/index.js",
       "utf-8"
@@ -41,19 +64,11 @@ export class LambdaConstruct extends Construct {
       )
       .filter(
         (i) =>
-          !i.startsWith("react") &&
-          !i.startsWith("react-dom") &&
-          !i.startsWith("@remix-run/architect") &&
-          !i.startsWith("@radix-ui") &&
-          !i.startsWith("class-variance-authority") &&
-          !i.startsWith("clsx") &&
-          !i.startsWith("tailwind-merge") &&
-          !i.startsWith("qrcode") &&
-          !i.startsWith("isbot") &&
-          !LambdaConstruct.EXCLUDED_IMPORTS.includes(i)
+          !excluded.find((k) => i.startsWith(k)) &&
+          !included.find((k) => i.startsWith(k))
       );
 
-    return [...imports, "react", "react-dom", "@remix-run/architect"];
+    return [...imports, ...included];
   }
 
   public get lambda() {
