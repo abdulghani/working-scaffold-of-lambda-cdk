@@ -50,7 +50,7 @@ import { validatePOSId } from "app/service/pos";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const pos = await validatePOSId?.(params.posId!);
   const cookie = await queueCookie.parse(request.headers.get("Cookie"));
-  const list = await getQueueList?.("default");
+  const list = await getQueueList?.(params.posId!);
 
   return {
     queue: cookie ? JSON.parse(cookie) : null,
