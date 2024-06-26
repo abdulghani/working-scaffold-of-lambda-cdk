@@ -27,6 +27,7 @@ import { Form, useLoaderData } from "@remix-run/react";
 import {
   addQueue,
   cancelQueue,
+  getQueue,
   getQueueList,
   queueCookie
 } from "app/service/queue";
@@ -46,15 +47,21 @@ import { useEffect, useState } from "react";
 import { validatePOSId } from "app/service/pos";
 import { parsePhone } from "@/lib/parse-phone";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CircleCheck, CircleX, Timer } from "lucide-react";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const pos = await validatePOSId?.(params.posId!);
-  const list = await getQueueList?.(params.posId!);
-  const cookie = await queueCookie.parse(request.headers.get("Cookie"));
-  const queue = cookie ? JSON.parse(cookie) : null;
+  const cookie = await queueCookie
+    .parse(request.headers.get("Cookie"))
+    .then((c) => (c ? JSON.parse(c) : null));
+
+  const [pos, list, queue] = await Promise.all([
+    validatePOSId?.(params.posId!),
+    getQueueList?.(params.posId!),
+    getQueue?.(cookie?.id)
+  ]);
 
   return {
-    queue: queue ? list?.find((q) => q.id === queue.id) : null,
+    queue: queue,
     queues: list,
     pos
   };
@@ -63,11 +70,12 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export async function action({ request, params }: ActionFunctionArgs) {
   const { posId } = params;
   const form = await request.formData();
-  const cancel = form.get("cancel");
-  const cookie = await queueCookie.parse(request.headers.get("Cookie"));
-  const queue = cookie ? JSON.parse(cookie) : null;
+  const payload = Object.fromEntries(form.entries());
+  const queue = await queueCookie
+    .parse(request.headers.get("Cookie"))
+    .then((c) => (c ? JSON.parse(c) : null));
 
-  if (cancel === "true") {
+  if (payload.cancel === "true") {
     if (queue?.id && posId === queue?.pos_id) {
       await cancelQueue?.(queue.id as string);
     }
@@ -79,9 +87,9 @@ export async function action({ request, params }: ActionFunctionArgs) {
   }
 
   const newQueue = await addQueue?.({
-    name: form.get("name"),
-    pax: form.get("pax"),
-    phone: form.get("phone"),
+    name: payload.name,
+    pax: payload.pax,
+    phone: payload.phone,
     posId
   });
 
@@ -142,7 +150,9 @@ export default function Queue() {
                         key={q.id}
                         className={q.id === queue?.id ? "bg-sky-50" : undefined}
                       >
-                        <TableCell className="font-medium">{i + 1}</TableCell>
+                        <TableCell className="font-medium">
+                          {q.temp_count}
+                        </TableCell>
                         <TableCell>{q.name}</TableCell>
                         <TableCell>{q.pax}</TableCell>
                         <TableCell className="text-right">
@@ -157,12 +167,12 @@ export default function Queue() {
           </TabsContent>
           <TabsContent value="input">
             <Card className="border-0 shadow-none">
-              {queue ? (
+              {queue && !queue?.is_cancelled && !queue?.is_acknowledged ? (
                 <>
                   <CardHeader>
-                    <CardTitle>
-                      Antrian no{" "}
-                      {queues.findIndex((q) => q.id === queue.id) + 1}
+                    <CardTitle className="flex flex-row items-center">
+                      Antrian no {queue.temp_count}
+                      <Timer className="ml-2 h-5 w-5 text-orange-500" />
                     </CardTitle>
                     <CardDescription>
                       Anda sudah mengantri atas nama {queue.name} (untuk{" "}
@@ -190,6 +200,134 @@ export default function Queue() {
                           </AlertDialogTitle>
                           <AlertDialogDescription>
                             Antrian akan dibatalkan dan tidak bisa dikembalikan
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <Form
+                          method="post"
+                          className="w-full"
+                          onSubmit={() => {
+                            setCancelDialog(false);
+                          }}
+                        >
+                          <AlertDialogFooter className="flex flex-row items-center justify-center">
+                            <AlertDialogAction
+                              type="submit"
+                              name="cancel"
+                              value="true"
+                              className="mr-3 w-1/2"
+                            >
+                              Hapus
+                            </AlertDialogAction>
+                            <AlertDialogCancel className="mt-0 w-1/2">
+                              Batal
+                            </AlertDialogCancel>
+                          </AlertDialogFooter>
+                        </Form>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </CardFooter>
+                </>
+              ) : queue?.is_acknowledged && !queue.is_cancelled ? (
+                <>
+                  <CardHeader>
+                    <CardTitle className="flex flex-row items-center">
+                      Antrian sudah diterima
+                      <CircleCheck className="ml-2 h-5 w-5 text-green-500" />
+                    </CardTitle>
+                    <CardDescription>
+                      Antrian Anda diterima oleh pihak restoran, segera datang
+                      untuk menerima pelayanan.
+                    </CardDescription>
+                    <CardDescription>
+                      {[queue.name, queue.phone, `${queue.pax} PAX`]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </CardDescription>
+                    <CardDescription>
+                      {moment(queue.updated_at).fromNow()}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardFooter>
+                    <AlertDialog
+                      open={cancelDialog}
+                      onOpenChange={setCancelDialog}
+                    >
+                      <AlertDialogTrigger asChild>
+                        <Button className="w-full" variant="outline">
+                          Buat antrian baru
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="rounded-sm py-8">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Apakah Anda yakin?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Antrian akan dihapus dan tidak bisa dikembalikan
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <Form
+                          method="post"
+                          className="w-full"
+                          onSubmit={() => {
+                            setCancelDialog(false);
+                          }}
+                        >
+                          <AlertDialogFooter className="flex flex-row items-center justify-center">
+                            <AlertDialogAction
+                              type="submit"
+                              name="cancel"
+                              value="true"
+                              className="mr-3 w-1/2"
+                            >
+                              Hapus
+                            </AlertDialogAction>
+                            <AlertDialogCancel className="mt-0 w-1/2">
+                              Batal
+                            </AlertDialogCancel>
+                          </AlertDialogFooter>
+                        </Form>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </CardFooter>
+                </>
+              ) : queue?.is_cancelled ? (
+                <>
+                  <CardHeader>
+                    <CardTitle className="flex flex-row items-center">
+                      Antrian dibatalkan
+                      <CircleX className="ml-2 h-5 w-5 text-red-500" />
+                    </CardTitle>
+                    <CardDescription>
+                      Antrian dibatalkan oleh pihak restoran, karena tidak
+                      berada ditempat saat antrian diterima.
+                    </CardDescription>
+                    <CardDescription>
+                      {[queue.name, queue.phone, `${queue.pax} PAX`]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </CardDescription>
+                    <CardDescription>
+                      {moment(queue.created_at).fromNow()}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardFooter>
+                    <AlertDialog
+                      open={cancelDialog}
+                      onOpenChange={setCancelDialog}
+                    >
+                      <AlertDialogTrigger asChild>
+                        <Button className="w-full" variant="outline">
+                          Buat antrian baru
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="rounded-sm py-8">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Apakah Anda yakin?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Antrian akan dihapus dan tidak bisa dikembalikan
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <Form
