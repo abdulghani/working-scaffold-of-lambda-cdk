@@ -2,9 +2,7 @@ import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow
@@ -46,6 +44,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { validatePOSId } from "app/service/pos";
+import { parsePhone } from "@/lib/parse-phone";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const pos = await validatePOSId?.(params.posId!);
@@ -84,6 +84,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     phone: form.get("phone"),
     posId
   });
+
   throw redirect(`/queue/${posId}`, {
     headers: {
       "Set-Cookie": await queueCookie.serialize(JSON.stringify(newQueue))
@@ -94,20 +95,31 @@ export async function action({ request, params }: ActionFunctionArgs) {
 export default function Queue() {
   const { queue, queues, pos } = useLoaderData<any>();
   const [cancelDialog, setCancelDialog] = useState(false);
+  const [phoneInput, setPhoneInput] = useState(queue?.phone);
 
   return (
     <>
       <div className="flex w-screen justify-center">
-        <Tabs defaultValue="account" className="mt-3 w-[400px]">
+        <Tabs defaultValue="list" className="mt-3 w-full lg:w-[400px]">
           <TabsList className="sticky top-3 mx-4 grid grid-cols-2">
-            <TabsTrigger value="account">Antrian</TabsTrigger>
-            <TabsTrigger value="password">Antri</TabsTrigger>
+            <TabsTrigger value="list">Antrian</TabsTrigger>
+            <TabsTrigger value="input">Antri</TabsTrigger>
           </TabsList>
-          <TabsContent value="account">
+          <TabsContent value="list">
             <Card className="border-0 shadow-none">
               <CardHeader>
-                <CardTitle>Antrian {pos.name}</CardTitle>
-                <CardDescription>List antrian restoran</CardDescription>
+                <div className="flex flex-row items-center">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={pos.profile_img} />
+                    <AvatarFallback>{pos.name?.substring(0, 2)}</AvatarFallback>
+                  </Avatar>
+                  <div className="ml-3">
+                    <CardTitle>Antrian {pos.name}</CardTitle>
+                    <CardDescription>
+                      {pos.description || "List antrian restoran"}
+                    </CardDescription>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-2">
                 <Table>
@@ -138,7 +150,7 @@ export default function Queue() {
               </CardContent>
             </Card>
           </TabsContent>
-          <TabsContent value="password">
+          <TabsContent value="input">
             <Card className="border-0 shadow-none">
               {queue ? (
                 <>
@@ -166,10 +178,10 @@ export default function Queue() {
                           Batalkan antrian
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
+                      <AlertDialogContent className="rounded-sm py-8">
                         <AlertDialogHeader>
                           <AlertDialogTitle>
-                            Apakah kamu yakin?
+                            Apakah Anda yakin?
                           </AlertDialogTitle>
                           <AlertDialogDescription>
                             Antrian akan dibatalkan dan tidak bisa dikembalikan
@@ -182,11 +194,18 @@ export default function Queue() {
                             setCancelDialog(false);
                           }}
                         >
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Batal</AlertDialogCancel>
-                            <Button type="submit" name="cancel" value={"true"}>
+                          <AlertDialogFooter className="flex flex-row items-center justify-center">
+                            <AlertDialogAction
+                              type="submit"
+                              name="cancel"
+                              value="true"
+                              className="mr-3 w-1/2"
+                            >
                               Hapus
-                            </Button>
+                            </AlertDialogAction>
+                            <AlertDialogCancel className="mt-0 w-1/2">
+                              Batal
+                            </AlertDialogCancel>
                           </AlertDialogFooter>
                         </Form>
                       </AlertDialogContent>
@@ -197,7 +216,7 @@ export default function Queue() {
                 <>
                   <CardHeader>
                     <CardTitle>Antri</CardTitle>
-                    <CardDescription>Masukan data antrian kamu</CardDescription>
+                    <CardDescription>Masukan data antrian Anda</CardDescription>
                   </CardHeader>
                   <Form method="post">
                     <CardContent className="space-y-2">
@@ -208,8 +227,8 @@ export default function Queue() {
                           name="name"
                           type="text"
                           required
-                          value={queue?.name}
-                          disabled={!!queue}
+                          className="capitalize"
+                          placeholder="Nama Anda"
                         />
                       </div>
                       <div className="space-y-1">
@@ -220,8 +239,9 @@ export default function Queue() {
                           type="number"
                           inputmode="numeric"
                           required
-                          value={queue?.pax}
-                          disabled={!!queue}
+                          max={100}
+                          min={1}
+                          placeholder="Jumlah orang yang datang"
                         />
                       </div>
                       <div className="space-y-1">
@@ -229,10 +249,13 @@ export default function Queue() {
                         <Input
                           id="phone"
                           name="phone"
-                          type="number"
-                          inputmode="numeric"
-                          value={queue?.phone}
-                          disabled={!!queue}
+                          type="text"
+                          inputMode="numeric"
+                          value={phoneInput}
+                          placeholder="No Handphone Anda"
+                          onChange={(e) =>
+                            setPhoneInput(parsePhone(e.target.value))
+                          }
                         />
                       </div>
                     </CardContent>

@@ -12,3 +12,15 @@ export const email = serverOnly$(
     }
   })
 );
+
+export const sendOTP = serverOnly$(async function (options: {
+  email: string;
+  otp: string;
+}) {
+  return email?.sendMail({
+    sender: "PRANAGA OTP<info.pranaga.com>",
+    to: [options.email],
+    subject: "Kode OTP Login",
+    text: `Kode OTP login Anda adalah: ${options.otp}`
+  });
+});

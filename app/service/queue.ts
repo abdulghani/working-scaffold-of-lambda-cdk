@@ -2,6 +2,7 @@ import { createCookie } from "@remix-run/node";
 import { dbconn } from "./db";
 import { serverOnly$ } from "vite-env-only/macros";
 import { ulid } from "ulid";
+import { startCase } from "lodash-es";
 
 const COOKIE_NAME = "queue";
 const COOKIE_SECRET = process.env.COOKIE_SECRET || "default";
@@ -29,7 +30,7 @@ export const addQueue = serverOnly$(
       .insert({
         id: ulid(),
         pos_id: posId,
-        name: name,
+        name: startCase(name),
         pax: pax,
         phone: phone,
         created_at: new Date().toISOString(),
