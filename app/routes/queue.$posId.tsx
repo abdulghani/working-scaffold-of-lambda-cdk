@@ -42,7 +42,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { validatePOSId } from "app/service/pos";
 import { parsePhone } from "@/lib/parse-phone";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -71,7 +71,7 @@ export async function action({ request, params }: ActionFunctionArgs) {
     if (queue?.id && posId === queue?.pos_id) {
       await cancelQueue?.(queue.id as string);
     }
-    throw redirect(`/queue/${params.posId}`, {
+    throw redirect(`/queue/${posId}`, {
       headers: {
         "Set-Cookie": await queueCookie.serialize("")
       }
@@ -95,7 +95,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
 export default function Queue() {
   const { queue, queues, pos } = useLoaderData<any>();
   const [cancelDialog, setCancelDialog] = useState(false);
-  const [phoneInput, setPhoneInput] = useState(queue?.phone);
+  const [phoneInput, setPhoneInput] = useState("");
+
+  /** CLEANUP PHONE-INPUT AFTER FORM ACTION */
+  useEffect(() => {
+    setPhoneInput("");
+  }, [queue]);
 
   return (
     <>
@@ -260,11 +265,7 @@ export default function Queue() {
                       </div>
                     </CardContent>
                     <CardFooter>
-                      <Button
-                        className="w-full"
-                        type="submit"
-                        disabled={!!queue}
-                      >
+                      <Button className="w-full" type="submit">
                         Antri
                       </Button>
                     </CardFooter>
