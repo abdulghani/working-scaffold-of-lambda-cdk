@@ -1,6 +1,6 @@
 import { LinksFunction } from "@remix-run/node";
-import stylesheet from "./style.css?url";
 import { Links, Meta, Outlet, Scripts } from "@remix-run/react";
+import stylesheet from "./style.css?url";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
@@ -18,7 +18,7 @@ export default function App() {
         <Meta />
         <Links />
       </head>
-      <body className="min-h-screen bg-background font-sans antialiased">
+      <body className="bg-background font-sans antialiased">
         <Outlet />
         <Scripts />
       </body>

@@ -1,9 +1,9 @@
 import { createCookie } from "@remix-run/node";
-import { dbconn } from "./db";
-import { serverOnly$ } from "vite-env-only/macros";
-import { ulid } from "ulid";
 import { startCase } from "lodash-es";
 import moment from "moment";
+import { ulid } from "ulid";
+import { serverOnly$ } from "vite-env-only/macros";
+import { dbconn } from "./db";
 
 const COOKIE_NAME = "queue";
 const COOKIE_SECRET = process.env.COOKIE_SECRET || "default";
@@ -39,12 +39,14 @@ export const addQueue = serverOnly$(
       if (!count) {
         return 1;
       }
+      /** RESET ON NEXT DAY WHEN COUNT EXCEED 10 */
       if (
-        count > 50 /** RESET ON NEXT DAY WHEN COUNT EXCEED 50 */ &&
+        count.count > 10 &&
         moment(count.updated_at).isBefore(moment().startOf("day"))
       ) {
         return 1;
       }
+      /** INCREMENT COUNT */
       return count.count + 1;
     })();
 
@@ -89,6 +91,15 @@ export const cancelQueue = serverOnly$(async (queueId: string) => {
   const queue = await dbconn?.("queue")
     .where({ id: queueId })
     .update({ is_cancelled: true })
+    .returning("*");
+
+  return queue?.find(Boolean);
+});
+
+export const acknowledgeQueue = serverOnly$(async (queueId: string) => {
+  const queue = await dbconn?.("queue")
+    .where({ id: queueId })
+    .update({ is_acknowledged: true })
     .returning("*");
 
   return queue?.find(Boolean);

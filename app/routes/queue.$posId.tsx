@@ -1,37 +1,3 @@
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  ActionFunctionArgs,
-  LoaderFunctionArgs,
-  redirect
-} from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
-import {
-  addQueue,
-  cancelQueue,
-  getQueue,
-  getQueueList,
-  queueCookie
-} from "app/service/queue";
-import moment from "moment";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,11 +9,46 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
-import { useEffect, useState } from "react";
-import { validatePOSId } from "app/service/pos";
-import { parsePhone } from "@/lib/parse-phone";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatQueueNumber } from "@/lib/format-queue-number";
+import { parsePhone } from "@/lib/parse-phone";
+import {
+  ActionFunctionArgs,
+  LoaderFunctionArgs,
+  redirect
+} from "@remix-run/node";
+import { Form, useLoaderData } from "@remix-run/react";
+import { validatePOSId } from "app/service/pos";
+import {
+  addQueue,
+  cancelQueue,
+  getQueue,
+  getQueueList,
+  queueCookie
+} from "app/service/queue";
 import { CircleCheck, CircleX, Timer } from "lucide-react";
+import moment from "moment";
+import { useEffect, useState } from "react";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const cookie = await queueCookie
@@ -151,7 +152,7 @@ export default function Queue() {
                         className={q.id === queue?.id ? "bg-sky-50" : undefined}
                       >
                         <TableCell className="font-medium">
-                          {q.temp_count}
+                          {formatQueueNumber(q.temp_count)}
                         </TableCell>
                         <TableCell>{q.name}</TableCell>
                         <TableCell>{q.pax}</TableCell>
@@ -171,7 +172,7 @@ export default function Queue() {
                 <>
                   <CardHeader>
                     <CardTitle className="flex flex-row items-center">
-                      Antrian no {queue.temp_count}
+                      Antrian no {formatQueueNumber(queue.temp_count)}
                       <Timer className="ml-2 h-5 w-5 text-orange-500" />
                     </CardTitle>
                     <CardDescription>
@@ -205,9 +206,7 @@ export default function Queue() {
                         <Form
                           method="post"
                           className="w-full"
-                          onSubmit={() => {
-                            setCancelDialog(false);
-                          }}
+                          onSubmit={() => setCancelDialog(false)}
                         >
                           <AlertDialogFooter className="flex flex-row items-center justify-center">
                             <AlertDialogAction
