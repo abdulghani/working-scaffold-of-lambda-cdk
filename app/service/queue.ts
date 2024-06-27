@@ -39,7 +39,10 @@ export const addQueue = serverOnly$(
       if (!count) {
         return 1;
       }
-      if (moment(count.updated_at).isBefore(moment().startOf("day"))) {
+      if (
+        count > 50 /** RESET ON NEXT DAY WHEN COUNT EXCEED 50 */ &&
+        moment(count.updated_at).isBefore(moment().startOf("day"))
+      ) {
         return 1;
       }
       return count.count + 1;
