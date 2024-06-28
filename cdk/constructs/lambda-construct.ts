@@ -16,7 +16,7 @@ export class LambdaConstruct extends Construct {
       architecture: Architecture.ARM_64,
       memorySize: 512,
       awsSdkConnectionReuse: true,
-      timeout: Duration.seconds(20),
+      timeout: Duration.minutes(2),
       bundling: {
         minify: true,
         sourceMap: false,

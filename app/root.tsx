@@ -1,11 +1,12 @@
 import { CardDescription, CardTitle } from "@/components/ui/card";
 import { LinksFunction } from "@remix-run/node";
 import { Links, Meta, Outlet, Scripts, useRouteError } from "@remix-run/react";
+import favicon from "../public/react.svg?url";
 import stylesheet from "./style.css?url";
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
-  { rel: "icon", href: "/react.svg" }
+  { rel: "icon", href: favicon }
 ];
 
 export function ErrorBoundary() {

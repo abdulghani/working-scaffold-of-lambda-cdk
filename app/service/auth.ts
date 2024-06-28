@@ -149,7 +149,8 @@ export async function verifyOTP(options: {
   throw redirect(destination || "/", {
     headers: [
       ["Set-Cookie", await authCookie.serialize(sessionToken)],
-      ["Set-Cookie", await otpFlowCookie.serialize("", { maxAge: 0 })]
+      ["Set-Cookie", await otpFlowCookie.serialize("", { maxAge: 0 })],
+      ["Set-Cookie", await destinationCookie.serialize("", { maxAge: 0 })]
     ]
   });
 }

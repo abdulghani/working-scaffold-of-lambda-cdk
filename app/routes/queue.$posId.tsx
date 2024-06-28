@@ -82,7 +82,7 @@ export const action = wrapActionError(async function ({
     }
     throw redirect(`/queue/${posId}`, {
       headers: {
-        "Set-Cookie": await queueCookie.serialize("")
+        "Set-Cookie": await queueCookie.serialize("", { maxAge: 0 })
       }
     });
   }
