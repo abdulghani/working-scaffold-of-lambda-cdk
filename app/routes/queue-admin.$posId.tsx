@@ -49,9 +49,7 @@ Terima kasih.
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySession?.(request);
-  const cookie = await queueCookie
-    .parse(request.headers.get("Cookie"))
-    .then((c) => (c ? JSON.parse(c) : null));
+  const cookie = await queueCookie.parse(request.headers.get("Cookie"));
 
   const [pos, list, queue] = await Promise.all([
     validatePOSId?.(params.posId!),

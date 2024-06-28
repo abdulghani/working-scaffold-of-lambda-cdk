@@ -51,7 +51,7 @@ export const action = wrapActionError(async function ({
 });
 
 export default function Login() {
-  const error = useActionData<any>();
+  const action = useActionData<any>();
   const { isOTP, email } = useLoaderData<any>();
 
   return (
@@ -87,9 +87,9 @@ export default function Login() {
               <div className="grid gap-2">
                 <Label htmlFor="otp">
                   Kode OTP{" "}
-                  {error?.details?.otp && (
+                  {action?.error?.details?.otp && (
                     <span className="font-normal text-muted-foreground text-red-600">
-                      ({error.details.otp})
+                      ({action.error.details.otp})
                     </span>
                   )}
                 </Label>
@@ -100,7 +100,9 @@ export default function Login() {
                   inputMode="numeric"
                   placeholder="Kode OTP Anda"
                   autoComplete="one-time-code"
-                  className={error?.details.otp ? "border-red-400" : undefined}
+                  className={
+                    action?.error?.details.otp ? "border-red-400" : undefined
+                  }
                   required
                 />
               </div>
@@ -119,9 +121,9 @@ export default function Login() {
               <div className="grid gap-2">
                 <Label htmlFor="email">
                   Email{" "}
-                  {error?.details?.email && (
+                  {action?.error?.details?.email && (
                     <span className="font-normal text-muted-foreground text-red-600">
-                      ({error.details.email})
+                      ({action.error.details.email})
                     </span>
                   )}
                 </Label>
@@ -134,7 +136,7 @@ export default function Login() {
                   autoComplete="email"
                   required
                   className={
-                    error?.details.email ? "border-red-400" : undefined
+                    action?.error?.details.email ? "border-red-400" : undefined
                   }
                 />
               </div>

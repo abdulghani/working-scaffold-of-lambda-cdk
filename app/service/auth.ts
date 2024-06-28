@@ -36,6 +36,14 @@ export const otpFlowCookie = createCookie("otpFlow", {
 });
 
 export async function sendOTP(email: string) {
+  if (!email) {
+    throw new ActionError({
+      message: "Validation error",
+      status: 422,
+      details: { email: "Email harus diisi" }
+    });
+  }
+
   const user = await dbconn?.("user")
     .where({ email, is_disabled: false })
     .first();
@@ -90,6 +98,13 @@ export async function verifyOTP(options: {
   request: Request;
   otpCode: string;
 }) {
+  if (!options.otpCode) {
+    throw new ActionError({
+      message: "Validation error",
+      status: 422,
+      details: { otp: "Kode OTP harus diisi" }
+    });
+  }
   const otpFlow = await otpFlowCookie.parse(
     options.request.headers.get("Cookie")
   );

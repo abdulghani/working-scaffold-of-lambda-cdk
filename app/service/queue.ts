@@ -38,9 +38,9 @@ export const addQueue = serverOnly$(
       validation.name = "Nama harus diisi";
     }
     if (!pax) {
-      validation.pax = "Jumlah pax minimal 1";
+      validation.pax = "PAX minimal 1";
     } else if (Number(pax) > 100) {
-      validation.pax = "Jumlah pax maksimal 100";
+      validation.pax = "PAX maksimal 100";
     }
     if (Object.keys(validation).length) {
       throw new ActionError({

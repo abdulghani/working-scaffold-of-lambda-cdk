@@ -102,7 +102,7 @@ export const action = wrapActionError(async function ({
 });
 
 export default function Queue() {
-  const error = useActionData<any>();
+  const action = useActionData<any>();
   const { queue, queues, pos } = useLoaderData<any>();
   const [cancelDialog, setCancelDialog] = useState(false);
   const [phoneInput, setPhoneInput] = useState("");
@@ -366,9 +366,9 @@ export default function Queue() {
                       <div className="space-y-1">
                         <Label htmlFor="name">
                           Nama{" "}
-                          {error?.details?.name && (
+                          {action?.error?.details?.name && (
                             <span className="font-normal text-red-600">
-                              ({error.details.name})
+                              ({action.error.details.name})
                             </span>
                           )}
                         </Label>
@@ -376,7 +376,7 @@ export default function Queue() {
                           id="name"
                           name="name"
                           type="text"
-                          className={`capitalize ${error?.details?.name && "border-red-400"}`}
+                          className={`capitalize ${action?.error?.details?.name && "border-red-400"}`}
                           placeholder="Nama Anda"
                           required
                         />
@@ -384,9 +384,9 @@ export default function Queue() {
                       <div className="space-y-1">
                         <Label htmlFor="pax">
                           Jumlah orang (PAX){" "}
-                          {error?.details?.pax && (
+                          {action?.error?.details?.pax && (
                             <span className="font-normal text-red-600">
-                              ({error.details.pax})
+                              ({action.error.details.pax})
                             </span>
                           )}
                         </Label>
@@ -399,7 +399,9 @@ export default function Queue() {
                           min={1}
                           max={100}
                           placeholder="Jumlah orang yang datang"
-                          className={error?.details?.pax && "border-red-400"}
+                          className={
+                            action?.error?.details?.pax && "border-red-400"
+                          }
                         />
                       </div>
                       <div className="space-y-1">

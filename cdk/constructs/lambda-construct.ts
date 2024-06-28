@@ -1,7 +1,7 @@
 import { Duration } from "aws-cdk-lib";
+import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Construct } from "constructs";
-import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
 import fs from "fs";
 
 export class LambdaConstruct extends Construct {
@@ -34,7 +34,8 @@ export class LambdaConstruct extends Construct {
         SMTP_HOST: process.env.SMTP_HOST || "",
         SMTP_PORT: process.env.SMTP_PORT || "",
         SMTP_USER: process.env.SMTP_USER || "",
-        SMTP_PASSWORD: process.env.SMTP_PASSWORD || ""
+        SMTP_PASSWORD: process.env.SMTP_PASSWORD || "",
+        TZ: process.env.TZ || ""
       }
     });
   }

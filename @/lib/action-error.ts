@@ -26,8 +26,10 @@ export function wrapActionError(action: any) {
       if (error instanceof ActionError) {
         return json(
           {
-            error: error.message,
-            details: error.details
+            error: {
+              message: error.message,
+              details: error.details
+            }
           },
           {
             status: error.status,
