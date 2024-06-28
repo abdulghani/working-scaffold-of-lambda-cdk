@@ -28,6 +28,7 @@ import { formatQueueNumber } from "@/lib/format-queue-number";
 import { useRevalidation } from "@/lib/use-revalidation";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, Link, useLoaderData } from "@remix-run/react";
+import { verifySession } from "app/service/auth";
 import { validatePOSId } from "app/service/pos";
 import {
   acknowledgeQueue,
@@ -47,6 +48,7 @@ Terima kasih.
 `.trim();
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
+  await verifySession?.(request);
   const cookie = await queueCookie
     .parse(request.headers.get("Cookie"))
     .then((c) => (c ? JSON.parse(c) : null));

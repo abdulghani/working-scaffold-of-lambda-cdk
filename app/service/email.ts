@@ -1,7 +1,7 @@
 import { createTransport } from "nodemailer";
 import { serverOnly$ } from "vite-env-only/macros";
 
-export const email = serverOnly$(
+export const emailClient = serverOnly$(
   createTransport({
     host: process.env.SMTP_HOST,
     port: Number(process.env.SMTP_PORT),
@@ -17,7 +17,7 @@ export const sendOTP = serverOnly$(async function (options: {
   email: string;
   otp: string;
 }) {
-  return email?.sendMail({
+  return emailClient?.sendMail({
     sender: "PRANAGA OTP<info.pranaga.com>",
     to: [options.email],
     subject: "Kode OTP Login",

@@ -1,13 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
-import { requireAuthCookie } from "app/service/auth";
+import { verifySession } from "app/service/auth";
 import { useState } from "react";
 import reactLogo from "/react.svg";
 import viteLogo from "/vite.svg";
 
 export async function loader({ request }: LoaderFunctionArgs) {
-  const userId = await requireAuthCookie(request);
+  const userId = await verifySession?.(request);
 
   return { userId };
 }

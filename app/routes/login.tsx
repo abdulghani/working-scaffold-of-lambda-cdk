@@ -1,103 +1,174 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import qrcode from "qrcode";
-import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
-import { loginUser, logoutUser } from "app/service/auth";
-import { Form, useLoaderData } from "@remix-run/react";
+import { wrapActionError } from "@/lib/action-error";
+import {
+  ActionFunctionArgs,
+  LoaderFunctionArgs,
+  redirect
+} from "@remix-run/node";
+import { Form, Link, useActionData, useLoaderData } from "@remix-run/react";
+import { otpFlowCookie, sendOTP, verifyOTP } from "app/service/auth";
+import { Mail } from "lucide-react";
 
 export function meta() {
   return [{ title: "Login" }];
 }
 
-export async function loader({ request }: LoaderFunctionArgs) {
-  await logoutUser(request);
-  const QRIS_DATA =
-    "00020101021226600013ID.CO.BRI.WWW0118936000020110576346021019993407260303UME5204541153033605405520005802ID5925FAMILYMART PURI MANSION P6013JAKARTA BARAT6105116106234011852650028880744696007081057634663049CD2";
-  const qrImage = await qrcode.toDataURL(
-    "https://queue-dev.pranaga.com/queue",
-    {
-      errorCorrectionLevel: "quartile",
-      width: 500,
-      color: {
-        light: "#00000000"
-      }
-    }
+export const loader = wrapActionError(async function ({
+  request
+}: LoaderFunctionArgs) {
+  const searchParams = Object.fromEntries(
+    new URLSearchParams(request.url.split("?")[1]).entries()
   );
 
-  return { qrImage };
-}
+  if (searchParams.clear_otp === "true") {
+    throw redirect("/login", {
+      headers: [
+        ["Set-Cookie", await otpFlowCookie.serialize("", { maxAge: 0 })]
+      ]
+    });
+  }
 
-export async function action({ request }: ActionFunctionArgs) {
+  const otpFlow = await otpFlowCookie.parse(request.headers.get("Cookie"));
+
+  return { isOTP: !!otpFlow?.id, email: otpFlow?.email };
+});
+
+export const action = wrapActionError(async function ({
+  request
+}: ActionFunctionArgs) {
   const formData = await request.formData();
-  const email = formData.get("email");
-  const password = formData.get("password");
+  const payload = Object.fromEntries(formData.entries()) as any;
 
-  await loginUser(email as string);
+  if (payload._action === "send_otp") {
+    await sendOTP(payload.email);
+  } else if (payload._action === "verify_otp") {
+    await verifyOTP({ request, otpCode: payload.otp });
+  }
 
-  return json({ email, password });
-}
+  return {};
+});
 
 export default function Login() {
-  const { qrImage } = useLoaderData();
+  const error = useActionData<any>();
+  const { isOTP, email } = useLoaderData<any>();
 
   return (
-    <div className="max-h-screen w-full lg:grid lg:grid-cols-2">
+    <div className="w-full">
       <div className="flex items-center justify-center py-12">
         <div className="mx-auto grid w-[350px] gap-6">
           <div className="grid gap-2 text-center">
             <h1 className="text-3xl font-bold">Login</h1>
             <p className="text-balance text-muted-foreground">
-              Enter your email below to login to your account
+              Masuk ke akun Anda
             </p>
           </div>
-          <Form className="grid gap-4" method="post">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="m@example.com"
-                autoComplete="email"
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Password</Label>
-                <a
-                  href="/forgot-password"
-                  className="ml-auto inline-block text-sm underline"
-                  tabIndex={-1}
-                >
-                  Forgot your password?
-                </a>
+          {isOTP ? (
+            <Form className="grid gap-4" method="post">
+              <div className="grid gap-2">
+                <Label htmlFor="email">
+                  Email{" "}
+                  <span className="font-normal text-muted-foreground">
+                    (Kode OTP telah dikirim)
+                  </span>
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  value={email}
+                  required
+                  disabled={isOTP}
+                />
               </div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="password"
-                required
-              />
+              <div className="grid gap-2">
+                <Label htmlFor="otp">
+                  Kode OTP{" "}
+                  {error?.details?.otp && (
+                    <span className="font-normal text-muted-foreground text-red-600">
+                      ({error.details.otp})
+                    </span>
+                  )}
+                </Label>
+                <Input
+                  id="otp"
+                  name="otp"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Kode OTP Anda"
+                  autoComplete="one-time-code"
+                  className={error?.details.otp ? "border-red-400" : undefined}
+                  required
+                />
+              </div>
+              <Button
+                type="submit"
+                name="_action"
+                value="verify_otp"
+                variant={"default"}
+                className="w-full"
+              >
+                Login
+              </Button>
+            </Form>
+          ) : (
+            <Form className="grid gap-4" method="post">
+              <div className="grid gap-2">
+                <Label htmlFor="email">
+                  Email{" "}
+                  {error?.details?.email && (
+                    <span className="font-normal text-muted-foreground text-red-600">
+                      ({error.details.email})
+                    </span>
+                  )}
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  inputMode="email"
+                  placeholder="email-anda@resto.com"
+                  autoComplete="email"
+                  required
+                  className={
+                    error?.details.email ? "border-red-400" : undefined
+                  }
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                name="_action"
+                value="send_otp"
+              >
+                <Mail className="mr-2.5 w-4" />
+                Kirim kode OTP
+              </Button>
+            </Form>
+          )}
+          {!isOTP ? (
+            <div className="mt-4 text-center text-sm">
+              Tidak punya akun?{" "}
+              <Link
+                to="https://instagram.com/pranagacom"
+                className="underline"
+                target="_blank"
+              >
+                Ayo bergabung
+              </Link>
             </div>
-            <Button type="submit" className="w-full">
-              Login
-            </Button>
-          </Form>
-          <div className="mt-4 text-center text-sm">
-            Don&apos;t have an account?{" "}
-            <a href="#" className="underline">
-              Sign up
-            </a>
-          </div>
+          ) : (
+            <div className="mt-4 text-center text-sm">
+              Mengalami kendala?{" "}
+              <a href="?clear_otp=true" className="underline">
+                Ulangi
+              </a>
+            </div>
+          )}
         </div>
-      </div>
-      <div className="hidden h-screen w-full items-center bg-muted align-middle lg:flex">
-        {qrImage && (
-          <img src={qrImage} alt="QR Code" className="w-full object-contain" />
-        )}
       </div>
     </div>
   );

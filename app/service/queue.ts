@@ -1,3 +1,4 @@
+import { ActionError } from "@/lib/action-error";
 import { createCookie } from "@remix-run/node";
 import { startCase } from "lodash-es";
 import moment from "moment";
@@ -32,6 +33,22 @@ export const getQueue = serverOnly$(async (queueId: string | undefined) => {
 
 export const addQueue = serverOnly$(
   async ({ posId, name, pax, phone }: any) => {
+    const validation: any = {};
+    if (!name) {
+      validation.name = "Nama harus diisi";
+    }
+    if (!pax) {
+      validation.pax = "Jumlah pax minimal 1";
+    } else if (Number(pax) > 100) {
+      validation.pax = "Jumlah pax maksimal 100";
+    }
+    if (Object.keys(validation).length) {
+      throw new ActionError({
+        message: "Validation error",
+        status: 422,
+        details: validation
+      });
+    }
     const count = await dbconn?.("queue_daily_count")
       .where({ pos_id: posId })
       .first();

@@ -30,6 +30,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { wrapActionError } from "@/lib/action-error";
 import { formatQueueNumber } from "@/lib/format-queue-number";
 import { parsePhone } from "@/lib/parse-phone";
 import {
@@ -37,7 +38,7 @@ import {
   LoaderFunctionArgs,
   redirect
 } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
+import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { validatePOSId } from "app/service/pos";
 import {
   addQueue,
@@ -51,9 +52,7 @@ import moment from "moment";
 import { useEffect, useState } from "react";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const cookie = await queueCookie
-    .parse(request.headers.get("Cookie"))
-    .then((c) => (c ? JSON.parse(c) : null));
+  const cookie = await queueCookie.parse(request.headers.get("Cookie"));
 
   const [pos, list, queue] = await Promise.all([
     validatePOSId?.(params.posId!),
@@ -68,13 +67,14 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   };
 }
 
-export async function action({ request, params }: ActionFunctionArgs) {
+export const action = wrapActionError(async function ({
+  request,
+  params
+}: ActionFunctionArgs) {
   const { posId } = params;
   const form = await request.formData();
   const payload = Object.fromEntries(form.entries());
-  const queue = await queueCookie
-    .parse(request.headers.get("Cookie"))
-    .then((c) => (c ? JSON.parse(c) : null));
+  const queue = await queueCookie.parse(request.headers.get("Cookie"));
 
   if (payload.cancel === "true") {
     if (queue?.id && posId === queue?.pos_id) {
@@ -96,12 +96,13 @@ export async function action({ request, params }: ActionFunctionArgs) {
 
   throw redirect(`/queue/${posId}`, {
     headers: {
-      "Set-Cookie": await queueCookie.serialize(JSON.stringify(newQueue))
+      "Set-Cookie": await queueCookie.serialize(newQueue)
     }
   });
-}
+});
 
 export default function Queue() {
+  const error = useActionData<any>();
   const { queue, queues, pos } = useLoaderData<any>();
   const [cancelDialog, setCancelDialog] = useState(false);
   const [phoneInput, setPhoneInput] = useState("");
@@ -363,27 +364,42 @@ export default function Queue() {
                   <Form method="post">
                     <CardContent className="space-y-2">
                       <div className="space-y-1">
-                        <Label htmlFor="name">Nama</Label>
+                        <Label htmlFor="name">
+                          Nama{" "}
+                          {error?.details?.name && (
+                            <span className="font-normal text-red-600">
+                              ({error.details.name})
+                            </span>
+                          )}
+                        </Label>
                         <Input
                           id="name"
                           name="name"
                           type="text"
-                          required
-                          className="capitalize"
+                          className={`capitalize ${error?.details?.name && "border-red-400"}`}
                           placeholder="Nama Anda"
+                          required
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor="pax">Jumlah orang (PAX)</Label>
+                        <Label htmlFor="pax">
+                          Jumlah orang (PAX){" "}
+                          {error?.details?.pax && (
+                            <span className="font-normal text-red-600">
+                              ({error.details.pax})
+                            </span>
+                          )}
+                        </Label>
                         <Input
                           id="pax"
                           name="pax"
                           type="number"
                           inputmode="numeric"
                           required
-                          max={100}
                           min={1}
+                          max={100}
                           placeholder="Jumlah orang yang datang"
+                          className={error?.details?.pax && "border-red-400"}
                         />
                       </div>
                       <div className="space-y-1">
