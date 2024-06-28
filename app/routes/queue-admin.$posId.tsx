@@ -39,7 +39,7 @@ import {
 } from "app/service/queue";
 import { CircleCheck, CircleX, Phone, PhoneMissed } from "lucide-react";
 import moment from "moment";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 
 const TEXT_TEMPLATE = `
 Halo {name}, antrianmu sudah siap untuk {pax}.
@@ -86,7 +86,7 @@ export default function QueueAdmin() {
   return (
     <>
       <div className="flex w-screen justify-center">
-        <Card className="w-full border-0 pt-2 shadow-none">
+        <Card className="w-full border-0 pt-2 shadow-none lg:w-[400px]">
           <CardHeader>
             <div className="flex flex-row items-center">
               <Avatar className="h-12 w-12">
@@ -113,31 +113,32 @@ export default function QueueAdmin() {
               </TableHeader>
               <TableBody>
                 {queues.map((q, i) => (
-                  <TableRow
-                    key={q.id}
-                    className={q.id === queue?.id ? "bg-sky-50" : undefined}
-                    onClick={() =>
-                      setActionDialog((prev: any) => ({
-                        ...prev,
-                        [q.id]: true
-                      }))
-                    }
-                  >
-                    <TableCell className="font-medium">
-                      {formatQueueNumber(q.temp_count)}
-                    </TableCell>
-                    <TableCell>{q.name}</TableCell>
-                    <TableCell>{q.pax}</TableCell>
-                    <TableCell className="text-right">
-                      {moment(q.created_at).fromNow()}
-                    </TableCell>
+                  <Fragment key={q.id}>
+                    <TableRow
+                      className={q.id === queue?.id ? "bg-sky-50" : undefined}
+                      onClick={() =>
+                        setActionDialog((prev: any) => ({
+                          ...prev,
+                          [q.id]: true
+                        }))
+                      }
+                    >
+                      <TableCell className="font-medium">
+                        {formatQueueNumber(q.temp_count)}
+                      </TableCell>
+                      <TableCell>{q.name}</TableCell>
+                      <TableCell>{q.pax}</TableCell>
+                      <TableCell className="text-right">
+                        {moment(q.created_at).fromNow()}
+                      </TableCell>
+                    </TableRow>
                     <Sheet
                       key={q.id}
                       open={actionDialog[q.id]}
-                      onOpenChange={() =>
+                      onOpenChange={(e) =>
                         setActionDialog((prev: any) => ({
                           ...prev,
-                          [q.id]: !prev[q.id]
+                          [q.id]: e
                         }))
                       }
                     >
@@ -206,7 +207,7 @@ export default function QueueAdmin() {
                         </SheetHeader>
                       </SheetContent>
                     </Sheet>
-                  </TableRow>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
