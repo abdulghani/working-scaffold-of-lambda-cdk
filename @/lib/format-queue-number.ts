@@ -1,6 +1,6 @@
 export function formatQueueNumber(queueNumber: number) {
-  if (String(queueNumber).length > 2) {
+  if (String(queueNumber).length >= 3) {
     return String(queueNumber);
   }
-  return String(queueNumber).padStart(2, "0");
+  return String(queueNumber).padStart(3, "0");
 }

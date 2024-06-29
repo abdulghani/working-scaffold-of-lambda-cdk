@@ -42,10 +42,10 @@ import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { validatePOSId } from "app/service/pos";
 import {
   addQueue,
-  cancelQueue,
   getQueue,
   getQueueList,
-  queueCookie
+  queueCookie,
+  userCancelQueue
 } from "app/service/queue";
 import { CircleCheck, CircleX, Timer } from "lucide-react";
 import moment from "moment";
@@ -77,8 +77,13 @@ export const action = wrapActionError(async function ({
   const queue = await queueCookie.parse(request.headers.get("Cookie"));
 
   if (payload.cancel === "true") {
-    if (queue?.id && posId === queue?.pos_id) {
-      await cancelQueue?.(queue.id as string);
+    if (
+      queue?.id &&
+      /** IGNORE ALREADY ACKNOWLEDGED QUEUE */
+      !(queue?.is_cancelled || queue?.is_acknowledged) &&
+      posId === queue?.pos_id
+    ) {
+      await userCancelQueue?.(queue.id as string);
     }
     throw redirect(`/queue/${posId}`, {
       headers: {
@@ -116,7 +121,7 @@ export default function Queue() {
     <>
       <div className="flex w-screen justify-center">
         <Tabs defaultValue="list" className="mt-3 w-full lg:w-[400px]">
-          <TabsList className="sticky top-3 mx-4 grid grid-cols-2">
+          <TabsList className="sticky top-3 z-10 mx-4 grid grid-cols-2">
             <TabsTrigger value="list">Antrian</TabsTrigger>
             <TabsTrigger value="input">Antri</TabsTrigger>
           </TabsList>
@@ -405,11 +410,19 @@ export default function Queue() {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor="phone">No Handphone</Label>
+                        <Label htmlFor="phone">
+                          No Handphone{" "}
+                          {action?.error?.details?.phone && (
+                            <span className="font-normal text-red-600">
+                              ({action.error.details.phone})
+                            </span>
+                          )}
+                        </Label>
                         <Input
                           id="phone"
                           name="phone"
                           type="text"
+                          min={8}
                           inputMode="numeric"
                           value={phoneInput}
                           placeholder="No Handphone Anda"

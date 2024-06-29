@@ -20,8 +20,29 @@ export const queueCookie = createCookie(COOKIE_NAME, {
 
 export const getQueueList = serverOnly$(async (posId: string) => {
   const list = await dbconn?.("queue")
-    .where({ pos_id: posId, is_acknowledged: false, is_cancelled: false })
+    .where({
+      pos_id: posId,
+      is_acknowledged: false,
+      is_cancelled: false,
+      is_user_cancelled: false
+    })
     .orderBy("created_at", "asc");
+
+  return list;
+});
+
+export const getQueueListHistory = serverOnly$(async (posId: string) => {
+  const list = await dbconn?.("queue")
+    .where({ pos_id: posId, is_user_cancelled: false })
+    .andWhere(
+      "created_at",
+      ">=",
+      moment().startOf("day").subtract(2, "day").toISOString()
+    )
+    .andWhere((q) => {
+      q.where("is_acknowledged", true).orWhere("is_cancelled", true);
+    })
+    .orderBy("created_at", "desc");
 
   return list;
 });
@@ -41,6 +62,16 @@ export const addQueue = serverOnly$(
       validation.pax = "PAX minimal 1";
     } else if (Number(pax) > 100) {
       validation.pax = "PAX maksimal 100";
+    }
+    if (
+      phone &&
+      String(phone)
+        .trim()
+        .match(/[^\d|^+]+/i)
+    ) {
+      validation.phone = "Hanya boleh angka";
+    } else if (phone && phone.length < 10) {
+      validation.phone = "Minimal 10 digit";
     }
     if (Object.keys(validation).length) {
       throw new ActionError({
@@ -79,6 +110,7 @@ export const addQueue = serverOnly$(
         created_at: new Date().toISOString(),
         is_acknowledged: false,
         is_cancelled: false,
+        is_user_cancelled: false,
         temp_count: currentCount
       })
       .returning("*");
@@ -107,7 +139,16 @@ export const addQueue = serverOnly$(
 export const cancelQueue = serverOnly$(async (queueId: string) => {
   const queue = await dbconn?.("queue")
     .where({ id: queueId })
-    .update({ is_cancelled: true })
+    .update({ is_cancelled: true, updated_at: new Date().toISOString() })
+    .returning("*");
+
+  return queue?.find(Boolean);
+});
+
+export const userCancelQueue = serverOnly$(async (queueId: string) => {
+  const queue = await dbconn?.("queue")
+    .where({ id: queueId, is_acknowledged: false, is_cancelled: false })
+    .update({ is_user_cancelled: true, updated_at: new Date().toISOString() })
     .returning("*");
 
   return queue?.find(Boolean);
@@ -116,7 +157,7 @@ export const cancelQueue = serverOnly$(async (queueId: string) => {
 export const acknowledgeQueue = serverOnly$(async (queueId: string) => {
   const queue = await dbconn?.("queue")
     .where({ id: queueId })
-    .update({ is_acknowledged: true })
+    .update({ is_acknowledged: true, updated_at: new Date().toISOString() })
     .returning("*");
 
   return queue?.find(Boolean);
