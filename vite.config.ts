@@ -20,7 +20,7 @@ export default defineConfig(({ command, mode }) => {
       })
     ],
     define: {
-      "process.env.DATETIME_LOCALE": `${process.env.DATETIME_LOCALE}`
+      "process.env.NODE_DEBUG": false
     },
     base: isBuild ? process.env.VITE_S3_BASE_URL || "/" : "/",
     resolve: {

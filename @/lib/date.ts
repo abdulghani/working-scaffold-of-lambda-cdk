@@ -1,5 +1,6 @@
 import { Settings } from "luxon";
 
 export function initializeLocale() {
-  Settings.defaultLocale = process.env.DATETIME_LOCALE || "en";
+  /** TODO: BASE THIS FROM ENV WITHOUT HAVING ISSUE WITH HYDRATION, VITE, LAMBDA ENV */
+  Settings.defaultLocale = "id";
 }
