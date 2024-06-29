@@ -1,5 +1,4 @@
 import { Duration, RemovalPolicy } from "aws-cdk-lib";
-import { Construct } from "constructs";
 import {
   BlockPublicAccess,
   Bucket,
@@ -12,8 +11,9 @@ import {
   CacheControl,
   Source
 } from "aws-cdk-lib/aws-s3-deployment";
-import { LambdaConstruct } from "./lambda-construct";
+import { Construct } from "constructs";
 import * as glob from "glob";
+import { LambdaConstruct } from "./lambda-construct";
 
 export class StaticConstruct extends Construct {
   private s3Bucket: Bucket;
@@ -61,7 +61,7 @@ export class StaticConstruct extends Construct {
     this.s3Bucket.grantDelete(props.lambdaConstruct.lambda);
 
     this.s3Bucket.addCorsRule({
-      allowedOrigins: ["*"],
+      allowedOrigins: this.getCorsAllowedOrigin(),
       allowedMethods: [HttpMethods.GET, HttpMethods.HEAD]
     });
   }
@@ -76,5 +76,16 @@ export class StaticConstruct extends Construct {
 
   public get bucket() {
     return this.s3Bucket;
+  }
+
+  private getCorsAllowedOrigin() {
+    if (process.env.S3_CORS_ALLOWED_ORIGIN) {
+      const splitted = process.env.S3_CORS_ALLOWED_ORIGIN.split(",").map((i) =>
+        i.trim()
+      );
+      return splitted;
+    }
+    console.warn("S3_CORS_ALLOWED_ORIGIN not set, allowing all origins");
+    return ["*"];
   }
 }

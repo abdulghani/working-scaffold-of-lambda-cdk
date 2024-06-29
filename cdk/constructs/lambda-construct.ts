@@ -57,7 +57,7 @@ export class LambdaConstruct extends Construct {
       "tailwind-merge",
       "lucide-react",
       "class-variance-authority",
-      "lodash-es"
+      "lodash-es" /** BUILD LODASH WITH ESBUILD TREESHAKE */
     ];
     const file = fs.readFileSync(
       __dirname + "/../../build/server/index.js",
