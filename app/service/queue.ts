@@ -1,13 +1,20 @@
 import { ActionError } from "@/lib/action-error";
 import { createCookie } from "@remix-run/node";
 import { startCase } from "lodash-es";
-import moment from "moment";
+import { DateTime } from "luxon";
 import { ulid } from "ulid";
 import { serverOnly$ } from "vite-env-only/macros";
 import { dbconn } from "./db";
 
 const COOKIE_NAME = "queue";
 const COOKIE_SECRET = process.env.COOKIE_SECRET || "default";
+
+export const QUEUE_ENUM = {
+  PENDING: "PENDING",
+  ACKNOWLEDGED: "ACKNOWLEDGED",
+  CANCELLED: "CANCELLED",
+  USER_CANCELLED: "USER_CANCELLED"
+};
 
 export const queueCookie = createCookie(COOKIE_NAME, {
   httpOnly: true,
@@ -22,9 +29,7 @@ export const getQueueList = serverOnly$(async (posId: string) => {
   const list = await dbconn?.("queue")
     .where({
       pos_id: posId,
-      is_acknowledged: false,
-      is_cancelled: false,
-      is_user_cancelled: false
+      status: QUEUE_ENUM.PENDING
     })
     .orderBy("created_at", "asc");
 
@@ -33,15 +38,13 @@ export const getQueueList = serverOnly$(async (posId: string) => {
 
 export const getQueueListHistory = serverOnly$(async (posId: string) => {
   const list = await dbconn?.("queue")
-    .where({ pos_id: posId, is_user_cancelled: false })
+    .whereIn("status", [QUEUE_ENUM.ACKNOWLEDGED, QUEUE_ENUM.CANCELLED])
+    .andWhere({ pos_id: posId })
     .andWhere(
       "created_at",
       ">=",
-      moment().startOf("day").subtract(2, "day").toISOString()
+      DateTime.now().startOf("day").minus({ day: 2 }).toISO()
     )
-    .andWhere((q) => {
-      q.where("is_acknowledged", true).orWhere("is_cancelled", true);
-    })
     .orderBy("created_at", "desc");
 
   return list;
@@ -70,8 +73,8 @@ export const addQueue = serverOnly$(
         .match(/[^\d|^+]+/i)
     ) {
       validation.phone = "Hanya boleh angka";
-    } else if (phone && phone.length < 10) {
-      validation.phone = "Minimal 10 digit";
+    } else if (phone && phone.length < 8) {
+      validation.phone = "Minimal 8 angka";
     }
     if (Object.keys(validation).length) {
       throw new ActionError({
@@ -90,7 +93,7 @@ export const addQueue = serverOnly$(
       /** RESET ON NEXT DAY WHEN COUNT EXCEED 10 */
       if (
         count.count > 10 &&
-        moment(count.updated_at).isBefore(moment().startOf("day"))
+        DateTime.fromISO(count.updated_at) < DateTime.now().startOf("day")
       ) {
         return 1;
       }
@@ -108,9 +111,7 @@ export const addQueue = serverOnly$(
         pax: pax,
         phone: phone,
         created_at: new Date().toISOString(),
-        is_acknowledged: false,
-        is_cancelled: false,
-        is_user_cancelled: false,
+        status: QUEUE_ENUM.PENDING,
         temp_count: currentCount
       })
       .returning("*");
@@ -139,7 +140,10 @@ export const addQueue = serverOnly$(
 export const cancelQueue = serverOnly$(async (queueId: string) => {
   const queue = await dbconn?.("queue")
     .where({ id: queueId })
-    .update({ is_cancelled: true, updated_at: new Date().toISOString() })
+    .update({
+      status: QUEUE_ENUM.CANCELLED,
+      updated_at: new Date().toISOString()
+    })
     .returning("*");
 
   return queue?.find(Boolean);
@@ -147,8 +151,12 @@ export const cancelQueue = serverOnly$(async (queueId: string) => {
 
 export const userCancelQueue = serverOnly$(async (queueId: string) => {
   const queue = await dbconn?.("queue")
-    .where({ id: queueId, is_acknowledged: false, is_cancelled: false })
-    .update({ is_user_cancelled: true, updated_at: new Date().toISOString() })
+    .whereNotIn("status", [QUEUE_ENUM.CANCELLED, QUEUE_ENUM.ACKNOWLEDGED])
+    .andWhere({ id: queueId })
+    .update({
+      status: QUEUE_ENUM.USER_CANCELLED,
+      updated_at: new Date().toISOString()
+    })
     .returning("*");
 
   return queue?.find(Boolean);
@@ -157,7 +165,10 @@ export const userCancelQueue = serverOnly$(async (queueId: string) => {
 export const acknowledgeQueue = serverOnly$(async (queueId: string) => {
   const queue = await dbconn?.("queue")
     .where({ id: queueId })
-    .update({ is_acknowledged: true, updated_at: new Date().toISOString() })
+    .update({
+      status: QUEUE_ENUM.ACKNOWLEDGED,
+      updated_at: new Date().toISOString()
+    })
     .returning("*");
 
   return queue?.find(Boolean);

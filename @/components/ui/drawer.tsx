@@ -1,17 +1,23 @@
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 
+import { canUseDOM } from "@/lib/can-use-dom";
 import { cn } from "@/lib/utils";
 
 const Drawer = ({
   shouldScaleBackground = true,
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Root>) => (
-  <DrawerPrimitive.Root
-    shouldScaleBackground={shouldScaleBackground}
-    {...props}
-  />
-);
+}: React.ComponentProps<typeof DrawerPrimitive.Root>) => {
+  if (canUseDOM) {
+    return (
+      <DrawerPrimitive.Root
+        shouldScaleBackground={shouldScaleBackground}
+        {...props}
+      />
+    );
+  }
+  return <></>;
+};
 Drawer.displayName = "Drawer";
 
 const DrawerTrigger = DrawerPrimitive.Trigger;

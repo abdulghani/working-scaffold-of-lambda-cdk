@@ -41,6 +41,7 @@ import {
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { validatePOSId } from "app/service/pos";
 import {
+  QUEUE_ENUM,
   addQueue,
   getQueue,
   getQueueList,
@@ -48,7 +49,7 @@ import {
   userCancelQueue
 } from "app/service/queue";
 import { CircleCheck, CircleX, Timer } from "lucide-react";
-import moment from "moment";
+import { DateTime } from "luxon";
 import { useEffect, useState } from "react";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -80,7 +81,7 @@ export const action = wrapActionError(async function ({
     if (
       queue?.id &&
       /** IGNORE ALREADY ACKNOWLEDGED QUEUE */
-      !(queue?.is_cancelled || queue?.is_acknowledged) &&
+      ![QUEUE_ENUM.ACKNOWLEDGED, QUEUE_ENUM.CANCELLED].includes(queue.status) &&
       posId === queue?.pos_id
     ) {
       await userCancelQueue?.(queue.id as string);
@@ -163,7 +164,7 @@ export default function Queue() {
                         <TableCell>{q.name}</TableCell>
                         <TableCell>{q.pax}</TableCell>
                         <TableCell className="text-right">
-                          {moment(q.created_at).fromNow()}
+                          {DateTime.fromISO(q.created_at).toRelative()}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -174,7 +175,7 @@ export default function Queue() {
           </TabsContent>
           <TabsContent value="input">
             <Card className="border-0 shadow-none">
-              {queue && !queue?.is_cancelled && !queue?.is_acknowledged ? (
+              {queue?.status === QUEUE_ENUM.PENDING ? (
                 <>
                   <CardHeader>
                     <CardTitle className="flex flex-row items-center">
@@ -187,7 +188,7 @@ export default function Queue() {
                     </CardDescription>
                     <CardDescription>
                       {new Date(queue.created_at).toLocaleString()} (
-                      {moment(queue.created_at).fromNow()})
+                      {DateTime.fromISO(queue.created_at).toRelative()})
                     </CardDescription>
                   </CardHeader>
                   <CardFooter>
@@ -232,7 +233,7 @@ export default function Queue() {
                     </AlertDialog>
                   </CardFooter>
                 </>
-              ) : queue?.is_acknowledged && !queue.is_cancelled ? (
+              ) : queue?.status === QUEUE_ENUM.ACKNOWLEDGED ? (
                 <>
                   <CardHeader>
                     <CardTitle className="flex flex-row items-center">
@@ -249,7 +250,7 @@ export default function Queue() {
                         .join(", ")}
                     </CardDescription>
                     <CardDescription>
-                      {moment(queue.updated_at).fromNow()}
+                      {DateTime.fromISO(queue.updated_at).toRelative()}
                     </CardDescription>
                   </CardHeader>
                   <CardFooter>
@@ -296,7 +297,7 @@ export default function Queue() {
                     </AlertDialog>
                   </CardFooter>
                 </>
-              ) : queue?.is_cancelled ? (
+              ) : queue?.status === QUEUE_ENUM.CANCELLED ? (
                 <>
                   <CardHeader>
                     <CardTitle className="flex flex-row items-center">
@@ -313,7 +314,7 @@ export default function Queue() {
                         .join(", ")}
                     </CardDescription>
                     <CardDescription>
-                      {moment(queue.created_at).fromNow()}
+                      {DateTime.fromISO(queue.created_at).toRelative()}
                     </CardDescription>
                   </CardHeader>
                   <CardFooter>
@@ -426,6 +427,7 @@ export default function Queue() {
                           inputMode="numeric"
                           value={phoneInput}
                           placeholder="No Handphone Anda"
+                          className={`${action?.error?.details?.phone && "border-red-400"}`}
                           onChange={(e) =>
                             setPhoneInput(parsePhone(e.target.value))
                           }

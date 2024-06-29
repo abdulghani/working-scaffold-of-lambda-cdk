@@ -1,6 +1,8 @@
+import { initializeLocale } from "./@/lib/date.js";
 import { createRequestHandler } from "./@/lib/request-handler";
 import * as build from "./build/server/index.js";
 
+initializeLocale();
 const remixHandler = createRequestHandler({
   build
 });

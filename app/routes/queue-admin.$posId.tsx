@@ -29,7 +29,7 @@ import { useRevalidation } from "@/lib/use-revalidation";
 import { TabsContent } from "@radix-ui/react-tabs";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData } from "@remix-run/react";
-import { verifySession } from "app/service/auth";
+import { verifySessionPOSAccess } from "app/service/auth";
 import { validatePOSId } from "app/service/pos";
 import {
   acknowledgeQueue,
@@ -40,7 +40,7 @@ import {
   queueCookie
 } from "app/service/queue";
 import { CircleCheck, CircleX, Phone } from "lucide-react";
-import moment from "moment";
+import { DateTime } from "luxon";
 import { Fragment, useState } from "react";
 
 const TEXT_TEMPLATE = `
@@ -49,8 +49,15 @@ Harap segera datang untuk menerima layanan.
 Terima kasih.
 `.trim();
 
+const QUEUE_ENUM_LABEL: any = {
+  PENDING: "Menunggu",
+  ACKNOWLEDGED: "Diterima",
+  CANCELLED: "Ditolak",
+  USER_CANCELLED: "Dibatalkan pengguna"
+};
+
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await verifySession?.(request);
+  await verifySessionPOSAccess?.(request, params.posId!);
   const cookie = await queueCookie.parse(request.headers.get("Cookie"));
 
   const [pos, list, queue, history] = await Promise.all([
@@ -141,7 +148,7 @@ export default function QueueAdmin() {
                           <TableCell>{q.name}</TableCell>
                           <TableCell>{q.pax}</TableCell>
                           <TableCell className="text-right">
-                            {moment(q.created_at).fromNow()}
+                            {DateTime.fromISO(q.created_at).toRelative()}
                           </TableCell>
                         </TableRow>
                         <Drawer
@@ -164,78 +171,87 @@ export default function QueueAdmin() {
                               </DrawerDescription>
                             </DrawerHeader>
                             <Table>
-                              <TableRow>
-                                <TableCell className="text-left">
-                                  No antrian
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {formatQueueNumber(q.temp_count)}
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell className="text-left">
-                                  Nama
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {q.name}
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell className="text-left">PAX</TableCell>
-                                <TableCell className="text-right">
-                                  {q.pax}
-                                </TableCell>
-                              </TableRow>
-                              <TableRow
-                                onClick={() => {
-                                  if (q.phone) {
-                                    window.open(
-                                      `https://wa.me/${q.phone}?text=${encodeURIComponent(TEXT_TEMPLATE.replace("{name}", q.name).replace("{pax}", `${q.pax} PAX`))}`
-                                    );
-                                  }
-                                }}
-                              >
-                                <TableCell className="text-left">
-                                  No handphone
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {q.phone ? (
-                                    <>
-                                      <Phone className="-mt-0.5 mr-2.5 inline w-4 text-blue-400" />
-                                      <span>{q.phone}</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-muted-foreground">
-                                      Tidak tersedia
+                              <TableBody>
+                                <TableRow>
+                                  <TableCell className="text-left">
+                                    No antrian
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {formatQueueNumber(q.temp_count)}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="text-left">
+                                    Nama
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {q.name}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="text-left">
+                                    PAX
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {q.pax}
+                                    {" Orang"}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow
+                                  onClick={() => {
+                                    if (q.phone) {
+                                      window.open(
+                                        `https://wa.me/${q.phone}?text=${encodeURIComponent(TEXT_TEMPLATE.replace("{name}", q.name).replace("{pax}", `${q.pax} PAX`))}`
+                                      );
+                                    }
+                                  }}
+                                >
+                                  <TableCell className="text-left">
+                                    No handphone
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {q.phone ? (
+                                      <>
+                                        <Phone className="-mt-0.5 mr-2.5 inline w-4 text-blue-400" />
+                                        <span>{q.phone}</span>
+                                      </>
+                                    ) : (
+                                      <span className="text-muted-foreground">
+                                        Tidak tersedia
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="text-left">
+                                    Waktu antrian
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {DateTime.fromISO(q.created_at).toFormat(
+                                      "ccc, dd MMM yyyy"
+                                    )}
+                                    <span className="mt-1 block text-xs text-muted-foreground">
+                                      (
+                                      {DateTime.fromISO(q.created_at).toFormat(
+                                        "HH:mm ZZZZ"
+                                      )}
+                                      {", "}
+                                      {DateTime.fromISO(
+                                        q.created_at
+                                      ).toRelative()}
+                                      )
                                     </span>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell className="text-left">
-                                  Waktu antrian
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {moment(q.created_at).format(
-                                    "ddd, DD MMM YYYY, HH:mm"
-                                  )}
-                                  <span className="mt-1 block text-xs text-muted-foreground">
-                                    ({moment(q.created_at).fromNow()})
-                                  </span>
-                                </TableCell>
-                              </TableRow>
-                              <TableRow className="border-b-0">
-                                <TableCell className="text-left">
-                                  Status
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {q.is_acknowledged
-                                    ? "Diterima"
-                                    : q.is_cancelled
-                                      ? "Ditolak"
-                                      : "Menunggu"}
-                                </TableCell>
-                              </TableRow>
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow className="border-b-0">
+                                  <TableCell className="text-left">
+                                    Status
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {QUEUE_ENUM_LABEL[q.status]}
+                                  </TableCell>
+                                </TableRow>
+                              </TableBody>
                             </Table>
                             <Form
                               method="post"
@@ -323,11 +339,7 @@ export default function QueueAdmin() {
                           <TableCell>{q.name}</TableCell>
                           <TableCell>{q.pax}</TableCell>
                           <TableCell className="text-right">
-                            {q.is_acknowledged
-                              ? "Diterima"
-                              : q.is_cancelled
-                                ? "Ditolak"
-                                : "Menunggu"}
+                            {QUEUE_ENUM_LABEL[q.status]}
                           </TableCell>
                         </TableRow>
                         <Drawer
@@ -347,80 +359,100 @@ export default function QueueAdmin() {
                               </DrawerTitle>
                             </DrawerHeader>
                             <Table>
-                              <TableRow>
-                                <TableCell className="text-left">
-                                  No antrian
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {formatQueueNumber(q.temp_count)}
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell className="text-left">
-                                  Nama
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {q.name}
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell className="text-left">PAX</TableCell>
-                                <TableCell className="text-right">
-                                  {q.pax}
-                                </TableCell>
-                              </TableRow>
-                              <TableRow
-                                onClick={() => {
-                                  if (q.phone) {
-                                    window.open(`https://wa.me/${q.phone}`);
-                                  }
-                                }}
-                              >
-                                <TableCell className="text-left">
-                                  No handphone
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {q.phone ? (
-                                    <>
-                                      <Phone className="-mt-0.5 mr-2.5 inline w-4 text-blue-400" />
-                                      <span>{q.phone}</span>
-                                    </>
-                                  ) : (
-                                    <span className="text-muted-foreground">
-                                      Tidak tersedia
+                              <TableBody>
+                                <TableRow>
+                                  <TableCell className="text-left">
+                                    No antrian
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {formatQueueNumber(q.temp_count)}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="text-left">
+                                    Nama
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {q.name}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="text-left">
+                                    PAX
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {q.pax}
+                                    {" Orang"}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow
+                                  onClick={() => {
+                                    if (q.phone) {
+                                      window.open(`https://wa.me/${q.phone}`);
+                                    }
+                                  }}
+                                >
+                                  <TableCell className="text-left">
+                                    No handphone
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {q.phone ? (
+                                      <>
+                                        <Phone className="-mt-0.5 mr-2.5 inline w-4 text-blue-400" />
+                                        <span>{q.phone}</span>
+                                      </>
+                                    ) : (
+                                      <span className="text-muted-foreground">
+                                        Tidak tersedia
+                                      </span>
+                                    )}
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="text-left">
+                                    Waktu antrian
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {DateTime.fromISO(q.created_at).toFormat(
+                                      "ccc, dd MMM yyyy"
+                                    )}
+                                    <span className="mt-1 block text-xs text-muted-foreground">
+                                      (
+                                      {DateTime.fromISO(q.created_at).toFormat(
+                                        "HH:mm ZZZZ"
+                                      )}
+                                      {", "}
+                                      {DateTime.fromISO(
+                                        q.created_at
+                                      ).toRelative()}
+                                      )
                                     </span>
-                                  )}
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell className="text-left">
-                                  Waktu antrian
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {moment(q.created_at).format(
-                                    "ddd, DD MMM YYYY, HH:mm"
-                                  )}
-                                  <span className="mt-1 block text-xs text-muted-foreground">
-                                    ({moment(q.created_at).fromNow()})
-                                  </span>
-                                </TableCell>
-                              </TableRow>
-                              <TableRow>
-                                <TableCell className="text-left">
-                                  Status
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  {q.is_acknowledged
-                                    ? "Diterima"
-                                    : q.is_cancelled
-                                      ? "Ditolak"
-                                      : "Menunggu"}
-                                  <span className="mt-1 block text-xs text-muted-foreground">
-                                    {moment(q.updated_at).format("HH:mm")} (
-                                    {moment(q.updated_at).fromNow()})
-                                  </span>
-                                </TableCell>
-                              </TableRow>
+                                  </TableCell>
+                                </TableRow>
+                                <TableRow>
+                                  <TableCell className="text-left">
+                                    Status
+                                  </TableCell>
+                                  <TableCell className="text-right">
+                                    {q.is_acknowledged
+                                      ? "Diterima"
+                                      : q.is_cancelled
+                                        ? "Ditolak"
+                                        : "Menunggu"}
+                                    <span className="mt-1 block text-xs text-muted-foreground">
+                                      (
+                                      {DateTime.fromISO(q.updated_at).toFormat(
+                                        "HH:mm ZZZZ"
+                                      )}
+                                      {", "}
+                                      {DateTime.fromISO(
+                                        q.updated_at
+                                      ).toRelative()}
+                                      )
+                                    </span>
+                                  </TableCell>
+                                </TableRow>
+                              </TableBody>
                             </Table>
                           </DrawerContent>
                         </Drawer>

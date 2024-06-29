@@ -19,6 +19,9 @@ export default defineConfig(({ command, mode }) => {
         ssr: true
       })
     ],
+    define: {
+      "process.env.DATETIME_LOCALE": `${process.env.DATETIME_LOCALE}`
+    },
     base: isBuild ? process.env.VITE_S3_BASE_URL || "/" : "/",
     resolve: {
       alias: {

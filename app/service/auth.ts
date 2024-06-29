@@ -1,6 +1,6 @@
 import { ActionError } from "@/lib/action-error";
 import { createCookie, redirect } from "@remix-run/node";
-import moment from "moment";
+import { DateTime } from "luxon";
 import { ulid } from "ulid";
 import { serverOnly$ } from "vite-env-only/macros";
 import { dbconn } from "./db";
@@ -139,7 +139,7 @@ export async function verifyOTP(options: {
     user_id: otpFlow.id,
     session_id: sessionToken,
     created_at: new Date().toISOString(),
-    expires_at: moment().add(7, "day").toISOString()
+    expires_at: DateTime.now().plus({ days: 7 }).toISO()
   });
   await transaction?.commit();
 
@@ -170,7 +170,7 @@ export const verifySession = serverOnly$(async (request: Request) => {
   const session = await dbconn?.("session")
     .where({ session_id: sessionToken })
     .first();
-  if (!session || moment(session.expires_at).isBefore(moment())) {
+  if (!session || DateTime.fromISO(session.expires_at) < DateTime.now()) {
     throw redirect("/login", {
       headers: [
         ["Set-Cookie", await authCookie.serialize("", { maxAge: 0 })],
@@ -181,3 +181,19 @@ export const verifySession = serverOnly$(async (request: Request) => {
 
   return session.user_id;
 });
+
+export const verifySessionPOSAccess = serverOnly$(
+  async (request: Request, posId: string) => {
+    const userId = await verifySession?.(request);
+    const connection = await dbconn?.("user_pos")
+      .where({ user_id: userId, pos_id: posId })
+      .first();
+    if (!connection) {
+      throw new ActionError({
+        message: "Tidak bisa mengakses POS",
+        description: "Anda tidak memiliki admin akses ke POS ini",
+        status: 403
+      });
+    }
+  }
+);
