@@ -73,8 +73,7 @@ export const action = wrapActionError(async function ({
   params
 }: ActionFunctionArgs) {
   const { posId } = params;
-  const form = await request.formData();
-  const payload = Object.fromEntries(form.entries());
+  const payload = await request.formData().then(Object.fromEntries);
   const queue = await queueCookie.parse(request.headers.get("Cookie"));
 
   if (payload.cancel === "true") {

@@ -60,6 +60,10 @@ export const addQueue = serverOnly$(
     const validation: any = {};
     if (!name) {
       validation.name = "Nama harus diisi";
+    } else if (name.length < 3) {
+      validation.name = "Nama minimal 2 karakter";
+    } else if (name.length > 150) {
+      validation.name = "Nama maksimal 150 karakter";
     }
     if (!pax) {
       validation.pax = "PAX minimal 1";
@@ -75,6 +79,8 @@ export const addQueue = serverOnly$(
       validation.phone = "Hanya boleh angka";
     } else if (phone && phone.length < 8) {
       validation.phone = "Minimal 8 angka";
+    } else if (phone && phone.length > 50) {
+      validation.phone = "Maksimal 50 angka";
     }
     if (Object.keys(validation).length) {
       throw new ActionError({
@@ -92,7 +98,7 @@ export const addQueue = serverOnly$(
       }
       /** RESET ON NEXT DAY WHEN COUNT EXCEED 10 */
       if (
-        count.count > 10 &&
+        count.count >= 100 &&
         DateTime.fromISO(count.updated_at) < DateTime.now().startOf("day")
       ) {
         return 1;

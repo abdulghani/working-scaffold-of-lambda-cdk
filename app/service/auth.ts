@@ -6,10 +6,9 @@ import { serverOnly$ } from "vite-env-only/macros";
 import { dbconn } from "./db";
 import { emailClient } from "./email";
 
-const COOKIE_NAME = "auth";
 const COOKIE_SECRET = process.env.COOKIE_SECRET || "default";
 
-export const authCookie = createCookie(COOKIE_NAME, {
+export const sessionCookie = createCookie("session", {
   httpOnly: true,
   path: "/",
   sameSite: "lax",
@@ -148,7 +147,7 @@ export async function verifyOTP(options: {
   );
   throw redirect(destination || "/", {
     headers: [
-      ["Set-Cookie", await authCookie.serialize(sessionToken)],
+      ["Set-Cookie", await sessionCookie.serialize(sessionToken)],
       ["Set-Cookie", await otpFlowCookie.serialize("", { maxAge: 0 })],
       ["Set-Cookie", await destinationCookie.serialize("", { maxAge: 0 })]
     ]
@@ -156,13 +155,13 @@ export async function verifyOTP(options: {
 }
 
 export const verifySession = serverOnly$(async (request: Request) => {
-  const sessionToken = await authCookie.parse(request.headers.get("Cookie"));
+  const sessionToken = await sessionCookie.parse(request.headers.get("Cookie"));
   const destination = request.url;
 
   if (!sessionToken) {
     throw redirect("/login", {
       headers: [
-        ["Set-Cookie", await authCookie.serialize("", { maxAge: 0 })],
+        ["Set-Cookie", await sessionCookie.serialize("", { maxAge: 0 })],
         ["Set-Cookie", await destinationCookie.serialize(destination)]
       ]
     });
@@ -173,7 +172,7 @@ export const verifySession = serverOnly$(async (request: Request) => {
   if (!session || DateTime.fromISO(session.expires_at) < DateTime.now()) {
     throw redirect("/login", {
       headers: [
-        ["Set-Cookie", await authCookie.serialize("", { maxAge: 0 })],
+        ["Set-Cookie", await sessionCookie.serialize("", { maxAge: 0 })],
         ["Set-Cookie", await destinationCookie.serialize(destination)]
       ]
     });

@@ -38,8 +38,7 @@ export const loader = wrapActionError(async function ({
 export const action = wrapActionError(async function ({
   request
 }: ActionFunctionArgs) {
-  const formData = await request.formData();
-  const payload = Object.fromEntries(formData.entries()) as any;
+  const payload = await request.formData().then(Object.fromEntries);
 
   if (payload._action === "send_otp") {
     await sendOTP(payload.email);

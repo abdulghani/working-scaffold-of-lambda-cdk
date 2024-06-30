@@ -72,9 +72,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const form = await request.formData();
-  const payload = Object.fromEntries<any>(form.entries());
-
+  const payload = await request.formData().then(Object.fromEntries);
   if (payload._action === "acknowledge") {
     await acknowledgeQueue?.(payload.queue_id);
   } else if (payload._action === "cancel") {
