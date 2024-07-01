@@ -1,10 +1,15 @@
-import { useEffect, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 export function useLocalStorageState(key: string, defaultValue: any) {
   const [state, setState] = useState(defaultValue);
+  const shouldUpdate = useDeferredValue(state);
+  const storeKey = useMemo(
+    () => `@${key}-${import.meta.env.VITE_BUILD_ID || "default"}`,
+    [key]
+  );
 
   useEffect(() => {
-    const value = window.localStorage.getItem(key);
+    const value = window.localStorage.getItem(storeKey);
     if (value) {
       setState(JSON.parse(value));
     }
@@ -12,9 +17,9 @@ export function useLocalStorageState(key: string, defaultValue: any) {
 
   useEffect(() => {
     if (defaultValue !== state) {
-      window.localStorage.setItem(key, JSON.stringify(state));
+      window.localStorage.setItem(storeKey, JSON.stringify(state));
     }
-  }, [key, state]);
+  }, [key, shouldUpdate]);
 
   return [state, setState];
 }

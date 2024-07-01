@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatPrice } from "@/lib/format-price";
+import { parsePhone } from "@/lib/parse-phone";
 import { useLocalStorageState } from "@/lib/use-localstorage-state";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { Form, Link, useActionData, useLoaderData } from "@remix-run/react";
@@ -93,36 +94,50 @@ export default function Menu() {
   const { pos } = useLoaderData<any>();
   const [filter, setFilter] = useState<any>(MENU[0]);
   const [selectedMenu, setSelectedMenu] = useState<any>(null);
-  const [draft, setDraft] = useLocalStorageState("draft", {});
+  const [selectedMenuOrder, setSelectedMenuOrder] = useState<any>(null);
+  const [draft, setDraft] = useLocalStorageState("order-draft", { order: {} });
   const action = useActionData<any>();
 
   function updateDraft(key: any, action: "INCREMENT" | "DECREMENT") {
-    const current = draft[String(key)] || 0;
+    const current = draft.order[String(key)]?.qty || 0;
     const next = action === "INCREMENT" ? current + 1 : current - 1;
 
     setDraft((prev: any) => {
-      if (next <= 0) {
-        delete prev[String(key)];
-        return { ...prev };
+      if (!prev.order[String(key)]) {
+        prev.order[String(key)] = {};
       }
+      prev.order[String(key)].qty = next <= 0 ? 0 : next;
+
       return {
         ...prev,
-        [String(key)]: next
+        order: {
+          ...prev.order
+        }
       };
     });
   }
 
   function clearOutEmpty() {
     setDraft((prev: any) => {
-      return Object.fromEntries(
-        Object.entries(prev).filter(([_, v]: any) => Number(v) > 0)
-      );
+      return {
+        ...prev,
+        order: {
+          ...Object.fromEntries(
+            Object.entries(prev.order).filter(
+              ([_, v]: any) => Number(v?.qty) > 0
+            )
+          )
+        }
+      };
     });
   }
 
   return (
-    <>
-      <Tabs defaultValue="menu" className="w-full lg:w-[400px]">
+    <div className="flex w-full justify-center">
+      <Tabs
+        defaultValue="menu"
+        className="w-full overflow-x-hidden lg:w-[400px]"
+      >
         <TabsList className="sticky top-3 z-10 mx-4 mt-3 flex flex-row">
           <TabsTrigger className="w-1/2" value="menu">
             Menu
@@ -229,57 +244,59 @@ export default function Menu() {
         </TabsContent>
         <TabsContent value="order" className="m-0 p-0">
           <div className="mt-2 flex flex-col px-5">
-            {Object.entries(draft).map(([key, qty]) => {
+            {Object.entries(draft.order).map(([key, order]: [string, any]) => {
+              const { qty, notes } = order;
               const menu = MENU_STATIC.find((menu) => String(menu.id) === key);
               if (!menu) return null;
               return (
-                <div className="mt-3 flex flex-row" key={`draft-${menu.id}`}>
+                <div
+                  className="mt-3 flex flex-row"
+                  key={`draft-${menu.id}`}
+                  onClick={() => setSelectedMenuOrder(menu)}
+                >
                   <img
                     src={menu.img}
                     className="aspect-[1] h-16 w-16 rounded-sm object-cover"
                   />
-                  <div className="ml-3 flex flex-col">
+                  <div className="ml-3 flex w-full flex-col">
                     <span className="block font-semibold">{menu.name}</span>
                     <span className="block text-ellipsis text-sm text-muted-foreground">
-                      {menu.description.substring(0, 50)}
+                      {notes
+                        ? `Catatan: ${notes}`
+                        : menu.description.substring(0, 50)}
                     </span>
                   </div>
                   <div className="flex flex-col justify-center">
                     <Input
                       type="number"
                       inputMode="numeric"
-                      min={0}
-                      value={Number(qty)}
+                      value={qty}
                       className="w-12 text-center"
-                      onChange={(e) =>
-                        setDraft((prev: any) => ({
-                          ...prev,
-                          [key]: Number(e.target.value)
-                        }))
-                      }
-                      onBlur={() => clearOutEmpty()}
+                      disabled
                     />
                   </div>
                 </div>
               );
             })}
-            {Object.keys(draft).length === 0 && (
+            {Object.keys(draft.order).length === 0 && (
               <Button className="mt-4" variant="ghost" disabled>
                 Pesanan Anda masih kosong
               </Button>
             )}
-            {Object.keys(draft).length > 0 && (
+            {Object.keys(draft.order).length > 0 && (
               <>
                 <div className="mt-4 flex flex-row justify-between rounded-sm bg-zinc-100 px-4 py-4 text-sm">
                   <span>Total</span>
-                  <span>
+                  <span className="text-muted-foreground">
                     {formatPrice(
-                      Object.keys(draft).reduce(
+                      Object.keys(draft.order).reduce(
                         (total, key) =>
                           total +
                           (MENU_STATIC.find((i) => String(i.id) === key)
                             ?.price || 0) *
-                            (draft[key] >= 0 ? draft[key] : 0),
+                            (draft.order[key]?.qty >= 0
+                              ? draft.order[key]?.qty
+                              : 0),
                         0
                       )
                     )}
@@ -288,7 +305,7 @@ export default function Menu() {
                 <Form method="post">
                   <div className="mt-3 space-y-1">
                     <Label htmlFor="name">
-                      Nama{" "}
+                      Atas nama{" "}
                       {action?.error?.details?.name && (
                         <span className="font-normal text-red-600">
                           ({action.error.details.name})
@@ -299,9 +316,17 @@ export default function Menu() {
                       id="name"
                       name="name"
                       type="text"
+                      autoComplete="name"
+                      value={draft.name}
                       className={`capitalize ${action?.error?.details?.name && "border-red-400"}`}
                       placeholder="Nama Anda"
                       required
+                      onChange={(e) =>
+                        setDraft((prev: any) => ({
+                          ...prev,
+                          name: e.target.value
+                        }))
+                      }
                     />
                   </div>
                   <div className="mt-2 space-y-1">
@@ -317,10 +342,18 @@ export default function Menu() {
                       id="phone"
                       name="phone"
                       type="text"
+                      autoComplete="tel"
                       min={8}
+                      value={draft.phone}
                       inputMode="numeric"
                       placeholder="No Handphone Anda"
                       className={`${action?.error?.details?.phone && "border-red-400"}`}
+                      onChange={(e) =>
+                        setDraft((prev: any) => ({
+                          ...prev,
+                          phone: parsePhone(e.target.value)
+                        }))
+                      }
                     />
                   </div>
                   <Button
@@ -338,17 +371,116 @@ export default function Menu() {
         </TabsContent>
       </Tabs>
 
+      {selectedMenuOrder?.id && (
+        <Drawer
+          open={selectedMenuOrder?.id}
+          onOpenChange={(e) => {
+            if (!e) {
+              setSelectedMenu(null);
+              setSelectedMenuOrder(null);
+              clearOutEmpty();
+            }
+          }}
+          disablePreventScroll={true}
+        >
+          <DrawerContent className="rounded-t-sm p-0">
+            <div className="flex select-none flex-col px-4 pb-5">
+              <div className="flex flex-col px-1">
+                <div className="mt-4 flex w-full flex-row">
+                  <img
+                    src={selectedMenuOrder?.img}
+                    className="aspect-[1] h-[4.25rem] w-[4.25rem] rounded-sm object-cover"
+                  />
+                  <div className="ml-3 flex w-full flex-col justify-between">
+                    <div className="flex flex-row justify-between">
+                      <span className="block font-semibold">
+                        {selectedMenuOrder?.name}
+                      </span>
+                      <span className="block w-fit text-right text-sm text-muted-foreground">
+                        {formatPrice(selectedMenuOrder?.price)}
+                      </span>
+                    </div>
+                    <Input
+                      type="text"
+                      placeholder="Catatan"
+                      className="normal-case"
+                      value={draft.order[String(selectedMenuOrder?.id)]?.notes}
+                      onChange={(e) =>
+                        setDraft((prev: any) => {
+                          prev.order[String(selectedMenuOrder?.id)].notes =
+                            e.target.value;
+                          return {
+                            ...prev,
+                            order: {
+                              ...prev.order
+                            }
+                          };
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="mt-2">
+                  <div className="mt-3 flex flex-row">
+                    <Button
+                      className="mr-0 w-fit rounded-r-none border-r-0"
+                      variant="outline"
+                      onClick={() =>
+                        updateDraft(selectedMenuOrder?.id, "DECREMENT")
+                      }
+                    >
+                      -
+                    </Button>
+                    <Input
+                      disabled
+                      value={draft.order[selectedMenuOrder?.id]?.qty || 0}
+                      type={"number"}
+                      className="mr-0 w-1/6 rounded-none text-center"
+                    />
+                    <Button
+                      className="mr-3 w-fit rounded-l-none border-l-0"
+                      variant="outline"
+                      onClick={() =>
+                        updateDraft(selectedMenuOrder?.id, "INCREMENT")
+                      }
+                    >
+                      +
+                    </Button>
+                    <Button
+                      className="w-full"
+                      variant="default"
+                      onClick={() => {
+                        setSelectedMenuOrder(null);
+                        clearOutEmpty();
+                      }}
+                    >
+                      Simpan
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
+      )}
+
       {selectedMenu?.id && (
         <Drawer
           open={selectedMenu?.id}
-          onOpenChange={(e) => !e && setSelectedMenu(null)}
+          onOpenChange={(e) => {
+            if (!e) {
+              setSelectedMenu(null);
+              setSelectedMenuOrder(null);
+              clearOutEmpty();
+            }
+          }}
           disablePreventScroll={true}
         >
           <DrawerContent className="rounded-t-sm p-0">
             <DrawerHeader className="p-0 px-4 pt-5 text-left">
               <img
                 src={selectedMenu?.img}
-                className="aspect-[4/3] w-full rounded-sm object-cover"
+                className="aspect-[4/3] max-h-[50svh] w-full rounded-sm object-cover"
               />
               <DrawerTitle className="mt-2 p-0 text-base font-semibold">
                 {selectedMenu?.name}
@@ -359,36 +491,38 @@ export default function Menu() {
                 <span className="mt-2 block text-sm text-muted-foreground">
                   {selectedMenu?.description}
                 </span>
-                <span className="block text-right text-sm">
+                <span className="block text-right text-sm text-muted-foreground">
                   {formatPrice(selectedMenu?.price)}
                 </span>
-                <div className="mt-5 flex flex-row">
-                  <Button
-                    className="mr-3 w-1/6"
-                    variant="outline"
-                    onClick={() => updateDraft(selectedMenu?.id, "DECREMENT")}
-                  >
-                    -
-                  </Button>
-                  <Input
-                    disabled
-                    value={draft[selectedMenu?.id] || 0}
-                    type={"number"}
-                    className="mr-3 w-1/6 text-center"
-                  />
-                  <Button
-                    className="w-full"
-                    variant="default"
-                    onClick={() => updateDraft(selectedMenu?.id, "INCREMENT")}
-                  >
-                    Tambah
-                  </Button>
+                <div className="mt-2">
+                  <div className="mt-3 flex flex-row">
+                    <Button
+                      className="mr-0 w-fit rounded-r-none border-r-0"
+                      variant="outline"
+                      onClick={() => updateDraft(selectedMenu?.id, "DECREMENT")}
+                    >
+                      -
+                    </Button>
+                    <Input
+                      disabled
+                      value={draft.order[selectedMenu?.id]?.qty || 0}
+                      type={"number"}
+                      className="mr-3 w-1/6 rounded-l-none text-center"
+                    />
+                    <Button
+                      className="w-full"
+                      variant="default"
+                      onClick={() => updateDraft(selectedMenu?.id, "INCREMENT")}
+                    >
+                      Tambah
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
           </DrawerContent>
         </Drawer>
       )}
-    </>
+    </div>
   );
 }
