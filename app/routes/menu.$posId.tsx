@@ -21,88 +21,37 @@ import { parsePhone } from "@/lib/parse-phone";
 import { useLocalStorageState } from "@/lib/use-localstorage-state";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { Form, Link, useActionData, useLoaderData } from "@remix-run/react";
+import { getMenuByPOS, getMenuCategoryPOS } from "app/service/menu";
 import { validatePOSId } from "app/service/pos";
 import { startCase } from "lodash-es";
 import { useState } from "react";
 
-const MENU_STATIC = [
-  {
-    id: 1,
-    name: "Menu 1",
-    price: 2000000,
-    img: "https://images.unsplash.com/photo-1604999565976-8913ad2ddb7c?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=320&h=160&q=80",
-    description:
-      "Lorem ipsum dolor sit amet, consectetur adipisicing elit. Veniam repudiandae distinctio provident similique veritatis iusto voluptatum perspiciatis eligendi commodi ab.",
-    category: ["drinks", "main"]
-  },
-  {
-    id: 2,
-    name: "Menu 2",
-    price: 2500000,
-    img: "https://images.unsplash.com/photo-1540206351-d6465b3ac5c1?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=320&h=160&q=80",
-    description:
-      "Lorem ipsum dolor sit amet, consectetur adipisicing elit. Veniam repudiandae distinctio provident similique veritatis iusto voluptatum perspiciatis eligendi commodi ab.",
-    category: ["main", "drink", "sharing"]
-  },
-  {
-    id: 3,
-    name: "Menu 3",
-    price: 1500000,
-    img: "https://images.unsplash.com/photo-1622890806166-111d7f6c7c97?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=320&h=160&q=80",
-    description:
-      "Lorem ipsum dolor sit amet, consectetur adipisicing elit. Veniam repudiandae distinctio provident similique veritatis iusto voluptatum perspiciatis eligendi commodi ab.",
-    category: ["sharing", "main", "desert"]
-  },
-  {
-    id: 4,
-    name: "Menu 4",
-    price: 1500000,
-    img: "https://images.unsplash.com/photo-1590523277543-a94d2e4eb00b?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=320&h=160&q=80",
-    description:
-      "Lorem ipsum dolor sit amet, consectetur adipisicing elit. Veniam repudiandae distinctio provident similique veritatis iusto voluptatum perspiciatis eligendi commodi ab.",
-    category: ["desert", "sharing"]
-  },
-  {
-    id: 5,
-    name: "Menu 5",
-    price: 1500000,
-    img: "https://images.unsplash.com/photo-1575424909138-46b05e5919ec?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=320&h=160&q=80",
-    description:
-      "Lorem ipsum dolor sit amet, consectetur adipisicing elit. Veniam repudiandae distinctio provident similique veritatis iusto voluptatum perspiciatis eligendi commodi ab.",
-    category: ["condiments"]
-  },
-  {
-    id: 6,
-    name: "Menu 6",
-    price: 1500000,
-    img: "https://images.unsplash.com/photo-1559333086-b0a56225a93c?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=320&h=160&q=80",
-    description:
-      "Lorem ipsum dolor sit amet, consectetur adipisicing elit. Veniam repudiandae distinctio provident similique veritatis iusto voluptatum perspiciatis eligendi commodi ab.",
-    category: ["drinks"]
-  }
-];
+export async function loader({ params }: LoaderFunctionArgs) {
+  const { posId } = params;
+  const [pos, menus, menuCategories] = await Promise.all([
+    validatePOSId?.(posId!),
+    getMenuByPOS?.(posId!),
+    getMenuCategoryPOS?.(posId!)
+  ]);
 
-const MENU = ["main", "drinks", "sharing", "desert", "condiments"];
-
-export async function loader({ request, params }: LoaderFunctionArgs) {
-  const [pos] = await Promise.all([validatePOSId?.(params.posId!)]);
-
-  return { pos };
+  return { pos, menus, menuCategories };
 }
 
 export default function Menu() {
-  const { pos } = useLoaderData<any>();
-  const [filter, setFilter] = useState<any>(MENU[0]);
+  const { pos, menus, menuCategories } = useLoaderData<any>();
+  const [filter, setFilter] = useState<any>(menuCategories?.find(Boolean)?.id);
   const [selectedMenu, setSelectedMenu] = useState<any>(null);
   const [selectedMenuOrder, setSelectedMenuOrder] = useState<any>(null);
-  const [draft, setDraft] = useLocalStorageState("order-draft", { order: {} });
+  const [draftOrder, setDraftOrder] = useLocalStorageState("order-draft", {
+    order: {}
+  });
   const action = useActionData<any>();
 
   function updateDraft(key: any, action: "INCREMENT" | "DECREMENT") {
-    const current = draft.order[String(key)]?.qty || 0;
+    const current = draftOrder.order[String(key)]?.qty || 0;
     const next = action === "INCREMENT" ? current + 1 : current - 1;
 
-    setDraft((prev: any) => {
+    setDraftOrder((prev: any) => {
       if (!prev.order[String(key)]) {
         prev.order[String(key)] = {};
       }
@@ -118,7 +67,7 @@ export default function Menu() {
   }
 
   function clearOutEmpty() {
-    setDraft((prev: any) => {
+    setDraftOrder((prev: any) => {
       return {
         ...prev,
         order: {
@@ -158,9 +107,9 @@ export default function Menu() {
                   <AvatarImage src={pos?.profile_img} />
                   <AvatarFallback>{pos?.name?.substring(0, 2)}</AvatarFallback>
                 </Avatar>
-                <div className="ml-3">
-                  <CardTitle>Menu {pos.name}</CardTitle>
-                  <CardDescription>
+                <div className="ml-3 flex flex-col overflow-hidden pr-4">
+                  <CardTitle className="truncate">Menu {pos.name}</CardTitle>
+                  <CardDescription className="truncate">
                     {pos.description || "Menu "}
                   </CardDescription>
                 </div>
@@ -168,23 +117,23 @@ export default function Menu() {
             </CardHeader>
             <CardContent className="m-0 p-0">
               <div className="flex w-screen snap-x snap-mandatory flex-row overflow-x-scroll px-4 pb-3">
-                {MENU_STATIC.map((menu) => (
+                {menus.map((menu) => (
                   <Link
                     to="#"
-                    className="mr-3 shrink-0 snap-center"
+                    className="mr-3 w-[42.5svh] shrink-0 snap-center lg:w-[320px]"
                     target="_self"
                     onClick={() => setSelectedMenu(menu)}
                     key={`carousel-${menu.id}`}
                   >
                     <img
                       className="aspect-[5/3] w-full rounded-md object-cover"
-                      src={menu.img}
+                      src={menu.imgs?.find(Boolean)}
                     />
-                    <div className="flex flex-row justify-between">
-                      <span className="font-base ml-0.5 mt-1.5 block text-sm text-muted-foreground">
-                        {menu.name}
+                    <div className="mt-1.5 flex flex-row justify-between">
+                      <span className="font-base truncate text-sm text-muted-foreground">
+                        {menu.title}
                       </span>
-                      <span className="font-base ml-0.5 mt-1.5 block text-sm text-muted-foreground">
+                      <span className="font-base ml-2 whitespace-nowrap text-sm text-muted-foreground">
                         {formatPrice(menu.price)}
                       </span>
                     </div>
@@ -200,25 +149,25 @@ export default function Menu() {
                 >
                   {startCase("semua")}
                 </Button>
-                {MENU.map((menu) => (
+                {menuCategories.map((menu) => (
                   <Button
                     className="mr-3"
-                    variant={filter === menu ? "outline" : "secondary"}
-                    onClick={() => setFilter(menu)}
-                    key={`menu-${menu}`}
+                    variant={filter === menu.id ? "outline" : "secondary"}
+                    onClick={() => setFilter(menu.id)}
+                    key={`menu-${menu.id}`}
                   >
-                    {startCase(menu)}
+                    {startCase(menu.title)}
                   </Button>
                 ))}
               </div>
               <div className="mt-2 grid grid-cols-2 gap-4 px-4">
                 {(() => {
                   if (filter && filter !== "all") {
-                    return MENU_STATIC.filter((menu) =>
-                      menu.category.includes(filter)
+                    return menus.filter((menu) =>
+                      menu.categories.includes(filter)
                     );
                   }
-                  return MENU_STATIC;
+                  return menus;
                 })().map((menu) => (
                   <Link
                     to="#"
@@ -228,12 +177,12 @@ export default function Menu() {
                   >
                     <img
                       className="aspect-[4/3] w-full rounded-md object-cover"
-                      src={menu.img}
+                      src={menu.imgs?.find(Boolean)}
                       onClick={() => setSelectedMenu(menu)}
                     />
                     <div className="flex flex-row justify-between">
-                      <span className="font-base ml-0.5 mt-1.5 block text-sm text-muted-foreground">
-                        {menu.name}
+                      <span className="font-base ml-0.5 mt-1.5 block truncate whitespace-nowrap text-sm text-muted-foreground">
+                        {menu.title}
                       </span>
                     </div>
                   </Link>
@@ -244,58 +193,61 @@ export default function Menu() {
         </TabsContent>
         <TabsContent value="order" className="m-0 p-0">
           <div className="mt-2 flex flex-col px-5">
-            {Object.entries(draft.order).map(([key, order]: [string, any]) => {
-              const { qty, notes } = order;
-              const menu = MENU_STATIC.find((menu) => String(menu.id) === key);
-              if (!menu) return null;
-              return (
-                <div
-                  className="mt-3 flex flex-row"
-                  key={`draft-${menu.id}`}
-                  onClick={() => setSelectedMenuOrder(menu)}
-                >
-                  <img
-                    src={menu.img}
-                    className="aspect-[1] h-16 w-16 rounded-sm object-cover"
-                  />
-                  <div className="ml-3 flex w-full flex-col">
-                    <span className="block font-semibold">{menu.name}</span>
-                    <span className="block text-ellipsis text-sm text-muted-foreground">
-                      {notes
-                        ? `Catatan: ${notes}`
-                        : menu.description.substring(0, 50)}
-                    </span>
-                  </div>
-                  <div className="flex flex-col justify-center">
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      value={qty}
-                      className="w-12 text-center"
-                      disabled
+            {Object.entries(draftOrder.order).map(
+              ([key, order]: [string, any]) => {
+                const { qty, notes } = order;
+                const menu = menus.find((menu) => menu.id === key);
+                if (!menu) return null;
+                return (
+                  <div
+                    className="mt-3 flex flex-row"
+                    key={`draft-${menu.id}`}
+                    onClick={() => setSelectedMenuOrder(menu)}
+                  >
+                    <img
+                      src={menu.imgs?.find(Boolean)}
+                      className="aspect-[1] h-16 w-16 rounded-sm object-cover"
                     />
+                    <div className="flex w-full flex-row justify-between overflow-hidden">
+                      <div className="ml-3 flex flex-col overflow-hidden">
+                        <span className="block truncate font-semibold">
+                          {menu.title}
+                        </span>
+                        <span className="block truncate text-sm text-muted-foreground">
+                          {notes ? `Catatan: ${notes}` : menu.description}
+                        </span>
+                      </div>
+                      <div className="ml-4 flex flex-col justify-center">
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          value={qty}
+                          className="w-12 text-center"
+                          disabled
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-            {Object.keys(draft.order).length === 0 && (
+                );
+              }
+            )}
+            {Object.keys(draftOrder.order).length === 0 && (
               <Button className="mt-4" variant="ghost" disabled>
                 Pesanan Anda masih kosong
               </Button>
             )}
-            {Object.keys(draft.order).length > 0 && (
+            {Object.keys(draftOrder.order).length > 0 && (
               <>
                 <div className="mt-4 flex flex-row justify-between rounded-sm bg-zinc-100 px-4 py-4 text-sm">
                   <span>Total</span>
                   <span className="text-muted-foreground">
                     {formatPrice(
-                      Object.keys(draft.order).reduce(
+                      Object.keys(draftOrder.order).reduce(
                         (total, key) =>
                           total +
-                          (MENU_STATIC.find((i) => String(i.id) === key)
-                            ?.price || 0) *
-                            (draft.order[key]?.qty >= 0
-                              ? draft.order[key]?.qty
+                          (menus.find((i) => i.id === key)?.price || 0) *
+                            (draftOrder.order[key]?.qty >= 0
+                              ? draftOrder.order[key]?.qty
                               : 0),
                         0
                       )
@@ -317,12 +269,12 @@ export default function Menu() {
                       name="name"
                       type="text"
                       autoComplete="name"
-                      value={draft.name}
+                      value={draftOrder.name}
                       className={`capitalize ${action?.error?.details?.name && "border-red-400"}`}
                       placeholder="Nama Anda"
                       required
                       onChange={(e) =>
-                        setDraft((prev: any) => ({
+                        setDraftOrder((prev: any) => ({
                           ...prev,
                           name: e.target.value
                         }))
@@ -344,12 +296,12 @@ export default function Menu() {
                       type="text"
                       autoComplete="tel"
                       min={8}
-                      value={draft.phone}
+                      value={draftOrder.phone}
                       inputMode="numeric"
                       placeholder="No Handphone Anda"
                       className={`${action?.error?.details?.phone && "border-red-400"}`}
                       onChange={(e) =>
-                        setDraft((prev: any) => ({
+                        setDraftOrder((prev: any) => ({
                           ...prev,
                           phone: parsePhone(e.target.value)
                         }))
@@ -388,15 +340,15 @@ export default function Menu() {
               <div className="flex flex-col px-1">
                 <div className="mt-4 flex w-full flex-row">
                   <img
-                    src={selectedMenuOrder?.img}
+                    src={selectedMenuOrder?.imgs?.find(Boolean)}
                     className="aspect-[1] h-[4.25rem] w-[4.25rem] rounded-sm object-cover"
                   />
-                  <div className="ml-3 flex w-full flex-col justify-between">
-                    <div className="flex flex-row justify-between">
-                      <span className="block font-semibold">
-                        {selectedMenuOrder?.name}
+                  <div className="ml-3 flex w-full flex-col justify-between overflow-hidden">
+                    <div className="flex flex-row justify-between overflow-hidden">
+                      <span className="block truncate font-semibold">
+                        {selectedMenuOrder?.title}
                       </span>
-                      <span className="block w-fit text-right text-sm text-muted-foreground">
+                      <span className="ml-4 block w-fit whitespace-nowrap text-right text-sm text-muted-foreground">
                         {formatPrice(selectedMenuOrder?.price)}
                       </span>
                     </div>
@@ -404,9 +356,11 @@ export default function Menu() {
                       type="text"
                       placeholder="Catatan"
                       className="normal-case"
-                      value={draft.order[String(selectedMenuOrder?.id)]?.notes}
+                      value={
+                        draftOrder.order[String(selectedMenuOrder?.id)]?.notes
+                      }
                       onChange={(e) =>
-                        setDraft((prev: any) => {
+                        setDraftOrder((prev: any) => {
                           prev.order[String(selectedMenuOrder?.id)].notes =
                             e.target.value;
                           return {
@@ -433,7 +387,7 @@ export default function Menu() {
                     </Button>
                     <Input
                       disabled
-                      value={draft.order[selectedMenuOrder?.id]?.qty || 0}
+                      value={draftOrder.order[selectedMenuOrder?.id]?.qty || 0}
                       type={"number"}
                       className="mr-0 w-1/6 rounded-none text-center"
                     />
@@ -479,11 +433,11 @@ export default function Menu() {
           <DrawerContent className="rounded-t-sm p-0">
             <DrawerHeader className="p-0 px-4 pt-5 text-left">
               <img
-                src={selectedMenu?.img}
+                src={selectedMenu?.imgs?.find(Boolean)}
                 className="aspect-[4/3] max-h-[50svh] w-full rounded-sm object-cover"
               />
               <DrawerTitle className="mt-2 p-0 text-base font-semibold">
-                {selectedMenu?.name}
+                {selectedMenu?.title}
               </DrawerTitle>
             </DrawerHeader>
             <div className="flex select-none flex-col px-4 pb-5">
@@ -505,7 +459,7 @@ export default function Menu() {
                     </Button>
                     <Input
                       disabled
-                      value={draft.order[selectedMenu?.id]?.qty || 0}
+                      value={draftOrder.order[selectedMenu?.id]?.qty || 0}
                       type={"number"}
                       className="mr-3 w-1/6 rounded-l-none text-center"
                     />
