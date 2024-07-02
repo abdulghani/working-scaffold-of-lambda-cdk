@@ -53,7 +53,6 @@ export default function App() {
       <body className="bg-background font-sans antialiased">
         <Outlet />
         <Scripts />
-        <div className="py-8"></div>
       </body>
     </html>
   );

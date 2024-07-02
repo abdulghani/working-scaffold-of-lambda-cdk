@@ -1,12 +1,5 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Drawer,
   DrawerContent,
@@ -28,16 +21,20 @@ import { formatQueueNumber } from "@/lib/format-queue-number";
 import { useRevalidation } from "@/lib/use-revalidation";
 import { TabsContent } from "@radix-ui/react-tabs";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useLoaderData } from "@remix-run/react";
-import { verifySessionPOSAccess } from "app/service/auth";
-import { validatePOSId } from "app/service/pos";
+import { Form, useLoaderData, useOutletContext } from "@remix-run/react";
 import {
   acknowledgeQueue,
   cancelQueue,
   getQueueList,
   getQueueListHistory
 } from "app/service/queue";
-import { CircleCheck, CircleX, Phone } from "lucide-react";
+import {
+  CircleCheck,
+  CircleX,
+  ClipboardList,
+  FileClock,
+  Phone
+} from "lucide-react";
 import { DateTime } from "luxon";
 import { Fragment, useState } from "react";
 
@@ -55,10 +52,7 @@ const QUEUE_ENUM_LABEL: any = {
 };
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await verifySessionPOSAccess?.(request, params.posId!);
-
-  const [pos, list, history] = await Promise.all([
-    validatePOSId?.(params.posId!),
+  const [list, history] = await Promise.all([
     getQueueList?.(params.posId!),
 
     getQueueListHistory?.(params.posId!)
@@ -66,7 +60,6 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
   return {
     queues: list,
-    pos,
     history
   };
 }
@@ -83,7 +76,8 @@ export async function action({ request }: ActionFunctionArgs) {
 }
 
 export default function QueueAdmin() {
-  const { queues, pos, history } = useLoaderData<typeof loader>();
+  const { pos } = useOutletContext<any>();
+  const { queues, history } = useLoaderData<typeof loader>();
   const [historyQueue, setHistoryQueue] = useState<any>(null);
   const [listQueue, setListQueue] = useState<any>(null);
 
@@ -94,35 +88,27 @@ export default function QueueAdmin() {
       <div className="flex w-screen justify-center">
         <Tabs
           defaultValue="list"
-          className="mt-3 w-full overflow-x-hidden lg:w-[400px]"
+          className="mt-0 w-full overflow-x-hidden lg:w-[400px]"
         >
-          <TabsList className="sticky top-3 z-20 mx-4 grid grid-cols-2">
-            <TabsTrigger value="list">Antrian</TabsTrigger>
-            <TabsTrigger value="history">Riwayat</TabsTrigger>
+          <TabsList className="mx-3 mb-2 mt-2 grid h-fit grid-cols-2">
+            <TabsTrigger value="list">
+              <ClipboardList className="mr-2 w-4" />
+              Pesanan
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              <FileClock className="mr-2 w-4" />
+              Riwayat
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="list">
             <Card className="border-0 shadow-none">
-              <CardHeader>
-                <div className="flex flex-row items-center">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={pos.profile_img} />
-                    <AvatarFallback>{pos.name?.substring(0, 2)}</AvatarFallback>
-                  </Avatar>
-                  <div className="ml-3">
-                    <CardTitle>Antrian {pos.name}</CardTitle>
-                    <CardDescription>
-                      {pos.description || "List antrian restoran"}
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-2 px-3">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>#</TableHead>
                       <TableHead>Name</TableHead>
-                      <TableHead>PAX</TableHead>
+
                       <TableHead className="text-right">Time</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -134,7 +120,6 @@ export default function QueueAdmin() {
                             {formatQueueNumber(q.temp_count)}
                           </TableCell>
                           <TableCell>{q.name}</TableCell>
-                          <TableCell>{q.pax}</TableCell>
                           <TableCell className="text-right">
                             {DateTime.fromISO(q.created_at).toRelative()}
                           </TableCell>
@@ -148,21 +133,12 @@ export default function QueueAdmin() {
           </TabsContent>
           <TabsContent value="history">
             <Card className="border-0 shadow-none">
-              <CardHeader>
-                <div className="flex flex-row items-center">
-                  <div className="ml-3">
-                    <CardTitle>Riwayat antrian</CardTitle>
-                    <CardDescription>List riwayat antrian</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
               <CardContent className="space-y-2">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>#</TableHead>
                       <TableHead>Name</TableHead>
-                      <TableHead>PAX</TableHead>
                       <TableHead className="text-right">Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -174,7 +150,6 @@ export default function QueueAdmin() {
                             {formatQueueNumber(q.temp_count)}
                           </TableCell>
                           <TableCell>{q.name}</TableCell>
-                          <TableCell>{q.pax}</TableCell>
                           <TableCell className="text-right">
                             {QUEUE_ENUM_LABEL[q.status]}
                           </TableCell>

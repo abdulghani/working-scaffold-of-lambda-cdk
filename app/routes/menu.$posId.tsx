@@ -83,10 +83,7 @@ export default function Menu() {
 
   return (
     <div className="flex w-full justify-center">
-      <Tabs
-        defaultValue="menu"
-        className="w-full overflow-x-hidden lg:w-[400px]"
-      >
+      <Tabs defaultValue="menu" className="w-full lg:w-[400px]">
         <TabsList className="sticky top-3 z-10 mx-4 mt-3 flex flex-row">
           <TabsTrigger className="w-1/2" value="menu">
             Menu
@@ -99,7 +96,7 @@ export default function Menu() {
             Pesanan
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="menu" className="m-0 p-0">
+        <TabsContent value="menu" className="m-0 overflow-x-hidden p-0">
           <Card className="m-0 border-0 p-0 shadow-none">
             <CardHeader>
               <div className="flex flex-row items-center">
@@ -209,12 +206,17 @@ export default function Menu() {
                       className="aspect-[1] h-16 w-16 rounded-sm object-cover"
                     />
                     <div className="flex w-full flex-row justify-between overflow-hidden">
-                      <div className="ml-3 flex flex-col overflow-hidden">
-                        <span className="block truncate font-semibold">
-                          {menu.title}
-                        </span>
-                        <span className="block truncate text-sm text-muted-foreground">
-                          {notes ? `Catatan: ${notes}` : menu.description}
+                      <div className="ml-3 flex flex-col justify-between overflow-hidden">
+                        <div className="flex flex-col">
+                          <span className="block truncate font-semibold">
+                            {menu.title}
+                          </span>
+                          <span className="block truncate text-sm text-muted-foreground">
+                            {notes ? `Catatan: ${notes}` : menu.description}
+                          </span>
+                        </div>
+                        <span className="block text-xs text-muted-foreground">
+                          {formatPrice(menu.price)}
                         </span>
                       </div>
                       <div className="ml-4 flex flex-col justify-center">

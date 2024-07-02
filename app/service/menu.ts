@@ -16,3 +16,9 @@ export const getMenuCategoryPOS = serverOnly$(async (posId: string) => {
 
   return list;
 });
+
+export const getAdminMenuByPOS = serverOnly$(async (posId: string) => {
+  const list = await dbconn?.("menu").where({ pos_id: posId }).select("*");
+
+  return list;
+});
