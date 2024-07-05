@@ -120,10 +120,7 @@ export default function Queue() {
   return (
     <>
       <div className="flex w-screen justify-center">
-        <Tabs
-          defaultValue="list"
-          className="mt-3 w-full overflow-x-hidden lg:w-[400px]"
-        >
+        <Tabs defaultValue="list" className="mt-3 w-full lg:w-[400px]">
           <TabsList className="sticky top-3 z-10 mx-4 grid grid-cols-2">
             <TabsTrigger value="list">Antrian</TabsTrigger>
             <TabsTrigger value="input">Antri</TabsTrigger>

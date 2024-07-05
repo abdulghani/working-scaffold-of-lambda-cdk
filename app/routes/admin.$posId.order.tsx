@@ -90,7 +90,7 @@ export default function QueueAdmin() {
           defaultValue="list"
           className="mt-0 w-full overflow-x-hidden lg:w-[400px]"
         >
-          <TabsList className="mx-3 mb-2 mt-2 grid h-fit grid-cols-2">
+          <TabsList className="mx-3 mb-2 grid h-fit grid-cols-2">
             <TabsTrigger value="list">
               <ClipboardList className="mr-2 w-4" />
               Pesanan

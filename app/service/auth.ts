@@ -34,6 +34,8 @@ export const otpFlowCookie = createCookie("otpFlow", {
   maxAge: 60 * 60 * 1 // 1 hour
 });
 
+const SESSION_CACHE = new Map<string, any>();
+
 export async function sendOTP(email: string) {
   if (!email) {
     throw new ActionError({
@@ -141,6 +143,7 @@ export async function verifyOTP(options: {
     expires_at: DateTime.now().plus({ days: 7 }).toISO()
   });
   await transaction?.commit();
+  SESSION_CACHE.delete(sessionToken);
 
   const destination = await destinationCookie.parse(
     options.request.headers.get("Cookie")
@@ -166,10 +169,21 @@ export const verifySession = serverOnly$(async (request: Request) => {
       ]
     });
   }
-  const session = await dbconn?.("session")
-    .where({ session_id: sessionToken })
-    .first();
+  const session = await (async () => {
+    if (SESSION_CACHE.has(sessionToken)) {
+      return SESSION_CACHE.get(sessionToken);
+    }
+    const _session = await dbconn?.("session")
+      .where({ session_id: sessionToken })
+      .first();
+    if (_session) {
+      SESSION_CACHE.set(sessionToken, _session);
+    }
+    return _session;
+  })();
+
   if (!session || DateTime.fromISO(session.expires_at) < DateTime.now()) {
+    SESSION_CACHE.delete(sessionToken);
     throw redirect("/login", {
       headers: [
         ["Set-Cookie", await sessionCookie.serialize("", { maxAge: 0 })],

@@ -102,3 +102,21 @@
     height: 0;
   }
 }
+
+[vaul-handle] {
+  width: 100% !important;
+  height: auto !important;
+  background-color: #ffffffff !important;
+  padding: 0.5rem 0 0.75rem 0 !important;
+}
+
+[vaul-handle-hitarea] {
+  width: 30% !important;
+  height: 0.3rem !important;
+  background-color: #00000030;
+  border-radius: 1rem;
+}
+
+[vaul-handle]:hover [vaul-handle-hitarea] {
+  background-color: #00000050;
+}

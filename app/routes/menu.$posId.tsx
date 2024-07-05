@@ -7,10 +7,11 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Drawer,
   DrawerContent,
-  DrawerHeader,
+  DrawerHandle,
   DrawerTitle
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
@@ -19,12 +20,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatPrice } from "@/lib/format-price";
 import { parsePhone } from "@/lib/parse-phone";
 import { useLocalStorageState } from "@/lib/use-localstorage-state";
+import { useRevalidation } from "@/lib/use-revalidation";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { Form, Link, useActionData, useLoaderData } from "@remix-run/react";
 import { getMenuByPOS, getMenuCategoryPOS } from "app/service/menu";
 import { validatePOSId } from "app/service/pos";
 import { startCase } from "lodash-es";
-import { useState } from "react";
+import { Fragment, useMemo, useState } from "react";
+import { useDebouncedMenu } from "./admin.$posId";
 
 export async function loader({ params }: LoaderFunctionArgs) {
   const { posId } = params;
@@ -37,15 +40,43 @@ export async function loader({ params }: LoaderFunctionArgs) {
   return { pos, menus, menuCategories };
 }
 
+function orderDraftReducer(state: any, action: any) {
+  switch (action.type) {
+    default: {
+      return {
+        ...state
+      };
+    }
+  }
+}
+
 export default function Menu() {
   const { pos, menus, menuCategories } = useLoaderData<any>();
   const [filter, setFilter] = useState<any>(menuCategories?.find(Boolean)?.id);
-  const [selectedMenu, setSelectedMenu] = useState<any>(null);
-  const [selectedMenuOrder, setSelectedMenuOrder] = useState<any>(null);
+  const [selectedMenu, setSelectedMenu] = useState<string | null>(null);
+  const [selectedMenuOrder, setSelectedMenuOrder] = useState<string | null>(
+    null
+  );
+  const currentSelectedMenu = useMemo(
+    () => menus?.find((i) => i.id === selectedMenu),
+    [selectedMenu, menus]
+  );
+  const debouncedSelectedMenu = useDebouncedMenu(currentSelectedMenu, 500);
+  const currentSelectedMenuOrder = useMemo(
+    () => menus?.find((i) => i.id === selectedMenuOrder),
+    [selectedMenuOrder, menus]
+  );
+  const debouncedSelectedMenuOrder = useDebouncedMenu(
+    currentSelectedMenuOrder,
+    500
+  );
   const [draftOrder, setDraftOrder] = useLocalStorageState("order-draft", {
     order: {}
   });
   const action = useActionData<any>();
+  const [menuAddonSelection, setMenuAddonSelection] = useState<any>({});
+
+  useRevalidation();
 
   function updateDraft(key: any, action: "INCREMENT" | "DECREMENT") {
     const current = draftOrder.order[String(key)]?.qty || 0;
@@ -64,6 +95,29 @@ export default function Menu() {
         }
       };
     });
+  }
+
+  function handleToggleMenuSelection(options: {
+    menuId: string;
+    addonGroupId: string;
+    addonId: string;
+  }) {
+    const { menuId, addonGroupId, addonId } = options;
+    const selection = structuredClone(menuAddonSelection);
+    if (!selection[menuId]) {
+      selection[menuId] = {};
+    }
+    const nextValue = !selection[menuId][addonId];
+    const addonGroup = menus
+      .find((i) => i.id === menuId)
+      ?.addon_groups?.find((i) => i.id === addonGroupId);
+    if (addonGroup && !addonGroup?.multiple_select && nextValue) {
+      addonGroup?.addons?.forEach((i) => {
+        selection[menuId][i.id] = !nextValue;
+      });
+    }
+    selection[menuId][addonId] = !selection[menuId][addonId];
+    setMenuAddonSelection(selection);
   }
 
   function clearOutEmpty() {
@@ -85,11 +139,11 @@ export default function Menu() {
     <div className="flex w-full justify-center">
       <Tabs defaultValue="menu" className="w-full lg:w-[400px]">
         <TabsList className="sticky top-3 z-10 mx-4 mt-3 flex flex-row">
-          <TabsTrigger className="w-1/2" value="menu">
+          <TabsTrigger className="w-full" value="menu">
             Menu
           </TabsTrigger>
           <TabsTrigger
-            className="w-1/2"
+            className="w-full"
             value="order"
             onClick={() => clearOutEmpty()}
           >
@@ -98,7 +152,7 @@ export default function Menu() {
         </TabsList>
         <TabsContent value="menu" className="m-0 overflow-x-hidden p-0">
           <Card className="m-0 border-0 p-0 shadow-none">
-            <CardHeader>
+            <CardHeader className="py-4">
               <div className="flex flex-row items-center">
                 <Avatar className="h-12 w-12">
                   <AvatarImage src={pos?.profile_img} />
@@ -119,7 +173,7 @@ export default function Menu() {
                     to="#"
                     className="mr-3 w-[42.5svh] shrink-0 snap-center lg:w-[320px]"
                     target="_self"
-                    onClick={() => setSelectedMenu(menu)}
+                    onClick={() => setSelectedMenu(menu?.id)}
                     key={`carousel-${menu.id}`}
                   >
                     <img
@@ -175,7 +229,7 @@ export default function Menu() {
                     <img
                       className="aspect-[4/3] w-full rounded-md object-cover"
                       src={menu.imgs?.find(Boolean)}
-                      onClick={() => setSelectedMenu(menu)}
+                      onClick={() => setSelectedMenu(menu?.id)}
                     />
                     <div className="flex flex-row justify-between">
                       <span className="font-base ml-0.5 mt-1.5 block truncate whitespace-nowrap text-sm text-muted-foreground">
@@ -199,7 +253,7 @@ export default function Menu() {
                   <div
                     className="mt-3 flex flex-row"
                     key={`draft-${menu.id}`}
-                    onClick={() => setSelectedMenuOrder(menu)}
+                    onClick={() => setSelectedMenuOrder(menu?.id)}
                   >
                     <img
                       src={menu.imgs?.find(Boolean)}
@@ -325,160 +379,210 @@ export default function Menu() {
         </TabsContent>
       </Tabs>
 
-      {selectedMenuOrder?.id && (
-        <Drawer
-          open={selectedMenuOrder?.id}
-          onOpenChange={(e) => {
-            if (!e) {
-              setSelectedMenu(null);
-              setSelectedMenuOrder(null);
-              clearOutEmpty();
-            }
-          }}
-          disablePreventScroll={true}
-        >
-          <DrawerContent className="rounded-t-sm p-0">
-            <div className="flex select-none flex-col px-4 pb-5">
-              <div className="flex flex-col px-1">
-                <div className="mt-4 flex w-full flex-row">
-                  <img
-                    src={selectedMenuOrder?.imgs?.find(Boolean)}
-                    className="aspect-[1] h-[4.25rem] w-[4.25rem] rounded-sm object-cover"
+      <Drawer
+        open={!!selectedMenuOrder && currentSelectedMenuOrder?.active}
+        onOpenChange={(e) => {
+          if (!e) {
+            setSelectedMenu(null);
+            setSelectedMenuOrder(null);
+            clearOutEmpty();
+          }
+        }}
+        disablePreventScroll={true}
+      >
+        <DrawerContent className="rounded-t-sm p-0">
+          <div className="flex select-none flex-col px-4 pb-5">
+            <div className="flex flex-col px-1">
+              <div className="mt-4 flex w-full flex-row">
+                <img
+                  src={debouncedSelectedMenuOrder?.imgs?.find(Boolean)}
+                  className="aspect-[1] h-[4.25rem] w-[4.25rem] rounded-sm object-cover"
+                />
+                <div className="ml-3 flex w-full flex-col justify-between overflow-hidden">
+                  <div className="flex flex-row justify-between overflow-hidden">
+                    <span className="block truncate font-semibold">
+                      {debouncedSelectedMenuOrder?.title}
+                    </span>
+                    <span className="ml-4 block w-fit whitespace-nowrap text-right text-sm text-muted-foreground">
+                      {formatPrice(debouncedSelectedMenuOrder?.price)}
+                    </span>
+                  </div>
+                  <Input
+                    type="text"
+                    placeholder="Catatan"
+                    className="normal-case"
+                    value={
+                      draftOrder.order[String(debouncedSelectedMenuOrder?.id)]
+                        ?.notes
+                    }
+                    onChange={(e) =>
+                      setDraftOrder((prev: any) => {
+                        prev.order[
+                          String(debouncedSelectedMenuOrder?.id)
+                        ].notes = e.target.value;
+                        return {
+                          ...prev,
+                          order: {
+                            ...prev.order
+                          }
+                        };
+                      })
+                    }
                   />
-                  <div className="ml-3 flex w-full flex-col justify-between overflow-hidden">
-                    <div className="flex flex-row justify-between overflow-hidden">
-                      <span className="block truncate font-semibold">
-                        {selectedMenuOrder?.title}
-                      </span>
-                      <span className="ml-4 block w-fit whitespace-nowrap text-right text-sm text-muted-foreground">
-                        {formatPrice(selectedMenuOrder?.price)}
-                      </span>
-                    </div>
-                    <Input
-                      type="text"
-                      placeholder="Catatan"
-                      className="normal-case"
-                      value={
-                        draftOrder.order[String(selectedMenuOrder?.id)]?.notes
-                      }
-                      onChange={(e) =>
-                        setDraftOrder((prev: any) => {
-                          prev.order[String(selectedMenuOrder?.id)].notes =
-                            e.target.value;
-                          return {
-                            ...prev,
-                            order: {
-                              ...prev.order
-                            }
-                          };
-                        })
-                      }
-                    />
-                  </div>
                 </div>
-                <div className="mt-2">
-                  <div className="mt-3 flex flex-row">
-                    <Button
-                      className="mr-0 w-fit rounded-r-none border-r-0"
-                      variant="outline"
-                      onClick={() =>
-                        updateDraft(selectedMenuOrder?.id, "DECREMENT")
-                      }
-                    >
-                      -
-                    </Button>
-                    <Input
-                      disabled
-                      value={draftOrder.order[selectedMenuOrder?.id]?.qty || 0}
-                      type={"number"}
-                      className="mr-0 w-1/6 rounded-none text-center"
-                    />
-                    <Button
-                      className="mr-3 w-fit rounded-l-none border-l-0"
-                      variant="outline"
-                      onClick={() =>
-                        updateDraft(selectedMenuOrder?.id, "INCREMENT")
-                      }
-                    >
-                      +
-                    </Button>
-                    <Button
-                      className="w-full"
-                      variant="default"
-                      onClick={() => {
-                        setSelectedMenuOrder(null);
-                        clearOutEmpty();
-                      }}
-                    >
-                      Simpan
-                    </Button>
-                  </div>
+              </div>
+              <div className="mt-2">
+                <div className="mt-3 flex flex-row">
+                  <Button
+                    className="mr-0 w-fit rounded-r-none border-r-0"
+                    variant="outline"
+                    onClick={() =>
+                      updateDraft(debouncedSelectedMenuOrder?.id, "DECREMENT")
+                    }
+                  >
+                    -
+                  </Button>
+                  <Input
+                    disabled
+                    value={
+                      draftOrder.order[debouncedSelectedMenuOrder?.id]?.qty || 0
+                    }
+                    type={"number"}
+                    className="mr-0 w-1/6 rounded-none text-center"
+                  />
+                  <Button
+                    className="mr-3 w-fit rounded-l-none border-l-0"
+                    variant="outline"
+                    onClick={() =>
+                      updateDraft(debouncedSelectedMenuOrder?.id, "INCREMENT")
+                    }
+                  >
+                    +
+                  </Button>
+                  <Button
+                    className="w-full"
+                    variant="default"
+                    onClick={() => {
+                      setSelectedMenuOrder(null);
+                      clearOutEmpty();
+                    }}
+                  >
+                    Simpan
+                  </Button>
                 </div>
               </div>
             </div>
-          </DrawerContent>
-        </Drawer>
-      )}
+          </div>
+        </DrawerContent>
+      </Drawer>
 
-      {selectedMenu?.id && (
-        <Drawer
-          open={selectedMenu?.id}
-          onOpenChange={(e) => {
-            if (!e) {
-              setSelectedMenu(null);
-              setSelectedMenuOrder(null);
-              clearOutEmpty();
-            }
-          }}
-          disablePreventScroll={true}
-        >
-          <DrawerContent className="rounded-t-sm p-0">
-            <DrawerHeader className="p-0 px-4 pt-5 text-left">
+      <Drawer
+        open={!!selectedMenu && currentSelectedMenu?.active}
+        onOpenChange={(e) => {
+          if (!e) {
+            setSelectedMenu(null);
+            setSelectedMenuOrder(null);
+            clearOutEmpty();
+          }
+        }}
+        disablePreventScroll={true}
+      >
+        <DrawerContent className="rounded-t-sm p-0">
+          <DrawerHandle />
+          <div className="flex max-h-[80svh] flex-col overflow-y-scroll">
+            <div className="flex flex-col px-4 pt-1">
               <img
-                src={selectedMenu?.imgs?.find(Boolean)}
+                src={debouncedSelectedMenu?.imgs?.find(Boolean)}
                 className="aspect-[4/3] max-h-[50svh] w-full rounded-sm object-cover"
               />
               <DrawerTitle className="mt-2 p-0 text-base font-semibold">
-                {selectedMenu?.title}
+                {debouncedSelectedMenu?.title}
               </DrawerTitle>
-            </DrawerHeader>
-            <div className="flex select-none flex-col px-4 pb-5">
-              <div className="flex flex-col px-1">
-                <span className="mt-2 block text-sm text-muted-foreground">
-                  {selectedMenu?.description}
-                </span>
-                <span className="block text-right text-sm text-muted-foreground">
-                  {formatPrice(selectedMenu?.price)}
-                </span>
-                <div className="mt-2">
-                  <div className="mt-3 flex flex-row">
-                    <Button
-                      className="mr-0 w-fit rounded-r-none border-r-0"
-                      variant="outline"
-                      onClick={() => updateDraft(selectedMenu?.id, "DECREMENT")}
-                    >
-                      -
-                    </Button>
-                    <Input
-                      disabled
-                      value={draftOrder.order[selectedMenu?.id]?.qty || 0}
-                      type={"number"}
-                      className="mr-3 w-1/6 rounded-l-none text-center"
-                    />
-                    <Button
-                      className="w-full"
-                      variant="default"
-                      onClick={() => updateDraft(selectedMenu?.id, "INCREMENT")}
-                    >
-                      Tambah
-                    </Button>
+            </div>
+
+            <div className="flex flex-col px-4 pb-4">
+              <span className="mt-2 block text-sm text-muted-foreground">
+                {debouncedSelectedMenu?.description}
+              </span>
+              <span className="mb-2 block text-right text-sm text-muted-foreground">
+                {formatPrice(debouncedSelectedMenu?.price)}
+              </span>
+              {debouncedSelectedMenu?.addon_groups?.map((i: any) => (
+                <Fragment key={i.id}>
+                  <span className="mt-1 text-sm font-semibold">{i.title}</span>
+                  <div className="w-full">
+                    <div className="mb-1 w-full border-t border-zinc-100"></div>
                   </div>
+                  {i.addons?.map((j: any) => (
+                    <div
+                      key={j.id}
+                      className="flex shrink-0 flex-row items-center justify-between py-2 transition-colors hover:bg-zinc-50"
+                      onClick={() => {
+                        handleToggleMenuSelection({
+                          menuId: debouncedSelectedMenu?.id,
+                          addonGroupId: i?.id,
+                          addonId: j?.id
+                        });
+                      }}
+                    >
+                      <div className="flex w-full flex-col justify-start overflow-hidden">
+                        <span className="block truncate whitespace-nowrap text-sm font-semibold">
+                          {j.title}
+                        </span>
+                        <span className="block truncate whitespace-nowrap text-xs text-muted-foreground">
+                          {j.description}
+                        </span>
+                        <span className="block whitespace-nowrap text-xs text-muted-foreground">
+                          {formatPrice(j.price)}
+                        </span>
+                      </div>
+                      <Checkbox
+                        className="mr-2"
+                        checked={
+                          menuAddonSelection[debouncedSelectedMenu?.id]?.[
+                            j.id
+                          ] || false
+                        }
+                      />
+                    </div>
+                  ))}
+                </Fragment>
+              ))}
+
+              <div className="mt-2">
+                <div className="mt-3 flex flex-row">
+                  <Button
+                    className="mr-0 w-fit rounded-r-none border-r-0"
+                    variant="outline"
+                    onClick={() =>
+                      updateDraft(debouncedSelectedMenu?.id, "DECREMENT")
+                    }
+                  >
+                    -
+                  </Button>
+                  <Input
+                    disabled
+                    value={
+                      draftOrder.order[debouncedSelectedMenu?.id]?.qty || 0
+                    }
+                    type={"number"}
+                    className="mr-3 w-1/6 rounded-l-none text-center"
+                  />
+                  <Button
+                    className="w-full"
+                    variant="default"
+                    onClick={() =>
+                      updateDraft(debouncedSelectedMenu?.id, "INCREMENT")
+                    }
+                  >
+                    Tambah
+                  </Button>
                 </div>
               </div>
             </div>
-          </DrawerContent>
-        </Drawer>
-      )}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
