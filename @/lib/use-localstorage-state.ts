@@ -1,6 +1,9 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
-export function useLocalStorageState(key: string, defaultValue: any) {
+export function useLocalStorageState<T = any>(
+  key: string,
+  defaultValue: T
+): [T, (value: T) => void] {
   const [state, setState] = useState(defaultValue);
   const shouldUpdate = useDeferredValue(state);
   const storeKey = useMemo(

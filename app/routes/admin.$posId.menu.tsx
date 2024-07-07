@@ -9,6 +9,7 @@ import { LoaderFunctionArgs } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
 import { verifySessionPOSAccess } from "app/service/auth";
 import {
+  Menu,
   getAdminMenuByPOS,
   getMenuCategoryPOS,
   toggleMenu,
@@ -58,7 +59,7 @@ export async function action({ params, request }: LoaderFunctionArgs) {
 export default function AdminMenu() {
   const { pos, menus, menuCategories } = useLoaderData<typeof loader>();
   const [filter, setFilter] = useState("all");
-  const [filteredActive, filteredInactive] = useMemo(() => {
+  const [filteredActive, filteredInactive] = useMemo((): [Menu[], Menu[]] => {
     const filtered =
       filter === "all"
         ? menus
@@ -69,7 +70,7 @@ export default function AdminMenu() {
         if (i.active) return [active.concat(i), inactive];
         return [active, inactive.concat(i)];
       },
-      [[], []]
+      [[], []] as any
     );
   }, [menus, filter]);
   const menuFilter = useMemo(() => {
@@ -79,7 +80,10 @@ export default function AdminMenu() {
   const currentSelectedMenu = useMemo(() => {
     return menus?.find((i) => i.id === selectedMenu);
   }, [selectedMenu, menus]);
-  const debouncedSelectedMenu = useDebouncedMenu(currentSelectedMenu, 500);
+  const debouncedSelectedMenu = useDebouncedMenu<Menu | undefined>(
+    currentSelectedMenu,
+    500
+  );
   const fetcher = useFetcher();
 
   function toggleMenu(menu: any) {
@@ -133,7 +137,7 @@ export default function AdminMenu() {
                 }}
               >
                 <img
-                  src={i.imgs[0]}
+                  src={i.imgs?.[0]}
                   className="h-11 w-11 rounded-sm object-cover"
                 />
                 <div className="ml-3 flex w-full flex-col justify-start overflow-hidden pr-2">
@@ -162,7 +166,7 @@ export default function AdminMenu() {
                 }}
               >
                 <img
-                  src={i.imgs[0]}
+                  src={i.imgs?.[0]}
                   className="h-11 w-11 rounded-sm object-cover"
                 />
                 <div className="ml-3 flex w-full flex-col justify-start overflow-hidden pr-2">
@@ -193,7 +197,7 @@ export default function AdminMenu() {
           <div className="flex max-h-[80svh] w-full flex-col overflow-y-scroll">
             <div className="flex w-full flex-row items-center px-3 py-2 transition-colors hover:bg-zinc-50">
               <img
-                src={debouncedSelectedMenu?.imgs[0]}
+                src={debouncedSelectedMenu?.imgs?.[0]}
                 className="h-12 w-12 rounded-sm object-cover"
               />
               <div className="ml-3 flex flex-col overflow-hidden">

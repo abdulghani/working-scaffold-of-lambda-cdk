@@ -25,7 +25,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   return { pos };
 }
 
-export function useDebouncedMenu(value: any, delay: number) {
+export function useDebouncedMenu<T = any>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
 
   useEffect(() => {
