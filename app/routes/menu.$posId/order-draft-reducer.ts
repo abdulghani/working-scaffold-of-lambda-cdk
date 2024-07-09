@@ -4,38 +4,49 @@ import { createInstanceId, parseInstanceId } from "./order-helper";
 
 /** HASH MENU ADDON, [MENU-ID]-[ADDON-ID-1]-[ADDON-ID-2] */
 
-export type OrderDraftShape = {
-  pos_id: string;
-  name?: string;
-  phone?: string;
-  instance_record_json: OrderInstance;
-};
+export type OrderDraftShape = { [key: string]: OrderInstance };
 
 export function orderDraftReducer(
   state: OrderDraftShape,
   action: Action
 ): OrderDraftShape {
   switch (action.type) {
+    case "CLEAR_COOKIE": {
+      return {};
+    }
     case "FLUSH_INSTANCE_TEMP": {
       const { instance_id, instance } = action.data;
 
       const targetId = createInstanceId(instance.menu_id, instance.addon_ids);
       const qty =
-        instance_id !== targetId && state.instance_record_json[targetId]?.qty
-          ? state.instance_record_json[targetId].qty + instance.qty
+        instance_id !== targetId && state[targetId]?.qty
+          ? state[targetId].qty + instance.qty
           : instance.qty;
       const notes = instance.notes?.trim()
         ? instance.notes
-        : state.instance_record_json[targetId]?.notes;
+        : state[targetId]?.notes;
 
-      state.instance_record_json[targetId] = {
+      state[targetId] = {
         ...instance,
         qty,
         notes
       };
       if (instance_id !== targetId) {
-        delete state.instance_record_json[instance_id];
+        delete state[instance_id];
       }
+
+      return orderDraftReducer(state, { type: "CLEAR_EMPTY" });
+    }
+    case "FLUSH_MENU_TEMP": {
+      const { instance } = action.data;
+
+      const targetId = createInstanceId(instance.menu_id, instance.addon_ids);
+      const qty = (state?.[targetId]?.qty || 0) + instance.qty;
+
+      state[targetId] = {
+        ...instance,
+        qty
+      };
 
       return orderDraftReducer(state, { type: "CLEAR_EMPTY" });
     }
@@ -44,23 +55,20 @@ export function orderDraftReducer(
 
       return {
         ...state,
-        instance_record_json: {
-          ...(state.instance_record_json || {}),
-          [instance_id]: {
-            ...(state.instance_record_json?.[instance_id] || {}),
-            notes
-          }
+        [instance_id]: {
+          ...(state[instance_id] || {}),
+          notes
         }
       };
     }
     case "CLEAR_EMPTY": {
-      Object.entries(state.instance_record_json || {}).forEach(
-        ([key, instance]) => {
-          if (instance.qty <= 0) {
-            delete state.instance_record_json?.[key];
-          }
+      const { menuMap } = action.data || {};
+
+      Object.entries(state || {}).forEach(([key, instance]) => {
+        if (instance.qty <= 0 || (menuMap && !menuMap[instance.menu_id])) {
+          delete state[key];
         }
-      );
+      });
 
       return structuredClone(state);
     }
@@ -70,27 +78,12 @@ export function orderDraftReducer(
 
       return {
         ...state,
-        instance_record_json: {
-          ...(state.instance_record_json || {}),
-          [instance_id]: {
-            ...(state.instance_record_json?.[instance_id] || {}),
-            qty,
-            menu_id: menuId,
-            addon_ids: addonIds
-          }
+        [instance_id]: {
+          ...(state[instance_id] || {}),
+          qty,
+          menu_id: menuId,
+          addon_ids: addonIds
         }
-      };
-    }
-    case "SET_NAME": {
-      return {
-        ...structuredClone(state),
-        name: action.data
-      };
-    }
-    case "SET_PHONE": {
-      return {
-        ...structuredClone(state),
-        phone: action.data
       };
     }
     default: {

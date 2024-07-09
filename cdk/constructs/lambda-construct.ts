@@ -35,7 +35,8 @@ export class LambdaConstruct extends Construct {
         SMTP_PORT: process.env.SMTP_PORT || "",
         SMTP_USER: process.env.SMTP_USER || "",
         SMTP_PASSWORD: process.env.SMTP_PASSWORD || "",
-        TZ: process.env.TZ || ""
+        TZ: process.env.TZ || "",
+        NODE_ENV: process.env.NODE_ENV || "production"
       }
     });
   }

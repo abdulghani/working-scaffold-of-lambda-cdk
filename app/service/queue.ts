@@ -41,11 +41,11 @@ export const getQueueListHistory = serverOnly$(async (posId: string) => {
     .whereIn("status", [QUEUE_ENUM.ACKNOWLEDGED, QUEUE_ENUM.CANCELLED])
     .andWhere({ pos_id: posId })
     .andWhere(
-      "created_at",
+      "updated_at",
       ">=",
       DateTime.now().startOf("day").minus({ day: 2 }).toISO()
     )
-    .orderBy("created_at", "desc");
+    .orderBy("updated_at", "desc");
 
   return list;
 });

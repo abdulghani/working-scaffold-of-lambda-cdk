@@ -1,28 +1,19 @@
+import { APIGatewayProxyEventV2 } from "aws-lambda";
 import { initializeLocale } from "./@/lib/date.js";
 import { createRequestHandler } from "./@/lib/request-handler";
 import * as build from "./build/server/index.js";
 
 initializeLocale();
-const remixHandler = createRequestHandler({
-  build
-});
 
-export async function handler(...args: any) {
-  const [event] = args;
-
-  /** REDIRECT ASSET/PUBLIC FILES */
-  if (
-    event.requestContext.http.method === "GET" &&
-    event.rawPath.startsWith("/assets/")
-  ) {
+export const handler = createRequestHandler({
+  build: build as any,
+  getLoadContext: async (event: APIGatewayProxyEventV2) => {
     return {
-      statusCode: 301,
-      headers: {
-        Location: `https://${process.env.BUCKET_NAME}.s3.amazonaws.com/${event.pathParameters.proxy}`
-      }
+      url: event.rawPath,
+      method: event.requestContext.http.method,
+      headers: event.headers,
+      cookies: event.cookies,
+      context: event.requestContext
     };
   }
-
-  /** INVOKE HANDLER */
-  return await (remixHandler as any)(...args);
-}
+});

@@ -25,6 +25,7 @@ const ADDON_GROUP_SCHEMA = z.object({
   active: z.boolean(),
   required: z.boolean(),
   multiple_select: z.boolean(),
+  default_addon_id: z.string().optional(),
   created_at: z.string(),
   updated_at: z.string(),
   addons: z.array(ADDON_SCHEMA).optional()
@@ -175,3 +176,43 @@ export const toggleMenu = serverOnly$(
     return update;
   }
 );
+
+export const orderGetMenu = serverOnly$(async (menuIds: string[]) => {
+  const list = await dbconn?.("menu")
+    .select([
+      "menu.*",
+      dbconn?.raw(
+        `NULLIF(json_agg(addon_group.*)::TEXT, '[null]')::JSONB as addon_groups`
+      )
+    ])
+    .leftJoin(
+      /** SUB QUERY IN LEFT JOIN */
+      dbconn?.("addon_group")
+        .select([
+          "addon_group.*",
+          dbconn.raw(
+            "NULLIF(json_agg(addon.*)::TEXT, '[null]')::JSONB as addons"
+          )
+        ])
+        .leftJoin(
+          dbconn?.("addon")
+            .select("*")
+
+            .orderBy("addon.title")
+            .as("addon"),
+          "addon_group.id",
+          "addon.addon_group_id"
+        )
+        .groupBy("addon_group.id")
+        .orderBy("addon_group.required", "desc")
+        .orderBy("addon_group.title", "asc")
+        .as("addon_group")
+        .whereIn("addon_group.menu_id", menuIds),
+      "menu.id",
+      "addon_group.menu_id"
+    )
+    .groupBy("menu.id")
+    .whereIn("menu.id", menuIds);
+
+  return Object.fromEntries((list || []).map((i) => [i.id, i]));
+});

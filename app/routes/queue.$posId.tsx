@@ -50,9 +50,12 @@ import {
 } from "app/service/queue";
 import { CircleCheck, CircleX, Timer } from "lucide-react";
 import { DateTime } from "luxon";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-export async function loader({ request, params }: LoaderFunctionArgs) {
+export const loader = wrapActionError(async function ({
+  request,
+  params
+}: LoaderFunctionArgs) {
   const cookie = await queueCookie.parse(request.headers.get("Cookie"));
 
   const [pos, list, queue] = await Promise.all([
@@ -66,7 +69,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     queues: list,
     pos
   };
-}
+});
 
 export const action = wrapActionError(async function ({
   request,
@@ -110,12 +113,6 @@ export default function Queue() {
   const action = useActionData<any>();
   const { queue, queues, pos } = useLoaderData<any>();
   const [cancelDialog, setCancelDialog] = useState(false);
-  const [phoneInput, setPhoneInput] = useState("");
-
-  /** CLEANUP PHONE-INPUT AFTER FORM ACTION */
-  useEffect(() => {
-    setPhoneInput("");
-  }, [queue]);
 
   return (
     <>
@@ -123,7 +120,10 @@ export default function Queue() {
         <Tabs defaultValue="list" className="mt-3 w-full lg:w-[400px]">
           <TabsList className="sticky top-3 z-10 mx-4 grid grid-cols-2">
             <TabsTrigger value="list">Antrian</TabsTrigger>
-            <TabsTrigger value="input">Antri</TabsTrigger>
+            <TabsTrigger value="input">
+              <span>Antri</span>
+              {queue?.id && <Timer className="ml-1.5 h-4 w-4" />}
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="list">
             <Card className="border-0 shadow-none">
@@ -424,12 +424,11 @@ export default function Queue() {
                           type="text"
                           min={8}
                           inputMode="numeric"
-                          value={phoneInput}
                           placeholder="No Handphone Anda"
                           className={`${action?.error?.details?.phone && "border-red-400"}`}
-                          onChange={(e) =>
-                            setPhoneInput(parsePhone(e.target.value))
-                          }
+                          onChange={(e) => {
+                            e.target.value = parsePhone(e.target.value);
+                          }}
                         />
                       </div>
                     </CardContent>

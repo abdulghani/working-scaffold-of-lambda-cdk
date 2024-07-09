@@ -131,23 +131,31 @@ export default function AdminMenu() {
             return (
               <div
                 key={i.id}
-                className="flex flex-row items-center justify-between border-b border-zinc-100 px-3 py-2 transition-colors hover:bg-zinc-50"
+                className="flex flex-row items-center px-3 py-2 transition-colors hover:bg-zinc-50"
                 onClick={() => {
                   setSelectedMenu(i.id);
                 }}
               >
                 <img
                   src={i.imgs?.[0]}
-                  className="h-11 w-11 rounded-sm object-cover"
+                  className="h-14 w-14 rounded-sm object-cover"
                 />
-                <div className="ml-3 flex w-full flex-col justify-start overflow-hidden pr-2">
-                  <span className="block truncate whitespace-nowrap text-sm font-semibold">
-                    {i.title}
-                  </span>
-                  <span className="block truncate whitespace-nowrap text-xs text-muted-foreground">
-                    {i.description}
-                  </span>
-                  <span className="block whitespace-nowrap text-xs text-muted-foreground">
+                <div className="ml-3 flex flex-col justify-between overflow-hidden pr-4">
+                  <div className="flex flex-col">
+                    <span className="block truncate font-semibold">
+                      {i.title}
+                    </span>
+                    {i.addon_groups ? (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {i.addon_groups?.map((j) => j.title).join(", ")}
+                      </span>
+                    ) : (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {i.description}
+                      </span>
+                    )}
+                  </div>
+                  <span className="mt-1 block text-xs text-muted-foreground">
                     {formatPrice(i.price)}
                   </span>
                 </div>
@@ -160,23 +168,31 @@ export default function AdminMenu() {
             return (
               <div
                 key={i.id}
-                className="flex flex-row justify-between border-b border-zinc-100 px-3 py-2 transition-colors hover:bg-zinc-50"
+                className="flex flex-row items-center px-3 py-2 transition-colors hover:bg-zinc-50"
                 onClick={() => {
                   setSelectedMenu(i.id);
                 }}
               >
                 <img
                   src={i.imgs?.[0]}
-                  className="h-11 w-11 rounded-sm object-cover"
+                  className="h-14 w-14 rounded-sm object-cover"
                 />
-                <div className="ml-3 flex w-full flex-col justify-start overflow-hidden pr-2">
-                  <span className="block truncate whitespace-nowrap text-sm font-semibold">
-                    {i.title}
-                  </span>
-                  <span className="block truncate whitespace-nowrap text-xs text-muted-foreground">
-                    {i.description}
-                  </span>
-                  <span className="block whitespace-nowrap text-xs text-muted-foreground">
+                <div className="ml-3 flex flex-col justify-between overflow-hidden pr-4">
+                  <div className="flex flex-col">
+                    <span className="block truncate font-semibold">
+                      {i.title}
+                    </span>
+                    {i.addon_groups ? (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {i.addon_groups?.map((j) => j.title).join(", ")}
+                      </span>
+                    ) : (
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {i.description}
+                      </span>
+                    )}
+                  </div>
+                  <span className="mt-1 block text-xs text-muted-foreground">
                     {formatPrice(i.price)}
                   </span>
                 </div>

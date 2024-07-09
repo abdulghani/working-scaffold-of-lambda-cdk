@@ -10,7 +10,7 @@ export const validatePOSId = serverOnly$(async (posId: string) => {
     return pos;
   }
 
-  pos = await dbconn?.("pos").where({ pos_id: posId }).first();
+  pos = await dbconn?.("pos").where({ id: posId }).first();
   if (pos) {
     POS_CACHE.set(posId, pos);
     return pos;

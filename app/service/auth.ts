@@ -14,7 +14,7 @@ export const sessionCookie = createCookie("session", {
   sameSite: "lax",
   secrets: [COOKIE_SECRET],
   secure: process.env.NODE_ENV === "production",
-  maxAge: 60 * 60 * 24 * 3 // 3 days
+  maxAge: 60 * 60 * 24 * 7 // 7 days
 });
 
 export const destinationCookie = createCookie("destination", {
