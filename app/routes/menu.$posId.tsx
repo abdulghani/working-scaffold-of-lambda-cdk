@@ -311,9 +311,9 @@ export default function Menu() {
                   <AvatarFallback>{pos?.name?.substring(0, 2)}</AvatarFallback>
                 </Avatar>
                 <div className="ml-3 flex flex-col overflow-hidden pr-4">
-                  <CardTitle className="truncate">Menu {pos.name}</CardTitle>
+                  <CardTitle className="truncate">{pos.name}</CardTitle>
                   <CardDescription className="truncate">
-                    {pos.description || "Menu "}
+                    Menu {pos.description}
                   </CardDescription>
                 </div>
               </div>

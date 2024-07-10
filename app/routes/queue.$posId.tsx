@@ -134,9 +134,9 @@ export default function Queue() {
                     <AvatarFallback>{pos.name?.substring(0, 2)}</AvatarFallback>
                   </Avatar>
                   <div className="ml-3">
-                    <CardTitle>Antrian {pos.name}</CardTitle>
+                    <CardTitle>{pos.name}</CardTitle>
                     <CardDescription>
-                      {pos.description || "List antrian restoran"}
+                      Antrian {pos.description || "List antrian restoran"}
                     </CardDescription>
                   </div>
                 </div>
