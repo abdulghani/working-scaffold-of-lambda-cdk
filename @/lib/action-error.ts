@@ -6,9 +6,11 @@ export class ActionError extends Response {
   public description?: string;
   public details?: any;
   public _headers?: HeadersInit;
+  public code?: string;
 
   constructor(options: {
     message: string;
+    code?: string;
     status?: number;
     details?: any;
     headers?: HeadersInit;
@@ -19,6 +21,7 @@ export class ActionError extends Response {
       JSON.stringify({
         error: {
           message: options.message,
+          code: options.code,
           description: options.description,
           details: options.details
         }
@@ -29,6 +32,7 @@ export class ActionError extends Response {
       }
     );
 
+    this.code = options.code;
     this.message = options.message;
     this.description = options.description;
     this.details = options.details;
@@ -56,6 +60,7 @@ export function wrapActionError(action: any) {
           {
             error: {
               message: error.message,
+              code: error.code,
               description: error.description,
               details: error.details
             }

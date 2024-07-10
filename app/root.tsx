@@ -1,4 +1,5 @@
 import { CardDescription, CardTitle } from "@/components/ui/card";
+import { Toaster } from "@/components/ui/toaster";
 import { initializeLocale } from "@/lib/date";
 import { LinksFunction } from "@remix-run/node";
 import { Links, Meta, Outlet, Scripts, useRouteError } from "@remix-run/react";
@@ -52,6 +53,7 @@ export default function App() {
       </head>
       <body className="bg-background font-sans antialiased">
         <Outlet />
+        <Toaster />
         <Scripts />
       </body>
     </html>

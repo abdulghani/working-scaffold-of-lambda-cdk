@@ -18,3 +18,9 @@ export const validatePOSId = serverOnly$(async (posId: string) => {
 
   throw redirect("/404");
 });
+
+export const getPOSTax = serverOnly$(async function (posId: string) {
+  const tax = await dbconn?.("pos_tax").where({ pos_id: posId }).first();
+
+  return tax;
+});

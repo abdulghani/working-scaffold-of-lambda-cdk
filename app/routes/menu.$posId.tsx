@@ -26,10 +26,13 @@ import {
 } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
 import { Element, RecordItem } from "@/constants/element";
 import { wrapActionError } from "@/lib/action-error";
+import { calculateTax } from "@/lib/calculate-tax";
 import { formatPrice } from "@/lib/format-price";
 import { formatQueueNumber } from "@/lib/format-queue-number";
 import { parsePhone } from "@/lib/parse-phone";
@@ -47,17 +50,24 @@ import {
 } from "@remix-run/react";
 import type { Menu } from "app/service/menu";
 import { getMenuByPOS, getMenuCategoryPOS } from "app/service/menu";
-import { createOrder, getOrder, orderCookie } from "app/service/order";
-import { validatePOSId } from "app/service/pos";
+import {
+  createOrder,
+  getOrder,
+  ORDER_CANCELLABLE_STATUS,
+  ORDER_ERROR_CODE,
+  ORDER_STATUS_LABEL_ID,
+  orderCookie,
+  userCancelOrder
+} from "app/service/order";
+import { getPOSTax, validatePOSId } from "app/service/pos";
 import { startCase } from "lodash-es";
-import { Timer } from "lucide-react";
+import { Ban, CircleCheck, CircleX, Timer, Utensils } from "lucide-react";
 import { DateTime } from "luxon";
-import qrCode from "qrcode";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useDebouncedMenu } from "./admin.$posId";
 import {
-  OrderDraftShape,
-  orderDraftReducer
+  orderDraftReducer,
+  OrderDraftShape
 } from "./menu.$posId/order-draft-reducer";
 import { createInstanceId, parseInstanceId } from "./menu.$posId/order-helper";
 
@@ -65,11 +75,12 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const { posId } = params;
   const cookie = await orderCookie.parse(request.headers.get("Cookie"));
 
-  const [pos, menus, menuCategories, order] = await Promise.all([
+  const [pos, menus, menuCategories, order, posTax] = await Promise.all([
     validatePOSId?.(posId!),
     getMenuByPOS?.(posId!),
     getMenuCategoryPOS?.(posId!),
-    getOrder?.(cookie)
+    getOrder?.(cookie),
+    getPOSTax?.(posId!)
   ]);
 
   const menuMap = Object.fromEntries(menus?.map((i) => [i.id, i]) || []);
@@ -81,13 +92,6 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       ?.flatMap((i) => i.addon_groups?.flatMap((j) => j.addons))
       ?.map((i) => [i?.id, i]) || []
   );
-  const orderQRCode = order?.id
-    ? await qrCode.toDataURL(order.id, {
-        width: 500,
-        margin: 1,
-        errorCorrectionLevel: "H"
-      })
-    : null;
 
   return {
     pos,
@@ -97,7 +101,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     menuMap,
     addonGroupMap,
     addonMap,
-    orderQRCode
+    posTax
   };
 }
 
@@ -105,13 +109,13 @@ export const action = wrapActionError(async function ({
   request
 }: ActionFunctionArgs) {
   const payload = await request.formData().then(Object.fromEntries);
+  const cookie = await orderCookie.parse(request.headers.get("Cookie"));
 
   if (payload._action === "_createOrder") {
     payload.instance_record_json = JSON.parse(
       payload.instance_record_json || "{}"
     );
     const result = await createOrder?.(payload);
-
     if (result?.id) {
       throw redirect(`/menu/${payload.pos_id}`, {
         headers: {
@@ -120,6 +124,7 @@ export const action = wrapActionError(async function ({
       });
     }
   } else if (payload._action === "_cancelOrder") {
+    await userCancelOrder?.(cookie);
     throw redirect(`/menu/${payload.pos_id}`, {
       headers: {
         "Set-Cookie": await orderCookie.serialize("", { maxAge: 0 })
@@ -140,7 +145,7 @@ export default function Menu() {
     menuMap,
     addonMap,
     addonGroupMap,
-    orderQRCode
+    posTax
   } = useLoaderData<typeof loader>();
   const action = useActionData<any>();
 
@@ -157,7 +162,6 @@ export default function Menu() {
     RecordItem<OrderDraftShape>
   > | null>(null);
   const [cancelDialog, setCancelDialog] = useState<boolean>(false);
-  const [qrDialog, setQRDialog] = useState<boolean>(false);
 
   /** UI RELATED */
   const [filter, setFilter] = useState<any>(menuCategories?.find(Boolean)?.id);
@@ -165,6 +169,7 @@ export default function Menu() {
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(
     null
   );
+  const { toast } = useToast();
 
   /** STATE UTIL OPTIMIZATION, DEBOUNCED */
   const selectedMenuIdDebounced = useDebouncedMenu(selectedMenuId, 500);
@@ -248,6 +253,23 @@ export default function Menu() {
     return [];
   }
 
+  useEffect(() => {
+    if (action?.error?.code === ORDER_ERROR_CODE.ORDER_NOT_CANCELLABLE) {
+      toast({
+        title: (
+          <div className="flex flex-row items-center">
+            <CircleX className="mr-1.5 h-4 w-4 text-red-500" />
+            Pesanan gagal dibatalkan
+          </div>
+        ),
+        description: (
+          <span className="text-xs">{action?.error?.details?.status}</span>
+        ),
+        duration: 5000
+      });
+    }
+  }, [action]);
+
   return (
     <div className="flex w-full justify-center">
       <Tabs defaultValue="menu" className="w-full lg:w-[400px]">
@@ -268,7 +290,16 @@ export default function Menu() {
             }
           >
             <span className="block">Pesanan</span>
-            {order?.id && <Timer className="ml-1.5 h-4 w-4" />}
+            {order?.id &&
+              (order.status === "ACCEPTED" ? (
+                <Utensils className="ml-1.5 h-4 w-4" />
+              ) : order.status === "COMPLETED" ? (
+                <CircleCheck className="ml-1.5 h-4 w-4" />
+              ) : order.status === "CANCELLED" ? (
+                <Ban className="ml-1.5 h-4 w-4" />
+              ) : (
+                <Timer className="ml-1.5 h-4 w-4" />
+              ))}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="menu" className="m-0 overflow-x-hidden p-0">
@@ -387,7 +418,7 @@ export default function Menu() {
               ) as {
                 [key: string]: Element<Element<Menu["addon_groups"]>["addons"]>;
               };
-              const _currentTotal = Object.values(
+              const _currentTotal: number = Object.values(
                 order.instance_record_json || {}
               ).reduce((t, instance: any) => {
                 const basePrice =
@@ -406,25 +437,103 @@ export default function Menu() {
                 return t + instancePrice;
               }, 0);
 
+              const _totalWTax = order?.tax_snapshot?.value
+                ? _currentTotal +
+                  calculateTax(_currentTotal, order.tax_snapshot.value)
+                : _currentTotal;
+
               return (
                 <div className="mt-3 flex flex-col px-5">
-                  <div className="flex flex-row items-center">
-                    <span className="block text-lg font-semibold">
+                  <div className="flex flex-row items-center text-xl">
+                    <span className="block font-semibold">
                       Pesanan no {formatQueueNumber(order.temp_count)}
                     </span>
-                    <Timer className="ml-1.5 h-5 w-5 text-orange-500" />
+                    {order.status === "ACCEPTED" ? (
+                      <Utensils className="ml-1.5 h-5 w-5 text-green-400" />
+                    ) : order.status === "COMPLETED" ? (
+                      <CircleCheck className="ml-1.5 h-5 w-5 text-green-400" />
+                    ) : order.status === "CANCELLED" ? (
+                      <Ban className="ml-1.5 h-5 w-5 text-red-500" />
+                    ) : (
+                      <Timer className="ml-1.5 h-5 w-5 text-orange-500" />
+                    )}
                   </div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    Anda sudah membuat pesanan, sedang dalam status (
-                    {order.status})
+                  <div className="mb-1 text-sm text-muted-foreground">
+                    Anda sudah membuat pesanan
                   </div>
-                  <div className="mt-2 truncate whitespace-nowrap rounded-sm bg-secondary px-3 py-3 text-sm text-muted-foreground">
-                    {DateTime.fromISO(order.created_at).toFormat(
-                      "ccc, dd MMM yyyy, HH:mm ZZZZ"
-                    )}{" "}
-                    ({DateTime.fromISO(order.created_at).toRelative()})
-                  </div>
-                  <div>
+
+                  <Table className="mb-1 border-b border-muted">
+                    <TableBody>
+                      <TableRow>
+                        <TableCell>#</TableCell>
+                        <TableCell className="text-right">
+                          {formatQueueNumber(order.temp_count)}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Nama</TableCell>
+                        <TableCell className="text-right">
+                          {order.name}
+                        </TableCell>
+                      </TableRow>
+                      <TableRow>
+                        <TableCell>Status</TableCell>
+                        <TableCell className="text-right">
+                          {ORDER_STATUS_LABEL_ID[order.status]}
+                        </TableCell>
+                      </TableRow>
+                      {order.pos_notes && (
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            Catatan penjual
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {order.pos_notes}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow>
+                        <TableCell>Waktu</TableCell>
+                        <TableCell className="text-right">
+                          <span className="block">
+                            {DateTime.fromISO(order.created_at).toFormat(
+                              "dd MMM yyyy, HH:mm ZZZZ"
+                            )}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {DateTime.fromISO(order.created_at).toRelative()}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                      {order.tax_snapshot?.value && (
+                        <TableRow className="text-xs">
+                          <TableCell className="whitespace-nowrap">
+                            Pajak daerah ({order.tax_snapshot.value}%)
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {formatPrice(
+                              calculateTax(
+                                _currentTotal,
+                                order.tax_snapshot.value
+                              )
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow>
+                        <TableCell>
+                          <span className="block">Total</span>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <span className="block">
+                            {formatPrice(_totalWTax)}
+                          </span>
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+
+                  <div className="">
                     {Object.entries(order.instance_record_json || {}).map(
                       ([key, instance]: any) => {
                         const { notes, qty } = instance;
@@ -441,15 +550,18 @@ export default function Menu() {
                         );
 
                         return (
-                          <div className="mt-3 flex flex-row" key={key}>
+                          <div
+                            className="-mx-2 flex flex-row rounded-sm px-2 py-2 transition-colors hover:bg-muted"
+                            key={key}
+                          >
                             <img
                               src={menu.imgs?.find(Boolean)}
-                              className="aspect-[1] h-16 w-16 rounded-sm object-cover"
+                              className="aspect-[1] h-14 w-14 rounded-sm object-cover"
                             />
                             <div className="flex w-full flex-row justify-between overflow-hidden">
                               <div className="ml-3 flex flex-col justify-between overflow-hidden">
                                 <div className="flex flex-col">
-                                  <span className="block truncate font-semibold">
+                                  <span className="block truncate text-sm font-semibold">
                                     {menu.title}
                                   </span>
                                   {addons?.length ? (
@@ -488,24 +600,18 @@ export default function Menu() {
                       }
                     )}
                   </div>
-                  <div className="mt-4 flex flex-row justify-between rounded-sm bg-zinc-100 px-4 py-4 text-sm text-muted-foreground">
-                    <span>Total</span>
-                    <span>{formatPrice(_currentTotal)}</span>
+                  <div className="mb-4 flex w-full flex-col">
+                    <Button
+                      variant={"secondary"}
+                      className="mt-2 w-full"
+                      onClick={() => setCancelDialog(true)}
+                      disabled={
+                        !ORDER_CANCELLABLE_STATUS.includes(order.status)
+                      }
+                    >
+                      Buat pesanan baru
+                    </Button>
                   </div>
-                  <Button
-                    variant="default"
-                    className="mt-3 w-full"
-                    onClick={() => setQRDialog(true)}
-                  >
-                    Tunjukan QR
-                  </Button>
-                  <Button
-                    variant={"outline"}
-                    className="mt-3 w-full"
-                    onClick={() => setCancelDialog(true)}
-                  >
-                    Batalkan pesanan
-                  </Button>
                 </div>
               );
             })()
@@ -527,7 +633,7 @@ export default function Menu() {
 
                 return (
                   <div
-                    className="mt-3 flex flex-row"
+                    className="-mx-2 flex flex-row rounded-sm px-2 py-2 transition-colors hover:bg-zinc-100"
                     key={`draft-${key}`}
                     onClick={() => {
                       setSelectedInstanceId(key);
@@ -583,10 +689,25 @@ export default function Menu() {
               )}
               {Object.keys(draftOrder || {}).length > 0 && (
                 <>
-                  <div className="mt-4 flex flex-row justify-between rounded-sm bg-zinc-100 px-4 py-4 text-sm text-muted-foreground">
+                  {posTax?.value && (
+                    <div className="mt-1 flex flex-row items-center justify-between rounded-sm bg-background px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-zinc-100">
+                      <span>Pajak daerah ({posTax.value}%)</span>
+                      <span>
+                        {formatPrice(calculateTax(draftTotal, posTax.value))}
+                      </span>
+                    </div>
+                  )}
+                  <div className="mt-2 flex flex-row items-center justify-between rounded-sm bg-zinc-50 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-zinc-100">
                     <span>Total</span>
-                    <span>{formatPrice(draftTotal)}</span>
+                    <span>
+                      {formatPrice(
+                        posTax?.value
+                          ? draftTotal + calculateTax(draftTotal, posTax.value)
+                          : draftTotal
+                      )}
+                    </span>
                   </div>
+
                   <Form method="post">
                     <div className="mt-3 space-y-1">
                       <Label htmlFor="name">
@@ -652,23 +773,12 @@ export default function Menu() {
         </TabsContent>
       </Tabs>
 
-      <AlertDialog open={qrDialog} onOpenChange={setQRDialog}>
-        <AlertDialogContent
-          className="px-4 py-4 sm:rounded-none"
-          onClickOverlay={() => setQRDialog(false)}
-        >
-          <div className="flex w-full flex-col">
-            <img src={orderQRCode || ""} className="w-full" />
-          </div>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <AlertDialog open={cancelDialog} onOpenChange={setCancelDialog}>
         <AlertDialogContent className="py-8 sm:rounded-sm">
           <AlertDialogHeader>
             <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
             <AlertDialogDescription>
-              Pesanan akan dibatalkan dan tidak bisa dikembalikan
+              Pesanan akan dihapus dan tidak bisa dikembalikan
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Form
