@@ -1,8 +1,22 @@
 import { redirect } from "@remix-run/node";
 import { serverOnly$ } from "vite-env-only/macros";
+import { z } from "zod";
 import { dbconn } from "./db";
 
 const POS_CACHE = new Map<string, any>();
+
+export const POS_SCHEMA = z.object({
+  id: z.string(),
+  tenant_id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  profile_img: z.string().optional(),
+  created_at: z.string(),
+  updated_at: z.string(),
+  base_payment_qr: z.string().optional()
+});
+
+export type POS = z.infer<typeof POS_SCHEMA>;
 
 export const validatePOSId = serverOnly$(async (posId: string) => {
   let pos = POS_CACHE.get(posId);

@@ -34,6 +34,7 @@ import {
   adminGetAcceptedOrders,
   adminGetHistoryOrders,
   adminGetPendingOrders,
+  generateOrderQrCode,
   ORDER_ERROR_CODE,
   ORDER_STATUS_ENUM,
   ORDER_STATUS_LABEL_ID
@@ -84,6 +85,7 @@ export const action = wrapActionError(async function ({
 }: ActionFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
   const payload = await request.formData().then(Object.fromEntries);
+
   if (payload._action === "accept") {
     const order = await adminAcceptOrder?.(payload.order_id!);
     return { order };
@@ -93,6 +95,9 @@ export const action = wrapActionError(async function ({
   } else if (payload._action === "complete") {
     const order = await adminCompleteOrder?.(payload.order_id!);
     return { order };
+  } else if (payload._action === "generate_payment_qr") {
+    const qrcode = await generateOrderQrCode?.(payload.order_id!);
+    return { qrcode };
   }
 
   return {};
@@ -153,6 +158,19 @@ export default function OrderAdmin() {
         ),
         duration: 5000
       });
+    }
+    if (action?.qrcode) {
+      qrcode
+        .toDataURL(action.qrcode, {
+          width: 500,
+          errorCorrectionLevel: "medium",
+          margin: 1,
+          color: {
+            dark: "#000000",
+            light: "#ffffff"
+          }
+        })
+        .then((url) => setQrPayment(url));
     }
   }, [action]);
 
@@ -596,7 +614,7 @@ export default function OrderAdmin() {
                   <div className="mt-3 flex w-full flex-row gap-2 px-2">
                     <Form
                       method="post"
-                      className="w-1/2"
+                      className="flex w-full flex-row gap-2"
                       onSubmit={() => setSelectedOrder(null)}
                     >
                       <Input
@@ -609,52 +627,39 @@ export default function OrderAdmin() {
                         type="submit"
                         name="_action"
                         value="complete"
-                        className="w-full"
+                        className="w-1/2"
                       >
                         Selesai
                       </Button>
+                      <Button
+                        variant={"default"}
+                        className="w-1/2"
+                        value="generate_payment_qr"
+                        name="_action"
+                        type="submit"
+                      >
+                        QR Pembayaran
+                      </Button>
                     </Form>
-                    <Button
-                      variant={"default"}
-                      className="w-1/2"
-                      onClick={() => {
-                        qrcode
-                          .toDataURL(deferredOrder?.id, {
-                            width: 500,
-                            errorCorrectionLevel: "H",
-                            margin: 1,
-                            color: {
-                              dark: "#000000",
-                              light: "#ffffff"
-                            }
-                          })
-                          .then((data) => setQrPayment(data));
-                      }}
-                    >
-                      QR Pembayaran
-                    </Button>
                   </div>
                 ) : (
                   <div className="mt-3 flex w-full flex-row gap-2 px-2">
-                    <Button
-                      variant={"secondary"}
-                      className="w-full"
-                      onClick={() => {
-                        qrcode
-                          .toDataURL(deferredOrder?.id, {
-                            width: 500,
-                            errorCorrectionLevel: "H",
-                            margin: 1,
-                            color: {
-                              dark: "#000000",
-                              light: "#ffffff"
-                            }
-                          })
-                          .then((data) => setQrPayment(data));
-                      }}
-                    >
-                      QR Pembayaran
-                    </Button>
+                    <Form method="post" className="w-full">
+                      <Input
+                        type="hidden"
+                        name="order_id"
+                        value={deferredOrder?.id}
+                      />
+                      <Button
+                        variant={"secondary"}
+                        className="w-full"
+                        type="submit"
+                        name="_action"
+                        value="generate_payment_qr"
+                      >
+                        QR Pembayaran
+                      </Button>
+                    </Form>
                   </div>
                 )}
               </div>

@@ -13,6 +13,7 @@ import { z } from "zod";
 import { dbconn } from "./db";
 import { orderGetMenu } from "./menu";
 import { getPOSTax } from "./pos";
+import { generateQRData } from "./qrcode";
 
 const ORDER_INSTANCE_SCHEMA = z.object({
   menu_id: z.string().trim(),
@@ -311,7 +312,6 @@ export const adminCancelOrder = serverOnly$(async function (
 export const adminCompleteOrder = serverOnly$(async function (orderId: string) {
   const order = await dbconn?.("order").where({ id: orderId }).first();
   if (ORDER_END_STATUS.includes(order?.status)) {
-    console.log("GOES HERE", order?.status);
     throw new ActionError({
       message: "Order is already completed or cancelled",
       code: ORDER_ERROR_CODE.INVALID_ORDER_STATUS,
@@ -331,4 +331,68 @@ export const adminCompleteOrder = serverOnly$(async function (orderId: string) {
     .returning("*");
 
   return result?.find(Boolean);
+});
+
+export const generateOrderQrCode = serverOnly$(async function (
+  orderId: string
+) {
+  const order = await dbconn?.("order").where({ id: orderId }).first();
+
+  if (!order) {
+    throw new ActionError({
+      message: "Order not found",
+      status: 404,
+      details: {
+        order_id: orderId
+      }
+    });
+  }
+
+  const pos = await dbconn?.("pos").where({ id: order.pos_id }).first();
+
+  if (!pos?.base_payment_qr) {
+    throw new ActionError({
+      message: "POS does not have qr code",
+      status: 400,
+      details: {
+        pos_id: order.pos_id
+      }
+    });
+  }
+
+  const subTotal = Object.values(order.instance_record_json).reduce((t, i) => {
+    const menu = order.menu_snapshot[i.menu_id];
+    const addonMap = Object.fromEntries(
+      menu.addon_groups
+        ?.flatMap((g) => g?.addons || [])
+        ?.map((a) => [a.id, a]) || []
+    );
+    const itemPrice =
+      i.addon_ids?.reduce(
+        (ta, a) => {
+          return ta + (Number(addonMap?.[a]?.price) || 0);
+        },
+        Number(menu.price) || 0
+      ) ||
+      Number(menu.price) ||
+      0;
+    const itemTotal = itemPrice * (Number(i.qty) || 1);
+    return t + itemTotal;
+  }, 0) as number;
+
+  const total = (() => {
+    if (!order.tax_snapshot?.value) {
+      return subTotal;
+    }
+    const taxAmount =
+      subTotal * ((Number(order.tax_snapshot?.value) || 0) / 100);
+    return subTotal + taxAmount;
+  })();
+
+  return generateQRData({
+    ...pos,
+    amount: String(total),
+    order_number: padNumber(order.temp_count),
+    customer_name: order.name
+  });
 });
