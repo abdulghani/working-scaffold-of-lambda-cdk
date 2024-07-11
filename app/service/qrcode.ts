@@ -4,6 +4,7 @@ import {
   IEMVQR
 } from "emvqrcode-tools/src/emv/types";
 
+import { serverOnly$ } from "vite-env-only/macros";
 import { POS } from "./pos";
 
 export type GenerateQROptions = Partial<POS> & {
@@ -16,7 +17,9 @@ const MERCHANT_CATEGORY_CODE = "5812"; // Eating Places & Restaurants
 const CURRENCY_CODE = "360"; // IDR
 const DEFAULT_MERCHANT_CITY = "Jakarta";
 
-export function generateQRData(options: GenerateQROptions): string {
+export const generateQRData = serverOnly$(function (
+  options: GenerateQROptions
+): string {
   if (!options.base_payment_qr) {
     throw new Error("POS does not have base_payment_qr");
   }
@@ -47,4 +50,4 @@ export function generateQRData(options: GenerateQROptions): string {
   // emv.setAdditionalDataFieldTemplate(template);
 
   return emv.generatePayload();
-}
+});
