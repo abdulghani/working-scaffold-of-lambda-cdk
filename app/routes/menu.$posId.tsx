@@ -4,7 +4,6 @@ import {
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
-  AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle
 } from "@/components/ui/alert-dialog";
@@ -34,7 +33,7 @@ import { Element, RecordItem } from "@/constants/element";
 import { wrapActionError } from "@/lib/action-error";
 import { calculateTax } from "@/lib/calculate-tax";
 import { formatPrice } from "@/lib/format-price";
-import { formatQueueNumber } from "@/lib/format-queue-number";
+import { padNumber } from "@/lib/pad-number";
 import { parsePhone } from "@/lib/parse-phone";
 import { useLocalStorageState } from "@/lib/use-localstorage-state";
 import { useRevalidation } from "@/lib/use-revalidation";
@@ -55,6 +54,7 @@ import {
   getOrder,
   ORDER_CANCELLABLE_STATUS,
   ORDER_ERROR_CODE,
+  ORDER_STATUS_ENUM,
   ORDER_STATUS_LABEL_ID,
   orderCookie,
   userCancelOrder
@@ -124,7 +124,7 @@ export const action = wrapActionError(async function ({
       });
     }
   } else if (payload._action === "_cancelOrder") {
-    await userCancelOrder?.(cookie);
+    await userCancelOrder?.(cookie, payload?.notes);
     throw redirect(`/menu/${payload.pos_id}`, {
       headers: {
         "Set-Cookie": await orderCookie.serialize("", { maxAge: 0 })
@@ -446,7 +446,7 @@ export default function Menu() {
                 <div className="mt-3 flex flex-col px-5">
                   <div className="flex flex-row items-center text-xl">
                     <span className="block font-semibold">
-                      Pesanan no {formatQueueNumber(order.temp_count)}
+                      Pesanan no {padNumber(order.temp_count)}
                     </span>
                     {order.status === "ACCEPTED" ? (
                       <Utensils className="ml-1.5 h-5 w-5 text-green-400" />
@@ -467,7 +467,7 @@ export default function Menu() {
                       <TableRow>
                         <TableCell>#</TableCell>
                         <TableCell className="text-right">
-                          {formatQueueNumber(order.temp_count)}
+                          {padNumber(order.temp_count)}
                         </TableCell>
                       </TableRow>
                       <TableRow>
@@ -482,13 +482,16 @@ export default function Menu() {
                           {ORDER_STATUS_LABEL_ID[order.status]}
                         </TableCell>
                       </TableRow>
-                      {order.pos_notes && (
+                      {order.notes && (
                         <TableRow>
                           <TableCell className="whitespace-nowrap">
-                            Catatan penjual
+                            {order?.status !==
+                            ORDER_STATUS_ENUM.CANCELLED_BY_USER
+                              ? "Catatan penjual"
+                              : "Catatan pelanggan"}
                           </TableCell>
                           <TableCell className="text-right">
-                            {order.pos_notes}
+                            {order.notes}
                           </TableCell>
                         </TableRow>
                       )}
@@ -794,14 +797,21 @@ export default function Menu() {
             <Input type="hidden" name="_action" value="_cancelOrder" />
             <Input type="hidden" name="order_id" value={order?.id} />
             <Input type="hidden" name="pos_id" value={posId} />
-            <AlertDialogFooter className="flex flex-row items-center justify-center">
+            <Textarea
+              rows={2}
+              className="mb-3"
+              placeholder="Alasan pembatalan"
+              minLength={3}
+              name="notes"
+            />
+            <div className="flex flex-row items-center justify-center">
               <AlertDialogAction type="submit" className="mr-3 w-1/2">
                 Hapus
               </AlertDialogAction>
               <AlertDialogCancel className="mt-0 w-1/2">
                 Batal
               </AlertDialogCancel>
-            </AlertDialogFooter>
+            </div>
           </Form>
         </AlertDialogContent>
       </AlertDialog>
@@ -1026,7 +1036,6 @@ export default function Menu() {
 
           return (
             <DrawerContent>
-              <DrawerHandle />
               <div className="flex flex-col overflow-y-scroll">
                 <div className="flex flex-col px-4 pt-1">
                   <img

@@ -16,7 +16,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatQueueNumber } from "@/lib/format-queue-number";
+import { padNumber } from "@/lib/pad-number";
 import { useRevalidation } from "@/lib/use-revalidation";
 import { TabsContent } from "@radix-ui/react-tabs";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
@@ -49,7 +49,7 @@ const QUEUE_ENUM_LABEL: any = {
   PENDING: "Menunggu",
   ACKNOWLEDGED: "Diterima",
   CANCELLED: "Ditolak",
-  USER_CANCELLED: "Dibatalkan pengguna"
+  USER_CANCELLED: "Dibatalkan pelanggan"
 };
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -94,17 +94,17 @@ export default function QueueAdmin() {
     if (!queryDeferred?.trim()) {
       return [queues, history];
     }
-    const regex = new RegExp(queryDeferred.trim(), "i");
+    const regex = new RegExp(queryDeferred.replace(/^0/i, ""), "i");
     const queuesFiltered = queues?.filter(
       (q) =>
         regex.test(q.name) ||
-        regex.test(formatQueueNumber(q.temp_count)) ||
+        regex.test(padNumber(q.temp_count)) ||
         regex.test(q.phone)
     );
     const historyFiltered = history?.filter(
       (q) =>
         regex.test(q.name) ||
-        regex.test(formatQueueNumber(q.temp_count)) ||
+        regex.test(padNumber(q.temp_count)) ||
         regex.test(q.phone)
     );
 
@@ -158,7 +158,7 @@ export default function QueueAdmin() {
                   <Fragment key={q.id}>
                     <TableRow onClick={() => setListQueue(q)}>
                       <TableCell className="font-medium">
-                        {formatQueueNumber(q.temp_count)}
+                        {padNumber(q.temp_count)}
                       </TableCell>
                       <TableCell>{q.name}</TableCell>
                       <TableCell>{q.pax}</TableCell>
@@ -204,7 +204,7 @@ export default function QueueAdmin() {
                   <Fragment key={q.id}>
                     <TableRow onClick={() => setHistoryQueue(q)}>
                       <TableCell className="font-medium">
-                        {formatQueueNumber(q.temp_count)}
+                        {padNumber(q.temp_count)}
                       </TableCell>
                       <TableCell>{q.name}</TableCell>
                       <TableCell>{q.pax}</TableCell>
@@ -229,7 +229,7 @@ export default function QueueAdmin() {
         <DrawerContent className="rounded-t-sm px-3">
           <DrawerHeader>
             <DrawerTitle>
-              Antrian {formatQueueNumber(listQueueDebounced?.temp_count)}
+              Antrian {padNumber(listQueueDebounced?.temp_count)}
             </DrawerTitle>
             <DrawerDescription>
               Terima antrian atau tolak antrian ini
@@ -240,7 +240,7 @@ export default function QueueAdmin() {
               <TableRow>
                 <TableCell className="text-left">No antrian</TableCell>
                 <TableCell className="text-right">
-                  {formatQueueNumber(listQueueDebounced?.temp_count)}
+                  {padNumber(listQueueDebounced?.temp_count)}
                 </TableCell>
               </TableRow>
               <TableRow>
@@ -352,8 +352,7 @@ export default function QueueAdmin() {
         <DrawerContent className="rounded-t-sm px-3 pb-5">
           <DrawerHeader>
             <DrawerTitle>
-              Data antrian{" "}
-              {formatQueueNumber(historyQueueDebounced?.temp_count)}
+              Data antrian {padNumber(historyQueueDebounced?.temp_count)}
             </DrawerTitle>
           </DrawerHeader>
           <Table>
@@ -361,7 +360,7 @@ export default function QueueAdmin() {
               <TableRow>
                 <TableCell className="text-left">No antrian</TableCell>
                 <TableCell className="text-right">
-                  {formatQueueNumber(historyQueueDebounced?.temp_count)}
+                  {padNumber(historyQueueDebounced?.temp_count)}
                 </TableCell>
               </TableRow>
               <TableRow>

@@ -1,10 +1,12 @@
 import { ActionError } from "@/lib/action-error";
+import { padNumber } from "@/lib/pad-number";
 import { parseZodIssue } from "@/lib/parse-zod-issue";
 import { ZOD_PHONE_TYPE } from "@/lib/zod-phone-type";
 import { createCookie } from "@remix-run/node";
 import { OrderDraftShape } from "app/routes/menu.$posId/order-draft-reducer";
 import { parseInstanceId } from "app/routes/menu.$posId/order-helper";
 import { startCase } from "lodash-es";
+import { DateTime } from "luxon";
 import { ulid } from "ulid";
 import { serverOnly$ } from "vite-env-only/macros";
 import { z } from "zod";
@@ -43,8 +45,16 @@ export const ORDER_SCHEMA = z.object({
       "CANCELLED_BY_USER"
     ])
     .default("PENDING"),
-  pos_notes: z.string().optional()
+  notes: z.string().optional()
 });
+
+export const ORDER_STATUS_ENUM = {
+  PENDING: "PENDING",
+  ACCEPTED: "ACCEPTED",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+  CANCELLED_BY_USER: "CANCELLED_BY_USER"
+};
 
 export const ORDER_CANCELLABLE_STATUS = [
   "PENDING",
@@ -58,8 +68,8 @@ export const ORDER_STATUS_LABEL_ID: { [key: string]: string } = {
   PENDING: "Menunggu",
   ACCEPTED: "Diterima",
   COMPLETED: "Selesai",
-  CANCELLED: "Dibatalkan penjual",
-  CANCELLED_BY_USER: "Dibatalkan pengguna"
+  CANCELLED: "Dibatalkan",
+  CANCELLED_BY_USER: "Dibatalkan pelanggan"
 };
 
 export type OrderInstance = z.infer<typeof ORDER_INSTANCE_SCHEMA>;
@@ -76,7 +86,8 @@ export const orderCookie = createCookie("order", {
 });
 
 export const ORDER_ERROR_CODE = {
-  ORDER_NOT_CANCELLABLE: "ORDER_NOT_CANCELLABLE"
+  ORDER_NOT_CANCELLABLE: "ORDER_NOT_CANCELLABLE",
+  INVALID_ORDER_STATUS: "INVALID_ORDER_STATUS"
 };
 
 export const createOrder = serverOnly$(async function (orderDraft: {
@@ -104,7 +115,13 @@ export const createOrder = serverOnly$(async function (orderDraft: {
   const taxSnapshot = await getPOSTax?.(pos_id);
 
   const count = await dbconn?.("order_count").where({ pos_id }).first();
-  const orderCount = (Number(count?.count) || 0) + 1;
+  const orderCount = (() => {
+    /** RESET 999 to 1 */
+    if (count?.count && String(count?.count).length > 3) {
+      return 1;
+    }
+    return (Number(count?.count) || 0) + 1;
+  })();
 
   const transaction = await dbconn?.transaction();
   const result = await transaction?.("order")
@@ -164,7 +181,10 @@ export const getOrder = serverOnly$(async function (orderId?: string) {
   return result;
 });
 
-export const userCancelOrder = serverOnly$(async function (orderId: string) {
+export const userCancelOrder = serverOnly$(async function (
+  orderId: string,
+  notes?: string
+) {
   const order = await getOrder?.(orderId);
 
   if (!order || ORDER_END_STATUS.includes(order.status)) {
@@ -186,6 +206,126 @@ export const userCancelOrder = serverOnly$(async function (orderId: string) {
     .where({ id: orderId })
     .update({
       status: "CANCELLED_BY_USER",
+      notes,
+      updated_at: new Date().toISOString()
+    })
+    .returning("*");
+
+  return result?.find(Boolean);
+});
+
+export const adminGetPendingOrders = serverOnly$(async function (
+  posId: string
+) {
+  const result = await dbconn?.("order")
+    .select("*")
+    .where({ pos_id: posId, status: "PENDING" })
+    .orderBy("created_at", "desc");
+
+  return result;
+});
+
+export const adminGetAcceptedOrders = serverOnly$(async function (
+  posId: string
+) {
+  const result = await dbconn?.("order")
+    .where({ pos_id: posId, status: "ACCEPTED" })
+    .andWhere(
+      "updated_at",
+      ">=",
+      DateTime.now().startOf("day").minus({ day: 2 }).toISO()
+    )
+    .orderBy("updated_at", "desc");
+
+  return result;
+});
+
+export const adminGetHistoryOrders = serverOnly$(async function (
+  posId: string
+) {
+  const result = await dbconn?.("order")
+    .whereNotIn("status", ["PENDING", "ACCEPTED"])
+    .andWhere({ pos_id: posId })
+    .andWhere(
+      "updated_at",
+      ">=",
+      DateTime.now().startOf("day").minus({ day: 2 }).toISO()
+    )
+    .orderBy("temp_count", "desc");
+
+  return result;
+});
+
+export const adminAcceptOrder = serverOnly$(async function (orderId: string) {
+  const order = await dbconn?.("order").where({ id: orderId }).first();
+  if (order?.status !== ORDER_STATUS_ENUM.PENDING) {
+    throw new ActionError({
+      message: "Order not pending",
+      code: ORDER_ERROR_CODE.INVALID_ORDER_STATUS,
+      status: 400,
+      details: {
+        status: `Pesanan #${padNumber(order?.temp_count)} dalam status (${ORDER_STATUS_LABEL_ID[order.status]})`
+      }
+    });
+  }
+
+  const result = await dbconn?.("order")
+    .where({ id: orderId })
+    .update({
+      status: ORDER_STATUS_ENUM.ACCEPTED,
+      updated_at: new Date().toISOString()
+    })
+    .returning("*");
+
+  return result?.find(Boolean);
+});
+
+export const adminCancelOrder = serverOnly$(async function (
+  orderId: string,
+  notes?: string
+) {
+  const order = await dbconn?.("order").where({ id: orderId }).first();
+  if (order?.status !== ORDER_STATUS_ENUM.PENDING) {
+    throw new ActionError({
+      message: "Order not pending",
+      code: ORDER_ERROR_CODE.INVALID_ORDER_STATUS,
+      status: 400,
+      details: {
+        status: `Pesanan #${padNumber(order?.temp_count)} dalam status (${ORDER_STATUS_LABEL_ID[order.status]})`
+      }
+    });
+  }
+
+  const result = await dbconn?.("order")
+    .where({ id: orderId })
+    .update({
+      status: ORDER_STATUS_ENUM.CANCELLED,
+      notes,
+      updated_at: new Date().toISOString()
+    })
+    .returning("*");
+
+  return result?.find(Boolean);
+});
+
+export const adminCompleteOrder = serverOnly$(async function (orderId: string) {
+  const order = await dbconn?.("order").where({ id: orderId }).first();
+  if (ORDER_END_STATUS.includes(order?.status)) {
+    console.log("GOES HERE", order?.status);
+    throw new ActionError({
+      message: "Order is already completed or cancelled",
+      code: ORDER_ERROR_CODE.INVALID_ORDER_STATUS,
+      status: 400,
+      details: {
+        status: `Pesanan #${padNumber(order?.temp_count)} dalam status (${ORDER_STATUS_LABEL_ID[order.status]})`
+      }
+    });
+  }
+
+  const result = await dbconn?.("order")
+    .where({ id: orderId })
+    .update({
+      status: ORDER_STATUS_ENUM.COMPLETED,
       updated_at: new Date().toISOString()
     })
     .returning("*");

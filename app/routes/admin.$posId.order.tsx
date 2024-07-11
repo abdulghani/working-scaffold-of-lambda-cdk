@@ -1,12 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle
-} from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerHandle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -16,27 +9,46 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatQueueNumber } from "@/lib/format-queue-number";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { wrapActionError } from "@/lib/action-error";
+import { calculateTax } from "@/lib/calculate-tax";
+import { formatPrice } from "@/lib/format-price";
+import { padNumber } from "@/lib/pad-number";
 import { useRevalidation } from "@/lib/use-revalidation";
-import { TabsContent } from "@radix-ui/react-tabs";
+
+import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { Form, useLoaderData, useOutletContext } from "@remix-run/react";
 import {
-  acknowledgeQueue,
-  cancelQueue,
-  getQueueList,
-  getQueueListHistory
-} from "app/service/queue";
+  Form,
+  useActionData,
+  useLoaderData,
+  useOutletContext
+} from "@remix-run/react";
+import { verifySessionPOSAccess } from "app/service/auth";
 import {
-  CircleCheck,
-  CircleX,
-  ClipboardList,
-  FileClock,
-  Phone
-} from "lucide-react";
+  adminAcceptOrder,
+  adminCancelOrder,
+  adminCompleteOrder,
+  adminGetAcceptedOrders,
+  adminGetHistoryOrders,
+  adminGetPendingOrders,
+  ORDER_ERROR_CODE,
+  ORDER_STATUS_ENUM,
+  ORDER_STATUS_LABEL_ID
+} from "app/service/order";
+import { capitalize } from "lodash-es";
+import { CircleX, Trash } from "lucide-react";
 import { DateTime } from "luxon";
-import { Fragment, useState } from "react";
+import qrcode from "qrcode";
+import {
+  Fragment,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState
+} from "react";
 
 const TEXT_TEMPLATE = `
 Halo {name}, antrian {pos} sudah siap untuk {pax}.
@@ -48,40 +60,101 @@ const QUEUE_ENUM_LABEL: any = {
   PENDING: "Menunggu",
   ACKNOWLEDGED: "Diterima",
   CANCELLED: "Ditolak",
-  USER_CANCELLED: "Dibatalkan pengguna"
+  USER_CANCELLED: "Dibatalkan pelanggan"
 };
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const [list, history] = await Promise.all([
-    getQueueList?.(params.posId!),
-
-    getQueueListHistory?.(params.posId!)
+  await verifySessionPOSAccess?.(request, params.posId!);
+  const [orders, accepted, history] = await Promise.all([
+    adminGetPendingOrders?.(params.posId!),
+    adminGetAcceptedOrders?.(params.posId!),
+    adminGetHistoryOrders?.(params.posId!)
   ]);
 
   return {
-    queues: list,
+    orders,
+    accepted,
     history
   };
 }
 
-export async function action({ request }: ActionFunctionArgs) {
+export const action = wrapActionError(async function ({
+  request,
+  params
+}: ActionFunctionArgs) {
+  await verifySessionPOSAccess?.(request, params.posId!);
   const payload = await request.formData().then(Object.fromEntries);
-  if (payload._action === "acknowledge") {
-    await acknowledgeQueue?.(payload.queue_id);
+  if (payload._action === "accept") {
+    const order = await adminAcceptOrder?.(payload.order_id!);
+    return { order };
   } else if (payload._action === "cancel") {
-    await cancelQueue?.(payload.queue_id);
+    const order = await adminCancelOrder?.(payload.order_id!, payload.notes);
+    return { order };
+  } else if (payload._action === "complete") {
+    const order = await adminCompleteOrder?.(payload.order_id!);
+    return { order };
   }
 
-  return null;
-}
+  return {};
+});
 
-export default function QueueAdmin() {
+export default function OrderAdmin() {
   const { pos } = useOutletContext<any>();
-  const { queues, history } = useLoaderData<typeof loader>();
-  const [historyQueue, setHistoryQueue] = useState<any>(null);
-  const [listQueue, setListQueue] = useState<any>(null);
+  const { orders, accepted, history } = useLoaderData<typeof loader>();
+  const action = useActionData<any>();
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [query, setQuery] = useState<string>("");
+  const [qrPayment, setQrPayment] = useState<string>("");
+  const [cancelOrder, setCancelOrder] = useState<any>(null);
+  const { toast } = useToast();
 
   useRevalidation();
+
+  /** STATE STUFF */
+  const deferredOrder = useDeferredValue(selectedOrder);
+  const deferredQuery = useDeferredValue(query);
+  const [filteredOrders, filteredAccepted, filteredHistory] = useMemo(() => {
+    if (!deferredQuery) {
+      return [orders, accepted, history];
+    }
+    const regexp = new RegExp(deferredQuery.replace(/^0/i, ""), "i");
+    const _filteredOrders = orders?.filter(
+      (o) =>
+        regexp.test(o.name) ||
+        regexp.test(padNumber(o.temp_count)) ||
+        regexp.test(o.phone)
+    );
+    const _filteredAccepted = accepted?.filter(
+      (o) =>
+        regexp.test(o.name) ||
+        regexp.test(padNumber(o.temp_count)) ||
+        regexp.test(o.phone)
+    );
+    const _filteredHistory = history?.filter(
+      (o) =>
+        regexp.test(o.name) ||
+        regexp.test(padNumber(o.temp_count)) ||
+        regexp.test(o.phone)
+    );
+    return [_filteredOrders, _filteredAccepted, _filteredHistory];
+  }, [orders, accepted, history, deferredQuery]);
+
+  useEffect(() => {
+    if (action?.error?.code === ORDER_ERROR_CODE.INVALID_ORDER_STATUS) {
+      toast({
+        title: (
+          <div className="flex flex-row items-center">
+            <CircleX className="mr-1.5 h-4 w-4 text-red-500" />
+            Pesanan gagal diperbarui
+          </div>
+        ),
+        description: (
+          <span className="text-xs">{action?.error?.details?.status}</span>
+        ),
+        duration: 5000
+      });
+    }
+  }, [action]);
 
   return (
     <>
@@ -90,286 +163,505 @@ export default function QueueAdmin() {
           defaultValue="list"
           className="mt-0 w-full overflow-x-hidden lg:w-[400px]"
         >
-          <TabsList className="mx-3 mb-2 grid h-fit grid-cols-2">
-            <TabsTrigger value="list">
-              <ClipboardList className="mr-2 w-4" />
-              Pesanan
+          <TabsList className="mx-3 mb-2 grid h-fit grid-cols-3">
+            <TabsTrigger value="list">Pesanan ({orders?.length})</TabsTrigger>
+            <TabsTrigger value="accepted">
+              Diterima ({accepted?.length})
             </TabsTrigger>
             <TabsTrigger value="history">
-              <FileClock className="mr-2 w-4" />
-              Riwayat
+              Riwayat ({history?.length})
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="list">
-            <Card className="border-0 shadow-none">
-              <CardContent className="space-y-2 px-3">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>#</TableHead>
-                      <TableHead>Name</TableHead>
+          <TabsContent value="list" className="px-3">
+            <div className="mt-2 flex w-full flex-row items-center">
+              <Button
+                variant={"outline"}
+                className="rounded-r-none"
+                disabled={!query?.trim()}
+                onClick={() => setQuery("")}
+              >
+                <Trash className="w-4" />
+              </Button>
+              <Input
+                type="text"
+                inputMode="search"
+                placeholder="Cari nomor, nama, handphone"
+                className="rounded-l-none border-l-0"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
 
-                      <TableHead className="text-right">Time</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="text-right">Waktu pesanan</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredOrders?.map((o) => (
+                  <Fragment key={o.id}>
+                    <TableRow onClick={() => setSelectedOrder(o)}>
+                      <TableCell className="font-medium">
+                        {padNumber(o.temp_count)}
+                      </TableCell>
+                      <TableCell>{o.name}</TableCell>
+                      <TableCell className="text-right">
+                        {DateTime.fromISO(o.created_at).toRelative()}
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {queues?.map((q) => (
-                      <Fragment key={q.id}>
-                        <TableRow onClick={() => setListQueue(q)}>
-                          <TableCell className="font-medium">
-                            {formatQueueNumber(q.temp_count)}
-                          </TableCell>
-                          <TableCell>{q.name}</TableCell>
-                          <TableCell className="text-right">
-                            {DateTime.fromISO(q.created_at).toRelative()}
-                          </TableCell>
-                        </TableRow>
-                      </Fragment>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                  </Fragment>
+                ))}
+              </TableBody>
+            </Table>
           </TabsContent>
-          <TabsContent value="history">
-            <Card className="border-0 shadow-none">
-              <CardContent className="space-y-2">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>#</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead className="text-right">Status</TableHead>
+          <TabsContent value="accepted" className="px-3">
+            <div className="mt-2 flex w-full flex-row items-center">
+              <Button
+                variant={"outline"}
+                className="rounded-r-none"
+                disabled={!query?.trim()}
+                onClick={() => setQuery("")}
+              >
+                <Trash className="w-4" />
+              </Button>
+              <Input
+                type="text"
+                inputMode="search"
+                placeholder="Cari nomor, nama, handphone"
+                className="rounded-l-none border-l-0"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="text-right">Waktu pesanan</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAccepted?.map((o) => (
+                  <Fragment key={o.id}>
+                    <TableRow onClick={() => setSelectedOrder(o)}>
+                      <TableCell className="font-medium">
+                        {padNumber(o.temp_count)}
+                      </TableCell>
+                      <TableCell>{o.name}</TableCell>
+                      <TableCell className="text-right">
+                        {DateTime.fromISO(o.created_at).toRelative()}
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {history?.map((q) => (
-                      <Fragment key={q.id}>
-                        <TableRow onClick={() => setHistoryQueue(q)}>
-                          <TableCell className="font-medium">
-                            {formatQueueNumber(q.temp_count)}
-                          </TableCell>
-                          <TableCell>{q.name}</TableCell>
-                          <TableCell className="text-right">
-                            {QUEUE_ENUM_LABEL[q.status]}
-                          </TableCell>
-                        </TableRow>
-                      </Fragment>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+                  </Fragment>
+                ))}
+              </TableBody>
+            </Table>
+          </TabsContent>
+          <TabsContent value="history" className="px-3">
+            <div className="mt-2 flex w-full flex-row items-center">
+              <Button
+                variant={"outline"}
+                className="rounded-r-none"
+                disabled={!query?.trim()}
+                onClick={() => setQuery("")}
+              >
+                <Trash className="w-4" />
+              </Button>
+              <Input
+                type="text"
+                inputMode="search"
+                placeholder="Cari nomor, nama, handphone"
+                className="rounded-l-none border-l-0"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
+
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="text-right">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredHistory?.map((q) => (
+                  <Fragment key={q.id}>
+                    <TableRow onClick={() => setSelectedOrder(q)}>
+                      <TableCell className="font-medium">
+                        {padNumber(q.temp_count)}
+                      </TableCell>
+                      <TableCell>{q.name}</TableCell>
+                      <TableCell className="text-right">
+                        {ORDER_STATUS_LABEL_ID[q.status]}
+                      </TableCell>
+                    </TableRow>
+                  </Fragment>
+                ))}
+              </TableBody>
+            </Table>
           </TabsContent>
         </Tabs>
       </div>
 
-      {/* LIST DRAWER */}
-      {listQueue?.id && (
-        <Drawer
-          open={listQueue.id}
-          onOpenChange={(e) => setListQueue(e ? listQueue : null)}
-          disablePreventScroll={true}
+      <AlertDialog
+        open={!!qrPayment}
+        onOpenChange={(e) => !e && setQrPayment("")}
+      >
+        <AlertDialogContent
+          className="p-3 sm:rounded-sm"
+          onClickOverlay={() => setQrPayment("")}
         >
-          <DrawerContent className="rounded-t-sm px-3">
-            <DrawerHeader>
-              <DrawerTitle>
-                Antrian {formatQueueNumber(listQueue.temp_count)}
-              </DrawerTitle>
-              <DrawerDescription>
-                Terima antrian atau tolak antrian ini
-              </DrawerDescription>
-            </DrawerHeader>
-            <Table>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="text-left">No antrian</TableCell>
-                  <TableCell className="text-right">
-                    {formatQueueNumber(listQueue.temp_count)}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="text-left">Nama</TableCell>
-                  <TableCell className="text-right">{listQueue.name}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="text-left">PAX</TableCell>
-                  <TableCell className="text-right">
-                    {listQueue.pax}
-                    {" Orang"}
-                  </TableCell>
-                </TableRow>
-                <TableRow
-                  onClick={() => {
-                    if (listQueue.phone) {
-                      const encoded = encodeURIComponent(
-                        TEXT_TEMPLATE.replace("{name}", listQueue.name)
-                          .replace("{pos}", pos.name)
-                          .replace("{pax}", `${listQueue.pax} PAX`)
-                      );
-                      window.open(
-                        `https://wa.me/${listQueue.phone}?text=${encoded}`
-                      );
-                    }
-                  }}
-                >
-                  <TableCell className="text-left">No handphone</TableCell>
-                  <TableCell className="text-right">
-                    {listQueue.phone ? (
-                      <>
-                        <Phone className="-mt-0.5 mr-2.5 inline w-4 text-blue-400" />
-                        <span>{listQueue.phone}</span>
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        Tidak tersedia
-                      </span>
-                    )}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="text-left">Waktu antrian</TableCell>
-                  <TableCell className="text-right">
-                    {DateTime.fromISO(listQueue.created_at).toFormat(
-                      "ccc, dd MMM yyyy"
-                    )}
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      (
-                      {DateTime.fromISO(listQueue.created_at).toFormat(
-                        "HH:mm ZZZZ"
-                      )}
-                      {", "}
-                      {DateTime.fromISO(listQueue.created_at).toRelative()})
-                    </span>
-                  </TableCell>
-                </TableRow>
-                <TableRow className="border-b-0">
-                  <TableCell className="text-left">Status</TableCell>
-                  <TableCell className="text-right">
-                    {QUEUE_ENUM_LABEL[listQueue.status]}
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-            <Form method="post" onSubmit={() => setListQueue(null)}>
-              <Input type="hidden" name="queue_id" value={listQueue.id} />
-              <div className="mx-2 mb-6 mt-2 flex flex-row items-center">
-                <Button
-                  className="mt-0 w-1/2"
-                  variant={"outline"}
-                  type="submit"
-                  name="_action"
-                  value="cancel"
-                >
-                  <CircleX className="mr-2 w-4 text-red-400" />
-                  Tolak
-                </Button>
-                <Button
-                  variant={"outline"}
-                  className="ml-3 mt-0 w-1/2"
-                  type="submit"
-                  name="_action"
-                  value="acknowledge"
-                >
-                  <CircleCheck className="mr-2 w-4 text-green-400" />
-                  Terima
-                </Button>
-              </div>
-            </Form>
-          </DrawerContent>
-        </Drawer>
-      )}
+          <img
+            src={qrPayment}
+            className="min-h-[50svh] w-full object-contain"
+          />
+        </AlertDialogContent>
+      </AlertDialog>
 
-      {/* HISTORY DRAWER */}
-      {historyQueue?.id && (
-        <Drawer
-          open={historyQueue.id}
-          onOpenChange={(e) => setHistoryQueue(e ? historyQueue : null)}
-          disablePreventScroll={true}
-        >
-          <DrawerContent className="rounded-t-sm px-3 pb-5">
-            <DrawerHeader>
-              <DrawerTitle>
-                Data antrian {formatQueueNumber(historyQueue.temp_count)}
-              </DrawerTitle>
-            </DrawerHeader>
-            <Table>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="text-left">No antrian</TableCell>
-                  <TableCell className="text-right">
-                    {formatQueueNumber(historyQueue.temp_count)}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="text-left">Nama</TableCell>
-                  <TableCell className="text-right">
-                    {historyQueue.name}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="text-left">PAX</TableCell>
-                  <TableCell className="text-right">
-                    {historyQueue.pax}
-                    {" Orang"}
-                  </TableCell>
-                </TableRow>
-                <TableRow
-                  onClick={() => {
-                    if (historyQueue.phone) {
-                      window.open(`https://wa.me/${historyQueue.phone}`);
-                    }
-                  }}
-                >
-                  <TableCell className="text-left">No handphone</TableCell>
-                  <TableCell className="text-right">
-                    {historyQueue.phone ? (
-                      <>
-                        <Phone className="-mt-0.5 mr-2.5 inline w-4 text-blue-400" />
-                        <span>{historyQueue.phone}</span>
-                      </>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        Tidak tersedia
-                      </span>
-                    )}
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="text-left">Waktu antrian</TableCell>
-                  <TableCell className="text-right">
-                    {DateTime.fromISO(historyQueue.created_at).toFormat(
-                      "ccc, dd MMM yyyy"
-                    )}
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      (
-                      {DateTime.fromISO(historyQueue.created_at).toFormat(
-                        "HH:mm ZZZZ"
-                      )}
-                      {", "}
-                      {DateTime.fromISO(historyQueue.created_at).toRelative()})
+      <AlertDialog
+        open={!!cancelOrder}
+        onOpenChange={(e) => !e && setCancelOrder(null)}
+      >
+        <AlertDialogContent className="flex flex-col px-3 pb-5 pt-3 sm:rounded-sm">
+          <div className="flex flex-col items-center">
+            <span className="font-semibold">
+              Tolak pesanan {padNumber(cancelOrder?.temp_count)}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              Apakah Anda yakin untuk menolak pesanan ini?
+            </span>
+          </div>
+          <Form
+            method="post"
+            className="flex w-full flex-col"
+            onSubmit={() => {
+              setSelectedOrder(null);
+              setCancelOrder(null);
+            }}
+          >
+            <Textarea
+              className="mb-3"
+              placeholder="Catatan pesanan ditolak"
+              name="notes"
+              rows={2}
+              maxLength={300}
+            />
+            <Input type="hidden" name="order_id" value={cancelOrder?.id} />
+            <div className="flex flex-row gap-2">
+              <Button
+                variant={"outline"}
+                type="submit"
+                name="_action"
+                value="cancel"
+                className="w-1/2"
+              >
+                Ya
+              </Button>
+              <Button
+                className="w-1/2"
+                variant={"default"}
+                type="button"
+                onClick={() => setCancelOrder(null)}
+              >
+                Tidak
+              </Button>
+            </div>
+          </Form>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ORDER DRAWER */}
+      <Drawer
+        open={deferredOrder?.id && !qrPayment && !cancelOrder}
+        onOpenChange={(e) =>
+          !e && !qrPayment && !cancelOrder && setSelectedOrder(null)
+        }
+        disablePreventScroll={true}
+        handleOnly={true}
+      >
+        <DrawerContent className="max-h-[90svh]">
+          <DrawerHandle />
+          {(() => {
+            if (!deferredOrder) return null;
+            const { menu_snapshot, tax_snapshot, status } = deferredOrder || {};
+            const addonGroups = Object.values(
+              deferredOrder?.menu_snapshot || {}
+            )?.flatMap((i) => i.addon_groups || []);
+            const addons = addonGroups?.flatMap((i) => i.addons || []);
+            const addonGroupsMap = Object.fromEntries(
+              addonGroups?.map((i) => [i.id, i]) || []
+            );
+            const addonsMap = Object.fromEntries(
+              addons?.map((i) => [i.id, i]) || []
+            );
+            const _currentTotal = Object.values(
+              deferredOrder?.instance_record_json || {}
+            ).reduce((t, instance: any) => {
+              const basePrice =
+                Number(menu_snapshot?.[instance.menu_id]?.price) || 0;
+              const addonPrice =
+                instance.addon_ids?.reduce((t2, addonId: any) => {
+                  const addon = addonsMap[addonId];
+                  if (addon) {
+                    return t2 + Number(addon.price);
+                  }
+                  return t2;
+                }, 0) || 0;
+
+              const instancePrice = (basePrice + addonPrice) * instance.qty;
+
+              return t + instancePrice;
+            }, 0) as number;
+
+            const _totalWTax = tax_snapshot?.value
+              ? _currentTotal + calculateTax(_currentTotal, tax_snapshot.value)
+              : _currentTotal;
+
+            return (
+              <div className="flex h-full flex-col overflow-y-scroll pb-7">
+                <div className="mt-1 flex w-full flex-col px-3">
+                  <div className="flex flex-row items-center text-xl">
+                    <span className="block font-semibold">
+                      Pesanan no {padNumber(deferredOrder?.temp_count)}
                     </span>
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="text-left">Status</TableCell>
-                  <TableCell className="text-right">
-                    {QUEUE_ENUM_LABEL[historyQueue.status]}
-                    <span className="mt-1 block text-xs text-muted-foreground">
-                      (
-                      {DateTime.fromISO(historyQueue.updated_at).toFormat(
-                        "HH:mm ZZZZ"
-                      )}
-                      {", "}
-                      {DateTime.fromISO(historyQueue.updated_at).toRelative()})
-                    </span>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </DrawerContent>
-        </Drawer>
-      )}
+                  </div>
+                  <div className="mb-1 text-sm text-muted-foreground">
+                    Tinjau untuk menerima atau menolak pesanan
+                  </div>
+                </div>
+                <Table className="mb-1 border-b border-muted">
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>#</TableCell>
+                      <TableCell className="text-right">
+                        {padNumber(deferredOrder?.temp_count)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Nama</TableCell>
+                      <TableCell className="text-right">
+                        {deferredOrder?.name}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Handphone</TableCell>
+                      <TableCell className="text-right">
+                        {deferredOrder?.phone || "Tidak tersedia"}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell>Status</TableCell>
+                      <TableCell className="text-right">
+                        {ORDER_STATUS_LABEL_ID[deferredOrder?.status]}
+                      </TableCell>
+                    </TableRow>
+                    {deferredOrder?.notes && (
+                      <TableRow>
+                        <TableCell className="whitespace-nowrap">
+                          {deferredOrder?.status !==
+                          ORDER_STATUS_ENUM.CANCELLED_BY_USER
+                            ? "Catatan penjual"
+                            : "Catatan pelanggan"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {deferredOrder?.notes}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    <TableRow>
+                      <TableCell>Waktu pesanan</TableCell>
+                      <TableCell className="text-right">
+                        <span className="block">
+                          {DateTime.fromISO(deferredOrder?.created_at).toFormat(
+                            "dd MMM yyyy, HH:mm ZZZZ"
+                          )}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {DateTime.fromISO(
+                            deferredOrder?.created_at
+                          ).toRelative()}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+                <div className="flex-grow">
+                  {Object.entries(
+                    deferredOrder?.instance_record_json || {}
+                  ).map(([key, value]) => {
+                    const { menu_id, qty, addon_ids, notes } = value || {};
+                    const menu = deferredOrder?.menu_snapshot?.[menu_id];
+
+                    if (!menu) return null;
+
+                    const currentPrice = (addon_ids || []).reduce(
+                      (t, i) => {
+                        const addon = addonsMap[i];
+                        return t + (addon?.price || 0);
+                      },
+                      Number(menu?.price) || 0
+                    );
+
+                    return (
+                      <div className="flex shrink-0 flex-row items-center overflow-hidden px-2 py-2 transition-colors hover:bg-zinc-50">
+                        <img
+                          src={menu?.imgs?.[0]}
+                          className="h-12 w-12 rounded-sm object-cover"
+                        />
+                        <div className="ml-3 flex flex-grow flex-col overflow-hidden pr-5">
+                          <div className="flex flex-col">
+                            <span className="block truncate font-semibold">
+                              {menu?.title}
+                            </span>
+                            <span className="block text-sm text-muted-foreground">
+                              {addon_ids
+                                .map((i) => {
+                                  const addon = addonsMap[i];
+                                  const group =
+                                    addonGroupsMap[addon?.addon_group_id];
+
+                                  if (group) {
+                                    return capitalize(
+                                      [group.title, addon.title].join(" ")
+                                    );
+                                  }
+
+                                  return capitalize(addon.title);
+                                })
+                                .join(", ")}
+                            </span>
+                          </div>
+                          <div className="mt-1 block text-xs text-muted-foreground">
+                            {formatPrice(currentPrice)}
+                          </div>
+                          {notes && (
+                            <span className="mt-2 block text-sm text-muted-foreground">
+                              Catatan: {notes}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-col justify-center">
+                          <Button variant={"outline"} disabled>
+                            {qty}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mx-2 mt-2 flex flex-row items-center justify-between rounded-sm bg-zinc-50 px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-zinc-100">
+                  <span>Total</span>
+                  <span>{formatPrice(_totalWTax)}</span>
+                </div>
+
+                {deferredOrder?.status === "PENDING" ? (
+                  <div className="mt-3 flex w-full flex-row gap-2 px-2">
+                    <Button
+                      variant={"outline"}
+                      className="w-1/2"
+                      onClick={() => setCancelOrder(deferredOrder)}
+                    >
+                      Tolak
+                    </Button>
+                    <Form
+                      method="post"
+                      onSubmit={() => setSelectedOrder(null)}
+                      className="w-1/2"
+                    >
+                      <Input
+                        type="hidden"
+                        name="order_id"
+                        value={deferredOrder?.id}
+                      />
+
+                      <Button
+                        variant={"default"}
+                        className="w-full"
+                        type="submit"
+                        name="_action"
+                        value="accept"
+                      >
+                        Terima
+                      </Button>
+                    </Form>
+                  </div>
+                ) : deferredOrder?.status === "ACCEPTED" ? (
+                  <div className="mt-3 flex w-full flex-row gap-2 px-2">
+                    <Form
+                      method="post"
+                      className="w-1/2"
+                      onSubmit={() => setSelectedOrder(null)}
+                    >
+                      <Input
+                        type="hidden"
+                        name="order_id"
+                        value={deferredOrder?.id}
+                      />
+                      <Button
+                        variant={"outline"}
+                        type="submit"
+                        name="_action"
+                        value="complete"
+                        className="w-full"
+                      >
+                        Selesai
+                      </Button>
+                    </Form>
+                    <Button
+                      variant={"default"}
+                      className="w-1/2"
+                      onClick={() => {
+                        qrcode
+                          .toDataURL(deferredOrder?.id, {
+                            width: 500,
+                            errorCorrectionLevel: "H",
+                            margin: 1,
+                            color: {
+                              dark: "#000000",
+                              light: "#ffffff"
+                            }
+                          })
+                          .then((data) => setQrPayment(data));
+                      }}
+                    >
+                      QR Pembayaran
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-3 flex w-full flex-row gap-2 px-2">
+                    <Button
+                      variant={"secondary"}
+                      className="w-full"
+                      onClick={() => {
+                        qrcode
+                          .toDataURL(deferredOrder?.id, {
+                            width: 500,
+                            errorCorrectionLevel: "H",
+                            margin: 1,
+                            color: {
+                              dark: "#000000",
+                              light: "#ffffff"
+                            }
+                          })
+                          .then((data) => setQrPayment(data));
+                      }}
+                    >
+                      QR Pembayaran
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

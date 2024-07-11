@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { wrapActionError } from "@/lib/action-error";
-import { formatQueueNumber } from "@/lib/format-queue-number";
+import { padNumber } from "@/lib/pad-number";
 import { parsePhone } from "@/lib/parse-phone";
 import {
   ActionFunctionArgs,
@@ -158,7 +158,7 @@ export default function Queue() {
                         className={q.id === queue?.id ? "bg-sky-50" : undefined}
                       >
                         <TableCell className="font-medium">
-                          {formatQueueNumber(q.temp_count)}
+                          {padNumber(q.temp_count)}
                         </TableCell>
                         <TableCell>{q.name}</TableCell>
                         <TableCell>{q.pax}</TableCell>
@@ -178,7 +178,7 @@ export default function Queue() {
                 <>
                   <CardHeader>
                     <CardTitle className="flex flex-row items-center">
-                      Antrian no {formatQueueNumber(queue.temp_count)}
+                      Antrian no {padNumber(queue.temp_count)}
                       <Timer className="ml-2 h-5 w-5 text-orange-500" />
                     </CardTitle>
                     <CardDescription>
