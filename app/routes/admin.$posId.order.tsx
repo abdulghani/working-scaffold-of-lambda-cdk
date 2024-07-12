@@ -17,13 +17,20 @@ import { padNumber } from "@/lib/pad-number";
 import { useRevalidation } from "@/lib/use-revalidation";
 
 import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
+import { FileInput } from "@/components/ui/file-input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
-import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { cn } from "@/lib/utils";
+import {
+  ActionFunctionArgs,
+  LoaderFunctionArgs,
+  unstable_parseMultipartFormData
+} from "@remix-run/node";
 import {
   Form,
   useActionData,
   useLoaderData,
+  useNavigation,
   useOutletContext
 } from "@remix-run/react";
 import { verifySessionPOSAccess } from "app/service/auth";
@@ -39,6 +46,7 @@ import {
   ORDER_STATUS_ENUM,
   ORDER_STATUS_LABEL_ID
 } from "app/service/order";
+import { s3UploadHandler } from "app/service/s3";
 import { capitalize } from "lodash-es";
 import { CircleX, Trash } from "lucide-react";
 import { DateTime } from "luxon";
@@ -84,7 +92,11 @@ export const action = wrapActionError(async function ({
   params
 }: ActionFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
-  const payload = await request.formData().then(Object.fromEntries);
+  const formData = await unstable_parseMultipartFormData(
+    request,
+    s3UploadHandler
+  );
+  const payload = Object.fromEntries(formData) as any;
 
   if (payload._action === "accept") {
     const order = await adminAcceptOrder?.(payload.order_id!);
@@ -93,11 +105,11 @@ export const action = wrapActionError(async function ({
     const order = await adminCancelOrder?.(payload.order_id!, payload.notes);
     return { order };
   } else if (payload._action === "complete") {
-    const order = await adminCompleteOrder?.(payload.order_id!);
+    const order = await adminCompleteOrder?.(payload);
     return { order };
   } else if (payload._action === "generate_payment_qr") {
     const qrcode = await generateOrderQrCode?.(payload.order_id!);
-    return { qrcode };
+    return { qrcode, order_id: payload.order_id! };
   }
 
   return {};
@@ -107,10 +119,13 @@ export default function OrderAdmin() {
   const { pos } = useOutletContext<any>();
   const { orders, accepted, history } = useLoaderData<typeof loader>();
   const action = useActionData<any>();
+  const navigation = useNavigation();
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [query, setQuery] = useState<string>("");
   const [qrPayment, setQrPayment] = useState<string>("");
   const [cancelOrder, setCancelOrder] = useState<any>(null);
+  const [completeOrder, setCompleteOrder] = useState<any>(null);
+  const [paymentProof, setPaymentProof] = useState<any>(null);
   const { toast } = useToast();
 
   useRevalidation();
@@ -143,6 +158,41 @@ export default function OrderAdmin() {
     );
     return [_filteredOrders, _filteredAccepted, _filteredHistory];
   }, [orders, accepted, history, deferredQuery]);
+  const [addonGroupsMap, addonsMap, totalWTax] = useMemo(() => {
+    if (!deferredOrder) return [];
+    const { menu_snapshot, tax_snapshot } = deferredOrder || {};
+    const addonGroups = Object.values(
+      deferredOrder?.menu_snapshot || {}
+    )?.flatMap((i) => i.addon_groups || []);
+    const addons = addonGroups?.flatMap((i) => i.addons || []);
+    const addonGroupsMap = Object.fromEntries(
+      addonGroups?.map((i) => [i.id, i]) || []
+    );
+    const addonsMap = Object.fromEntries(addons?.map((i) => [i.id, i]) || []);
+    const _currentTotal = Object.values(
+      deferredOrder?.instance_record_json || {}
+    ).reduce((t, instance: any) => {
+      const basePrice = Number(menu_snapshot?.[instance.menu_id]?.price) || 0;
+      const addonPrice =
+        instance.addon_ids?.reduce((t2, addonId: any) => {
+          const addon = addonsMap[addonId];
+          if (addon) {
+            return t2 + Number(addon.price);
+          }
+          return t2;
+        }, 0) || 0;
+
+      const instancePrice = (basePrice + addonPrice) * instance.qty;
+
+      return t + instancePrice;
+    }, 0) as number;
+
+    const _totalWTax = tax_snapshot?.value
+      ? _currentTotal + calculateTax(_currentTotal, tax_snapshot.value)
+      : _currentTotal;
+
+    return [addonGroupsMap, addonsMap, _totalWTax];
+  }, [deferredOrder]);
 
   useEffect(() => {
     if (action?.error?.code === ORDER_ERROR_CODE.INVALID_ORDER_STATUS) {
@@ -164,19 +214,34 @@ export default function OrderAdmin() {
         .toDataURL(action.qrcode, {
           width: 500,
           errorCorrectionLevel: "medium",
-          margin: 1,
+          margin: 0,
           color: {
             dark: "#000000",
             light: "#ffffff"
           }
         })
-        .then((url) => setQrPayment(url));
+        .then((url) => {
+          if (action.order_id === deferredOrder?.id) {
+            setQrPayment(url);
+          } else {
+            toast({
+              title: (
+                <div className="flex flex-row items-center">
+                  <CircleX className="mr-1.5 h-4 w-4 text-red-500" />
+                  QR Pembayaran gagal
+                </div>
+              ),
+              description: <span className="text-xs">Coba lagi</span>,
+              duration: 4000
+            });
+          }
+        });
     }
   }, [action]);
 
   return (
     <>
-      <div className="flex w-screen justify-center">
+      <div className={cn("flex w-screen justify-center")}>
         <Tabs
           defaultValue="list"
           className="mt-0 w-full overflow-x-hidden lg:w-[400px]"
@@ -333,24 +398,35 @@ export default function OrderAdmin() {
         onOpenChange={(e) => !e && setQrPayment("")}
       >
         <AlertDialogContent
-          className="p-3 sm:rounded-sm"
+          className="flex min-h-[50svh] flex-col gap-3 px-4 py-3 sm:rounded-sm"
           onClickOverlay={() => setQrPayment("")}
         >
+          <div className="flex flex-row justify-center p-0">
+            <span className="mb-0 block p-0 text-xl font-semibold">
+              Pesanan no {padNumber(deferredOrder?.temp_count)},{" "}
+              {deferredOrder?.name}
+            </span>
+          </div>
           <img
             src={qrPayment}
-            className="min-h-[50svh] w-full object-contain"
+            className="pointer-events-none mt-0 w-full object-contain"
           />
+          <div className="flex flex-row justify-center">
+            <span className="text-xl font-semibold">
+              {formatPrice(totalWTax)}
+            </span>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
 
       <AlertDialog
-        open={!!cancelOrder}
+        open={!!cancelOrder && deferredOrder?.id}
         onOpenChange={(e) => !e && setCancelOrder(null)}
       >
         <AlertDialogContent className="flex flex-col px-3 pb-5 pt-3 sm:rounded-sm">
           <div className="flex flex-col items-center">
             <span className="font-semibold">
-              Tolak pesanan {padNumber(cancelOrder?.temp_count)}
+              Tolak pesanan {padNumber(deferredOrder?.temp_count)}
             </span>
             <span className="text-sm text-muted-foreground">
               Apakah Anda yakin untuk menolak pesanan ini?
@@ -358,6 +434,7 @@ export default function OrderAdmin() {
           </div>
           <Form
             method="post"
+            encType="multipart/form-data"
             className="flex w-full flex-col"
             onSubmit={() => {
               setSelectedOrder(null);
@@ -371,7 +448,7 @@ export default function OrderAdmin() {
               rows={2}
               maxLength={300}
             />
-            <Input type="hidden" name="order_id" value={cancelOrder?.id} />
+            <Input type="hidden" name="order_id" value={deferredOrder?.id} />
             <div className="flex flex-row gap-2">
               <Button
                 variant={"outline"}
@@ -395,11 +472,92 @@ export default function OrderAdmin() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog
+        open={!!paymentProof && deferredOrder?.id}
+        onOpenChange={(e) => !e && setPaymentProof(null)}
+      >
+        <AlertDialogContent
+          className="flex h-fit w-fit flex-col items-center rounded-sm px-4 py-4"
+          onClickOverlay={() => setPaymentProof(null)}
+        >
+          <img
+            src={deferredOrder?.payment_proof}
+            className="max-h-[80svh] max-w-[80svw] rounded-sm object-contain"
+          />
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!completeOrder && deferredOrder?.id}
+        onOpenChange={(e) => !e && setCompleteOrder(null)}
+      >
+        <AlertDialogContent className="flex flex-col px-3 pb-5 pt-3 sm:rounded-sm">
+          <div className="flex flex-col items-center">
+            <span className="font-semibold">
+              Selesaikan pesanan {padNumber(deferredOrder?.temp_count)}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              Apakah Anda yakin untuk selesaikan pesanan ini?
+            </span>
+          </div>
+          <Form
+            method="post"
+            encType="multipart/form-data"
+            className="flex w-full flex-col"
+            onSubmit={() => {
+              setSelectedOrder(null);
+              setCompleteOrder(null);
+            }}
+          >
+            <FileInput
+              accept="image/jpeg,image/png,image/webp"
+              name="payment_proof"
+              className="mb-3"
+            >
+              Bukti pembayaran
+            </FileInput>
+            <Input type="hidden" name="order_id" value={deferredOrder?.id} />
+            <div className="flex w-full flex-row gap-2">
+              <Button
+                variant={"outline"}
+                type="submit"
+                name="_action"
+                value="complete"
+                className="w-1/2"
+              >
+                Ya
+              </Button>
+              <Button
+                className="w-1/2"
+                variant={"default"}
+                type="button"
+                onClick={(e) => {
+                  setCompleteOrder(null);
+                }}
+              >
+                Tidak
+              </Button>
+            </div>
+          </Form>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ORDER DRAWER */}
       <Drawer
-        open={deferredOrder?.id && !qrPayment && !cancelOrder}
+        open={
+          deferredOrder?.id &&
+          !qrPayment &&
+          !cancelOrder &&
+          !completeOrder &&
+          !paymentProof
+        }
         onOpenChange={(e) =>
-          !e && !qrPayment && !cancelOrder && setSelectedOrder(null)
+          !e &&
+          !qrPayment &&
+          !cancelOrder &&
+          !completeOrder &&
+          !paymentProof &&
+          setSelectedOrder(null)
         }
         disablePreventScroll={true}
         handleOnly={true}
@@ -408,39 +566,6 @@ export default function OrderAdmin() {
           <DrawerHandle />
           {(() => {
             if (!deferredOrder) return null;
-            const { menu_snapshot, tax_snapshot, status } = deferredOrder || {};
-            const addonGroups = Object.values(
-              deferredOrder?.menu_snapshot || {}
-            )?.flatMap((i) => i.addon_groups || []);
-            const addons = addonGroups?.flatMap((i) => i.addons || []);
-            const addonGroupsMap = Object.fromEntries(
-              addonGroups?.map((i) => [i.id, i]) || []
-            );
-            const addonsMap = Object.fromEntries(
-              addons?.map((i) => [i.id, i]) || []
-            );
-            const _currentTotal = Object.values(
-              deferredOrder?.instance_record_json || {}
-            ).reduce((t, instance: any) => {
-              const basePrice =
-                Number(menu_snapshot?.[instance.menu_id]?.price) || 0;
-              const addonPrice =
-                instance.addon_ids?.reduce((t2, addonId: any) => {
-                  const addon = addonsMap[addonId];
-                  if (addon) {
-                    return t2 + Number(addon.price);
-                  }
-                  return t2;
-                }, 0) || 0;
-
-              const instancePrice = (basePrice + addonPrice) * instance.qty;
-
-              return t + instancePrice;
-            }, 0) as number;
-
-            const _totalWTax = tax_snapshot?.value
-              ? _currentTotal + calculateTax(_currentTotal, tax_snapshot.value)
-              : _currentTotal;
 
             return (
               <div className="flex h-full flex-col overflow-y-scroll pb-7">
@@ -508,6 +633,19 @@ export default function OrderAdmin() {
                         </span>
                       </TableCell>
                     </TableRow>
+                    {deferredOrder?.payment_proof && (
+                      <TableRow
+                        onClick={() => setPaymentProof(deferredOrder?.id)}
+                      >
+                        <TableCell>Bukti pembayaran</TableCell>
+                        <TableCell className="flex flex-row justify-end">
+                          <img
+                            src={deferredOrder?.payment_proof}
+                            className="h-10 w-10 rounded-sm object-cover"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
                 <div className="flex-grow">
@@ -576,7 +714,7 @@ export default function OrderAdmin() {
                 </div>
                 <div className="mx-2 mt-2 flex flex-row items-center justify-between rounded-sm bg-zinc-50 px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-zinc-100">
                   <span>Total</span>
-                  <span>{formatPrice(_totalWTax)}</span>
+                  <span>{formatPrice(totalWTax)}</span>
                 </div>
 
                 {deferredOrder?.status === "PENDING" ? (
@@ -584,12 +722,13 @@ export default function OrderAdmin() {
                     <Button
                       variant={"outline"}
                       className="w-1/2"
-                      onClick={() => setCancelOrder(deferredOrder)}
+                      onClick={() => setCancelOrder(deferredOrder?.id)}
                     >
                       Tolak
                     </Button>
                     <Form
                       method="post"
+                      encType="multipart/form-data"
                       onSubmit={() => setSelectedOrder(null)}
                       className="w-1/2"
                     >
@@ -612,10 +751,17 @@ export default function OrderAdmin() {
                   </div>
                 ) : deferredOrder?.status === "ACCEPTED" ? (
                   <div className="mt-3 flex w-full flex-row gap-2 px-2">
+                    <Button
+                      variant={"outline"}
+                      className="w-1/2"
+                      onClick={() => setCompleteOrder(deferredOrder?.id)}
+                    >
+                      Selesai
+                    </Button>
                     <Form
                       method="post"
-                      className="flex w-full flex-row gap-2"
-                      onSubmit={() => setSelectedOrder(null)}
+                      encType="multipart/form-data"
+                      className="w-1/2"
                     >
                       <Input
                         type="hidden"
@@ -623,17 +769,8 @@ export default function OrderAdmin() {
                         value={deferredOrder?.id}
                       />
                       <Button
-                        variant={"outline"}
-                        type="submit"
-                        name="_action"
-                        value="complete"
-                        className="w-1/2"
-                      >
-                        Selesai
-                      </Button>
-                      <Button
                         variant={"default"}
-                        className="w-1/2"
+                        className="w-full"
                         value="generate_payment_qr"
                         name="_action"
                         type="submit"
@@ -644,7 +781,11 @@ export default function OrderAdmin() {
                   </div>
                 ) : (
                   <div className="mt-3 flex w-full flex-row gap-2 px-2">
-                    <Form method="post" className="w-full">
+                    <Form
+                      method="post"
+                      encType="multipart/form-data"
+                      className="w-full"
+                    >
                       <Input
                         type="hidden"
                         name="order_id"

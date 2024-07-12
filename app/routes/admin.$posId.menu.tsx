@@ -16,7 +16,6 @@ import {
   toggleMenuAddon
 } from "app/service/menu";
 import { validatePOSId } from "app/service/pos";
-import { ClipboardList, FileClock } from "lucide-react";
 import { Fragment, useMemo, useState } from "react";
 import { useDebouncedMenu } from "./admin.$posId";
 import { Addon } from "./admin.$posId.menu/addon";
@@ -97,14 +96,15 @@ export default function AdminMenu() {
 
   return (
     <div className="flex w-full flex-col overflow-x-hidden">
-      <div className="mt-2 flex w-screen snap-x snap-mandatory flex-row overflow-x-scroll px-4 pb-2">
+      <div className="mt-2 flex w-screen snap-x snap-mandatory flex-row gap-2 overflow-x-scroll px-2 pb-2">
         {menuFilter.map((menu) => (
           <Button
             className={cn(
-              "mr-2 border-zinc-100 hover:border hover:bg-white",
-              filter !== menu.id && "text-muted-foreground"
+              "border-zinc-100 hover:bg-background hover:shadow-inner",
+              filter === menu.id && "bg-background shadow-inner",
+              filter !== menu.id && "font-normal text-muted-foreground"
             )}
-            variant={filter === menu.id ? "outline" : "secondary"}
+            variant={"secondary"}
             onClick={() => setFilter(menu.id)}
             key={`menu-${menu.id}`}
           >
@@ -118,11 +118,9 @@ export default function AdminMenu() {
       >
         <TabsList className="mx-3 mb-2 grid h-fit grid-cols-2">
           <TabsTrigger value="active">
-            <ClipboardList className="mr-2 w-4" />
             Aktif ({filteredActive?.length})
           </TabsTrigger>
           <TabsTrigger value="inactive">
-            <FileClock className="mr-2 w-4" />
             Non-aktif ({filteredInactive?.length})
           </TabsTrigger>
         </TabsList>

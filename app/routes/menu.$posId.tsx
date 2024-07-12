@@ -302,7 +302,7 @@ export default function Menu() {
               ))}
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="menu" className="m-0 overflow-x-hidden p-0">
+        <TabsContent value="menu" className="m-0 overflow-x-hidden p-0 pb-8">
           <Card className="m-0 border-0 p-0 shadow-none">
             <CardHeader className="py-4">
               <div className="flex flex-row items-center">
@@ -319,7 +319,7 @@ export default function Menu() {
               </div>
             </CardHeader>
             <CardContent className="m-0 p-0">
-              <div className="flex w-screen snap-x snap-mandatory flex-row overflow-x-scroll px-4 pb-3">
+              <div className="flex w-screen snap-x snap-mandatory flex-row overflow-x-scroll px-4 pb-2">
                 {menus?.map((menu) => (
                   <Link
                     to="#"
@@ -343,26 +343,21 @@ export default function Menu() {
                       <span className="font-base truncate text-sm text-muted-foreground">
                         {menu.title}
                       </span>
-                      <span className="font-base ml-2 whitespace-nowrap text-sm text-muted-foreground">
-                        {formatPrice(menu.price)}
-                      </span>
                     </div>
                   </Link>
                 ))}
               </div>
-              <div className="flex w-screen snap-x snap-mandatory flex-row overflow-x-scroll px-4 pb-3">
-                <Button
-                  className="mr-3"
-                  variant={filter === "all" ? "outline" : "secondary"}
-                  onClick={() => setFilter("all")}
-                  key={`menu-all`}
-                >
-                  {startCase("semua")}
-                </Button>
-                {menuCategories?.map((menu) => (
+              <div className="flex w-screen snap-x snap-mandatory flex-row gap-3 overflow-x-scroll px-4 py-3">
+                {[
+                  { id: "all", title: "Semua" },
+                  ...(menuCategories || [])
+                ]?.map((menu) => (
                   <Button
-                    className="mr-3"
-                    variant={filter === menu.id ? "outline" : "secondary"}
+                    variant={"secondary"}
+                    className={cn(
+                      "hover:bg-background hover:shadow-inner",
+                      filter === menu.id && "bg-background shadow-inner"
+                    )}
                     onClick={() => setFilter(menu.id)}
                     key={`menu-${menu.id}`}
                   >
@@ -797,13 +792,15 @@ export default function Menu() {
             <Input type="hidden" name="_action" value="_cancelOrder" />
             <Input type="hidden" name="order_id" value={order?.id} />
             <Input type="hidden" name="pos_id" value={posId} />
-            <Textarea
-              rows={2}
-              className="mb-3"
-              placeholder="Alasan pembatalan"
-              minLength={3}
-              name="notes"
-            />
+            {order?.status === "PENDING" && (
+              <Textarea
+                rows={2}
+                className="mb-3"
+                placeholder="Alasan pembatalan"
+                minLength={3}
+                name="notes"
+              />
+            )}
             <div className="flex flex-row items-center justify-center">
               <AlertDialogAction type="submit" className="mr-3 w-1/2">
                 Hapus
@@ -1036,6 +1033,7 @@ export default function Menu() {
 
           return (
             <DrawerContent>
+              <DrawerHandle />
               <div className="flex flex-col overflow-y-scroll">
                 <div className="flex flex-col px-4 pt-1">
                   <img

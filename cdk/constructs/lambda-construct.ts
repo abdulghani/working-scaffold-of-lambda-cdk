@@ -1,6 +1,6 @@
 import { Duration } from "aws-cdk-lib";
 import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
-import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
+import { ICommandHooks, NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Construct } from "constructs";
 import fs from "fs";
 
@@ -14,15 +14,20 @@ export class LambdaConstruct extends Construct {
       entry: __dirname + "/../../handler.ts",
       runtime: Runtime.NODEJS_20_X,
       architecture: Architecture.ARM_64,
-      memorySize: 512,
-      awsSdkConnectionReuse: true,
+      memorySize: 768,
       timeout: Duration.minutes(2),
       bundling: {
         minify: true,
         sourceMap: false,
         keepNames: true,
         bundleAwsSDK: false,
-        nodeModules: this.readServerImports()
+        nodeModules: this.readServerImports(),
+        commandHooks: this.createHooks({
+          afterBundling(inputDir: string, outputDir: string) {
+            /** INSTALL SHARP FOR ARM */
+            return ["npm install --os=linux --cpu=arm64 sharp"];
+          }
+        })
       },
       environment: {
         COOKIE_SECRET: process.env.COOKIE_SECRET || "",
@@ -36,7 +41,8 @@ export class LambdaConstruct extends Construct {
         SMTP_USER: process.env.SMTP_USER || "",
         SMTP_PASSWORD: process.env.SMTP_PASSWORD || "",
         TZ: process.env.TZ || "",
-        NODE_ENV: process.env.NODE_ENV || "production"
+        NODE_ENV: process.env.NODE_ENV || "production",
+        S3_IMAGE_BUCKET: process.env.S3_IMAGE_BUCKET || ""
       }
     });
   }
@@ -58,7 +64,8 @@ export class LambdaConstruct extends Construct {
       "tailwind-merge",
       "lucide-react",
       "class-variance-authority",
-      "lodash-es" /** BUILD LODASH WITH ESBUILD TREESHAKE */
+      "lodash-es" /** BUILD LODASH WITH ESBUILD TREESHAKE */,
+      "sharp"
     ];
     const file = fs.readFileSync(
       __dirname + "/../../build/server/index.js",
@@ -77,6 +84,14 @@ export class LambdaConstruct extends Construct {
       );
 
     return [...imports, ...included];
+  }
+
+  private createHooks(hooks: Partial<ICommandHooks>) {
+    return {
+      beforeBundling: hooks.beforeBundling || (() => []),
+      beforeInstall: hooks.beforeInstall || (() => []),
+      afterBundling: hooks.afterBundling || (() => [])
+    };
   }
 
   public get lambda() {

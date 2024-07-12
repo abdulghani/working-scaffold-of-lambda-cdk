@@ -1,4 +1,5 @@
 import { ActionError } from "@/lib/action-error";
+import { calculateTax } from "@/lib/calculate-tax";
 import { padNumber } from "@/lib/pad-number";
 import { parseZodIssue } from "@/lib/parse-zod-issue";
 import { ZOD_PHONE_TYPE } from "@/lib/zod-phone-type";
@@ -309,8 +310,9 @@ export const adminCancelOrder = serverOnly$(async function (
   return result?.find(Boolean);
 });
 
-export const adminCompleteOrder = serverOnly$(async function (orderId: string) {
-  const order = await dbconn?.("order").where({ id: orderId }).first();
+export const adminCompleteOrder = serverOnly$(async function (options: any) {
+  const { order_id, payment_proof } = options;
+  const order = await dbconn?.("order").where({ id: order_id }).first();
   if (ORDER_END_STATUS.includes(order?.status)) {
     throw new ActionError({
       message: "Order is already completed or cancelled",
@@ -323,9 +325,10 @@ export const adminCompleteOrder = serverOnly$(async function (orderId: string) {
   }
 
   const result = await dbconn?.("order")
-    .where({ id: orderId })
+    .where({ id: order_id })
     .update({
       status: ORDER_STATUS_ENUM.COMPLETED,
+      payment_proof,
       updated_at: new Date().toISOString()
     })
     .returning("*");
@@ -384,12 +387,11 @@ export const generateOrderQrCode = serverOnly$(async function (
     if (!order.tax_snapshot?.value) {
       return subTotal;
     }
-    const taxAmount =
-      subTotal * ((Number(order.tax_snapshot?.value) || 0) / 100);
+    const taxAmount = calculateTax(subTotal, order.tax_snapshot?.value);
     return subTotal + taxAmount;
   })();
 
-  return generateQRData({
+  return generateQRData?.({
     ...pos,
     amount: String(total),
     order_number: padNumber(order.temp_count),

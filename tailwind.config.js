@@ -33,7 +33,8 @@ module.exports = {
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))"
+          foreground: "hsl(var(--muted-foreground))",
+          90: "hsl(var(--muted) / 0.9)"
         },
         accent: {
           DEFAULT: "hsl(var(--accent))",
@@ -71,6 +72,9 @@ module.exports = {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "caret-blink": "caret-blink 1.25s ease-out infinite"
+      },
+      boxShadow: {
+        "inner-sm": "inset 0 2px 4px 0 rgb(0 0 0 / 0.03)"
       }
     }
   },

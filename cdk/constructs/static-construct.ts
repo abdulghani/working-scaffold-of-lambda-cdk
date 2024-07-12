@@ -64,6 +64,17 @@ export class StaticConstruct extends Construct {
       allowedOrigins: this.getCorsAllowedOrigin(),
       allowedMethods: [HttpMethods.GET, HttpMethods.HEAD]
     });
+
+    const imageBucket = Bucket.fromBucketName(
+      this,
+      "existingBucket",
+      process.env.S3_IMAGE_BUCKET || ""
+    );
+    imageBucket.grantRead(props.lambdaConstruct.lambda);
+    imageBucket.grantPut(props.lambdaConstruct.lambda);
+    imageBucket.grantPutAcl(props.lambdaConstruct.lambda);
+    imageBucket.grantWrite(props.lambdaConstruct.lambda);
+    imageBucket.grantDelete(props.lambdaConstruct.lambda);
   }
 
   private getKnownExtensions(path: string) {

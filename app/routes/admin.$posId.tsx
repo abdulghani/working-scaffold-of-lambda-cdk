@@ -14,8 +14,14 @@ import {
 } from "@remix-run/react";
 import { verifySessionPOSAccess } from "app/service/auth";
 import { validatePOSId } from "app/service/pos";
-import { ClipboardList, Menu, NotepadText, Users } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import {
+  ClipboardList,
+  LoaderCircle,
+  Menu,
+  NotepadText,
+  Users
+} from "lucide-react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
@@ -27,6 +33,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 export function useDebouncedMenu<T = any>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
+  const deferredValue = useDeferredValue(debouncedValue);
 
   useEffect(() => {
     if (value) {
@@ -42,7 +49,7 @@ export function useDebouncedMenu<T = any>(value: T, delay: number): T {
     }
   }, [value, delay]);
 
-  return debouncedValue;
+  return deferredValue;
 }
 
 export default function MenuAdmin() {
@@ -55,8 +62,8 @@ export default function MenuAdmin() {
     return location.pathname.split("/").pop();
   }, [location.pathname]);
   const navigation = useNavigation();
-  const isLoading = useMemo(() => {
-    return navigation.state === "loading";
+  const [isLoading, isSubmitting] = useMemo(() => {
+    return [navigation.state === "loading", navigation.state === "submitting"];
   }, [navigation.state]);
 
   return (
@@ -67,7 +74,7 @@ export default function MenuAdmin() {
       >
         <SheetContent
           side={"top"}
-          className="mt-12 rounded-b-sm px-3 pb-2"
+          className="z-40 mt-12 rounded-b-sm px-3 pb-2"
           onOpenAutoFocus={(e) => {
             e.preventDefault();
           }}
@@ -106,13 +113,13 @@ export default function MenuAdmin() {
         <div
           className={cn(
             "sticky top-0 border-zinc-50 bg-background px-3 pb-3",
-            isHeaderTop ? "z-50" : "border-b"
+            isHeaderTop ? "z-50" : "z-40 border-b"
           )}
+          onClick={(e) => {
+            setIsMenuOpen(!isMenuOpen);
+          }}
         >
-          <div
-            className="mt-4 flex flex-row items-center px-2"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
+          <div className="mt-4 flex flex-row items-center px-2">
             <Avatar className="h-12 w-12">
               <AvatarImage src={pos?.profile_img} />
               <AvatarFallback>{pos?.name?.substring(0, 2)}</AvatarFallback>
@@ -121,8 +128,7 @@ export default function MenuAdmin() {
               <div className="mr-3 flex flex-col overflow-hidden">
                 <CardTitle className="truncate">{pos.name}</CardTitle>
                 <CardDescription className="truncate">
-                  {pos.description} Lorem ipsum, dolor sit amet consectetur
-                  adipisicing elit. Atque, quis.
+                  {pos.description}
                 </CardDescription>
               </div>
               <Button variant={"ghost"} className="bg-zinc-50 px-[0.8rem]">
@@ -132,10 +138,16 @@ export default function MenuAdmin() {
           </div>
         </div>
 
+        {(isLoading || isSubmitting) && (
+          <div className="fixed left-0 top-0 z-30 flex h-[100svh] w-[100svw] flex-col transition-opacity">
+            <LoaderCircle className="m-auto h-10 w-10 animate-spin text-zinc-900 opacity-20" />
+          </div>
+        )}
+
         <div
-          className={
-            isLoading ? "pointer-events-none animate-pulse opacity-35" : ""
-          }
+          className={cn(
+            isLoading || isSubmitting ? "pointer-events-none opacity-40" : ""
+          )}
         >
           <Outlet context={{ pos }} />
         </div>
