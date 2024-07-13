@@ -9,13 +9,7 @@ import {
   AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle
-} from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerHandle } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -29,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { padNumber } from "@/lib/pad-number";
 import { useRevalidation } from "@/lib/use-revalidation";
+import { cn } from "@/lib/utils";
 import { TabsContent } from "@radix-ui/react-tabs";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { Form, useLoaderData, useOutletContext } from "@remix-run/react";
@@ -36,7 +31,8 @@ import {
   acknowledgeQueue,
   cancelQueue,
   getQueueList,
-  getQueueListHistory
+  getQueueListHistory,
+  QUEUE_ENUM
 } from "app/service/queue";
 import {
   CircleCheck,
@@ -90,11 +86,17 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function QueueAdmin() {
   const { pos } = useOutletContext<any>();
   const { queues, history } = useLoaderData<typeof loader>();
-  const [selectedQueue, setSelectedQueue] = useState<any>(null);
+  const [selectedQueueId, setSelectedQueueId] = useState<any>(null);
   const [query, setQuery] = useState<string>("");
   const [cancelQueueId, setCancelQueueId] = useState<string | null>(null);
 
   /** DEBOUNCED STUFF */
+  const selectedQueue = useMemo(
+    () =>
+      queues?.find((q) => q.id === selectedQueueId) ||
+      history?.find((q) => q.id === selectedQueueId),
+    [queues, history, selectedQueueId]
+  );
   const selectedQueueDebounced = useDebouncedMenu(selectedQueue, 500);
 
   useRevalidation();
@@ -137,7 +139,12 @@ export default function QueueAdmin() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="list" className="px-3">
-            <div className="mt-2 flex w-full flex-row items-center">
+            <div
+              className={cn(
+                "mt-2 flex w-full flex-row items-center rounded-md",
+                query && "border border-blue-200"
+              )}
+            >
               <Button
                 variant={"outline"}
                 className="rounded-r-none"
@@ -167,7 +174,7 @@ export default function QueueAdmin() {
               <TableBody>
                 {queuesFiltered?.map((q) => (
                   <Fragment key={q.id}>
-                    <TableRow onClick={() => setSelectedQueue(q)}>
+                    <TableRow onClick={() => setSelectedQueueId(q.id)}>
                       <TableCell className="font-medium">
                         {padNumber(q.temp_count)}
                       </TableCell>
@@ -183,7 +190,12 @@ export default function QueueAdmin() {
             </Table>
           </TabsContent>
           <TabsContent value="history" className="px-3">
-            <div className="mt-2 flex w-full flex-row items-center">
+            <div
+              className={cn(
+                "mt-2 flex w-full flex-row items-center rounded-md",
+                query && "border border-blue-200"
+              )}
+            >
               <Button
                 variant={"outline"}
                 className="rounded-r-none"
@@ -213,7 +225,7 @@ export default function QueueAdmin() {
               <TableBody>
                 {historyFiltered?.map((q) => (
                   <Fragment key={q.id}>
-                    <TableRow onClick={() => setSelectedQueue(q)}>
+                    <TableRow onClick={() => setSelectedQueueId(q.id)}>
                       <TableCell className="font-medium">
                         {padNumber(q.temp_count)}
                       </TableCell>
@@ -233,23 +245,28 @@ export default function QueueAdmin() {
 
       {/* LIST DRAWER */}
       <Drawer
-        open={selectedQueue?.id && !cancelQueueId}
-        onOpenChange={(e) => !e && !cancelQueueId && setSelectedQueue(null)}
+        open={selectedQueueId && !cancelQueueId}
+        onOpenChange={(e) => !e && !cancelQueueId && setSelectedQueueId(null)}
         disablePreventScroll={true}
       >
         <DrawerContent className="rounded-t-sm px-3 pb-5">
-          <DrawerHeader>
-            <DrawerTitle>
-              Antrian {padNumber(selectedQueueDebounced?.temp_count)}
-            </DrawerTitle>
-            <DrawerDescription>
-              Terima antrian atau tolak antrian ini
-            </DrawerDescription>
-          </DrawerHeader>
+          <DrawerHandle />
+          <div className="mt-1 flex w-full flex-col px-3">
+            <div className="flex flex-row items-center text-xl">
+              <span className="block font-semibold">
+                Antrian no {padNumber(selectedQueueDebounced?.temp_count)}
+              </span>
+            </div>
+            <div className="mb-1 text-sm text-muted-foreground">
+              {selectedQueueDebounced?.status === QUEUE_ENUM.PENDING
+                ? "Terima antrian atau tolak antrian ini"
+                : "Detail antrian"}
+            </div>
+          </div>
           <Table>
             <TableBody>
               <TableRow>
-                <TableCell className="whitespace-nowrap">No antrian</TableCell>
+                <TableCell className="whitespace-nowrap">#</TableCell>
                 <TableCell className="text-right">
                   {padNumber(selectedQueueDebounced?.temp_count)}
                 </TableCell>
@@ -338,7 +355,7 @@ export default function QueueAdmin() {
             </TableBody>
           </Table>
           {selectedQueueDebounced?.status === "PENDING" && (
-            <Form method="post" onSubmit={() => setSelectedQueue(null)}>
+            <Form method="post" onSubmit={() => setSelectedQueueId(null)}>
               <Input
                 type="hidden"
                 name="queue_id"
@@ -347,7 +364,7 @@ export default function QueueAdmin() {
               <div className="mx-2 mt-2 flex flex-row items-center">
                 <Button
                   className="mt-0 w-1/2"
-                  variant={"outline"}
+                  variant={"secondary"}
                   type="button"
                   onClick={() => setCancelQueueId(selectedQueueDebounced?.id)}
                 >
@@ -386,7 +403,7 @@ export default function QueueAdmin() {
             className="w-full"
             onSubmit={() => {
               setCancelQueueId(null);
-              setSelectedQueue(null);
+              setSelectedQueueId(null);
             }}
           >
             <Input type="hidden" name="queue_id" value={cancelQueueId!} />

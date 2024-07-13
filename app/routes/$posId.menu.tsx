@@ -614,7 +614,9 @@ export default function Menu() {
                         !ORDER_CANCELLABLE_STATUS.includes(order.status)
                       }
                     >
-                      Buat pesanan baru
+                      {order.status === ORDER_STATUS_ENUM.PENDING
+                        ? "Batalkan pesanan"
+                        : "Buat pesanan baru"}
                     </Button>
                   </div>
                 </div>
@@ -694,27 +696,38 @@ export default function Menu() {
               )}
               {Object.keys(draftOrder || {}).length > 0 && (
                 <>
-                  {posTax?.value && (
-                    <div className="mt-1 flex flex-row items-center justify-between rounded-sm bg-background px-3 py-2 text-xs text-muted-foreground transition-colors hover:bg-zinc-100">
-                      <span>Pajak daerah ({posTax.value}%)</span>
-                      <span>
-                        {formatPrice(calculateTax(draftTotal, posTax.value))}
-                      </span>
-                    </div>
-                  )}
-                  <div className="mt-2 flex flex-row items-center justify-between rounded-sm bg-zinc-50 px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-zinc-100">
-                    <span>Total</span>
-                    <span>
-                      {formatPrice(
-                        posTax?.value
-                          ? draftTotal + calculateTax(draftTotal, posTax.value)
-                          : draftTotal
+                  <Table className="">
+                    <TableBody>
+                      {posTax?.value && (
+                        <TableRow className="text-xs text-muted-foreground">
+                          <TableCell className="whitespace-nowrap px-2 text-left">
+                            Pajak daerah ({posTax.value}%)
+                          </TableCell>
+                          <TableCell className="px-2 text-right">
+                            {formatPrice(
+                              calculateTax(draftTotal, posTax.value)
+                            )}
+                          </TableCell>
+                        </TableRow>
                       )}
-                    </span>
-                  </div>
+                      <TableRow>
+                        <TableCell className="whitespace-nowrap px-2 text-left">
+                          Total
+                        </TableCell>
+                        <TableCell className="px-2 text-right">
+                          {formatPrice(
+                            posTax?.value
+                              ? draftTotal +
+                                  calculateTax(draftTotal, posTax.value)
+                              : draftTotal
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
 
                   <Form method="post">
-                    <div className="mt-3 space-y-1">
+                    <div className="mt-2 space-y-1">
                       <Label htmlFor="name">
                         Atas nama{" "}
                         {action?.error?.details?.name && (

@@ -278,7 +278,12 @@ export default function OrderAdmin() {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="list" className="px-3">
-            <div className="mt-2 flex w-full flex-row items-center">
+            <div
+              className={cn(
+                "mt-2 flex w-full flex-row items-center rounded-md",
+                query && "border border-blue-200"
+              )}
+            >
               <Button
                 variant={"outline"}
                 className="rounded-r-none"
@@ -323,7 +328,12 @@ export default function OrderAdmin() {
             </Table>
           </TabsContent>
           <TabsContent value="accepted" className="px-3">
-            <div className="mt-2 flex w-full flex-row items-center">
+            <div
+              className={cn(
+                "mt-2 flex w-full flex-row items-center rounded-md",
+                query && "border border-blue-200"
+              )}
+            >
               <Button
                 variant={"outline"}
                 className="rounded-r-none"
@@ -368,7 +378,12 @@ export default function OrderAdmin() {
             </Table>
           </TabsContent>
           <TabsContent value="history" className="px-3">
-            <div className="mt-2 flex w-full flex-row items-center">
+            <div
+              className={cn(
+                "mt-2 flex w-full flex-row items-center rounded-md",
+                query && "border border-blue-200"
+              )}
+            >
               <Button
                 variant={"outline"}
                 className="rounded-r-none"
@@ -473,7 +488,7 @@ export default function OrderAdmin() {
             <Input type="hidden" name="order_id" value={deferredOrder?.id} />
             <div className="flex flex-row gap-2">
               <Button
-                variant={"outline"}
+                variant={"secondary"}
                 type="submit"
                 name="_action"
                 value="cancel"
@@ -541,7 +556,7 @@ export default function OrderAdmin() {
             <Input type="hidden" name="order_id" value={deferredOrder?.id} />
             <div className="flex w-full flex-row gap-2">
               <Button
-                variant={"outline"}
+                variant={"default"}
                 type="submit"
                 name="_action"
                 value="complete"
@@ -551,7 +566,7 @@ export default function OrderAdmin() {
               </Button>
               <Button
                 className="w-1/2"
-                variant={"default"}
+                variant={"secondary"}
                 type="button"
                 onClick={(e) => {
                   setCompleteOrder(null);
@@ -737,7 +752,7 @@ export default function OrderAdmin() {
                     );
 
                     return (
-                      <div className="flex shrink-0 flex-row items-center overflow-hidden px-2 py-2 transition-colors hover:bg-zinc-50">
+                      <div className="flex shrink-0 flex-row items-center overflow-hidden px-3 py-2 transition-colors hover:bg-zinc-50">
                         <img
                           src={menu?.imgs?.[0]}
                           className="h-12 w-12 rounded-sm object-cover"
@@ -783,17 +798,23 @@ export default function OrderAdmin() {
                     );
                   })}
                 </div>
-                <div className="mx-2 mt-2 flex flex-row items-center justify-between rounded-sm bg-zinc-50 px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-zinc-100">
-                  <span>Total</span>
-                  <span>{formatPrice(totalWTax)}</span>
-                </div>
+                <Table className="border-t border-muted">
+                  <TableBody>
+                    <TableRow>
+                      <TableCell>Total</TableCell>
+                      <TableCell className="text-right">
+                        {formatPrice(totalWTax)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
 
                 {deferredOrder?.status === "PENDING" ? (
                   <Form
                     method="post"
                     encType="multipart/form-data"
                     onSubmit={() => setSelectedOrderId(null)}
-                    className="mt-3 flex w-full flex-row gap-2 px-2"
+                    className="mt-4 flex w-full flex-row gap-2 px-2"
                   >
                     <Input
                       type="hidden"
@@ -802,7 +823,7 @@ export default function OrderAdmin() {
                     />
                     <Button
                       type="button"
-                      variant={"outline"}
+                      variant={"secondary"}
                       className="w-1/2"
                       onClick={() => setCancelOrder(deferredOrder?.id)}
                     >
@@ -824,7 +845,7 @@ export default function OrderAdmin() {
                   <Form
                     method="post"
                     encType="multipart/form-data"
-                    className="mt-3 flex w-full flex-row gap-2 px-2"
+                    className="mt-4 flex w-full flex-row gap-2 px-2"
                   >
                     <Input
                       type="hidden"
@@ -833,7 +854,7 @@ export default function OrderAdmin() {
                     />
                     <Button
                       type="button"
-                      variant={"outline"}
+                      variant={"secondary"}
                       className="w-1/2"
                       onClick={() => setCompleteOrder(deferredOrder?.id)}
                     >
@@ -860,7 +881,7 @@ export default function OrderAdmin() {
                     <Form
                       method="post"
                       encType="multipart/form-data"
-                      className="mt-3 flex w-full flex-row gap-2 px-2"
+                      className="mt-4 flex w-full flex-row gap-2 px-2"
                     >
                       <Input
                         type="hidden"

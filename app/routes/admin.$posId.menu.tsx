@@ -116,7 +116,12 @@ export default function AdminMenu() {
           </Button>
         ))}
       </div>
-      <div className="mb-1 mt-0.5 flex w-full flex-row items-center px-3">
+      <div
+        className={cn(
+          "mb-1 mt-0.5 flex w-full flex-row items-center rounded-md px-3",
+          query && "border border-blue-200"
+        )}
+      >
         <Button
           variant={"outline"}
           className="rounded-r-none"
@@ -167,7 +172,7 @@ export default function AdminMenu() {
             </div>
             <div className="mr-2 flex flex-col items-center">
               {i.active ? (
-                <CircleCheck className="h-5 w-5 text-green-500" />
+                <CircleCheck className="h-5 w-5 text-zinc-400" />
               ) : (
                 <CircleX className="h-5 w-5 text-red-500" />
               )}
