@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { openPhoneLink } from "@/lib/open-phone-link";
 import { padNumber } from "@/lib/pad-number";
 import { useRevalidation } from "@/lib/use-revalidation";
 import { cn } from "@/lib/utils";
@@ -287,7 +288,8 @@ export default function QueueAdmin() {
               <TableRow
                 onClick={() => {
                   if (selectedQueueDebounced?.phone) {
-                    const encoded = encodeURIComponent(
+                    openPhoneLink(
+                      selectedQueueDebounced?.phone,
                       TEXT_TEMPLATE.replace(
                         "{name}",
                         selectedQueueDebounced?.name
@@ -295,19 +297,14 @@ export default function QueueAdmin() {
                         .replace("{pos}", pos.name)
                         .replace("{pax}", `${selectedQueueDebounced?.pax} PAX`)
                     );
-                    window.open(
-                      `https://wa.me/${selectedQueueDebounced?.phone}?text=${encoded}`
-                    );
                   }
                 }}
               >
-                <TableCell className="whitespace-nowrap">
-                  No handphone
-                </TableCell>
+                <TableCell className="whitespace-nowrap">Handphone</TableCell>
                 <TableCell className="text-right">
                   {selectedQueueDebounced?.phone ? (
                     <>
-                      <Phone className="-mt-0.5 mr-2.5 inline w-4 text-blue-400" />
+                      <Phone className="-mt-0.5 mr-2.5 inline w-4 text-blue-600" />
                       <span>{selectedQueueDebounced?.phone}</span>
                     </>
                   ) : (

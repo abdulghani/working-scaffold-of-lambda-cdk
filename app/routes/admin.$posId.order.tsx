@@ -20,6 +20,7 @@ import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
 import { FileInput } from "@/components/ui/file-input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import { openPhoneLink } from "@/lib/open-phone-link";
 import { cn } from "@/lib/utils";
 import {
   ActionFunctionArgs,
@@ -49,7 +50,14 @@ import {
 } from "app/service/order";
 import { s3UploadHandler } from "app/service/s3";
 import { capitalize } from "lodash-es";
-import { CircleCheck, CircleX, QrCode, Trash, Upload } from "lucide-react";
+import {
+  CircleCheck,
+  CircleX,
+  Phone,
+  QrCode,
+  Trash,
+  Upload
+} from "lucide-react";
 import { DateTime } from "luxon";
 import qrcode from "qrcode";
 import {
@@ -61,17 +69,10 @@ import {
 } from "react";
 
 const TEXT_TEMPLATE = `
-Halo {name}, antrian {pos} sudah siap untuk {pax}.
+Halo {name}, pesanan #{order_number} {pos}  sudah siap.
 
 Terima kasih.
 `.trim();
-
-const QUEUE_ENUM_LABEL: any = {
-  PENDING: "Menunggu",
-  ACKNOWLEDGED: "Diterima",
-  CANCELLED: "Ditolak",
-  USER_CANCELLED: "Dibatalkan pelanggan"
-};
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
@@ -682,10 +683,33 @@ export default function OrderAdmin() {
                         {deferredOrder?.name}
                       </TableCell>
                     </TableRow>
-                    <TableRow>
+                    <TableRow
+                      onClick={() => {
+                        if (deferredOrder?.phone) {
+                          openPhoneLink(
+                            deferredOrder?.phone,
+                            TEXT_TEMPLATE.replace("{name}", deferredOrder?.name)
+                              .replace("{pos}", pos?.name)
+                              .replace(
+                                "{order_number}",
+                                padNumber(deferredOrder?.temp_count)
+                              )
+                          );
+                        }
+                      }}
+                    >
                       <TableCell>Handphone</TableCell>
                       <TableCell className="text-right">
-                        {deferredOrder?.phone || "Tidak tersedia"}
+                        {deferredOrder?.phone && (
+                          <Phone className="mr-2 inline w-4 text-blue-600" />
+                        )}
+                        <span
+                          className={cn(
+                            !deferredOrder.phone && "text-muted-foreground"
+                          )}
+                        >
+                          {deferredOrder?.phone || "Tidak tersedia"}
+                        </span>
                       </TableCell>
                     </TableRow>
                     <TableRow>
