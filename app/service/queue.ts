@@ -38,14 +38,14 @@ export const getQueueList = serverOnly$(async (posId: string) => {
 
 export const getQueueListHistory = serverOnly$(async (posId: string) => {
   const list = await dbconn?.("queue")
-    .whereIn("status", [QUEUE_ENUM.ACKNOWLEDGED, QUEUE_ENUM.CANCELLED])
+    .whereNot("status", QUEUE_ENUM.PENDING)
     .andWhere({ pos_id: posId })
     .andWhere(
       "updated_at",
       ">=",
       DateTime.now().startOf("day").minus({ day: 2 }).toISO()
     )
-    .orderBy("updated_at", "desc");
+    .orderBy("temp_count", "desc");
 
   return list;
 });
@@ -143,30 +143,36 @@ export const addQueue = serverOnly$(
   }
 );
 
-export const cancelQueue = serverOnly$(async (queueId: string) => {
-  const queue = await dbconn?.("queue")
-    .where({ id: queueId })
-    .update({
-      status: QUEUE_ENUM.CANCELLED,
-      updated_at: new Date().toISOString()
-    })
-    .returning("*");
+export const cancelQueue = serverOnly$(
+  async (queueId: string, notes?: string) => {
+    const queue = await dbconn?.("queue")
+      .where({ id: queueId })
+      .update({
+        status: QUEUE_ENUM.CANCELLED,
+        notes: notes,
+        updated_at: new Date().toISOString()
+      })
+      .returning("*");
 
-  return queue?.find(Boolean);
-});
+    return queue?.find(Boolean);
+  }
+);
 
-export const userCancelQueue = serverOnly$(async (queueId: string) => {
-  const queue = await dbconn?.("queue")
-    .whereNotIn("status", [QUEUE_ENUM.CANCELLED, QUEUE_ENUM.ACKNOWLEDGED])
-    .andWhere({ id: queueId })
-    .update({
-      status: QUEUE_ENUM.USER_CANCELLED,
-      updated_at: new Date().toISOString()
-    })
-    .returning("*");
+export const userCancelQueue = serverOnly$(
+  async (queueId: string, notes?: string) => {
+    const queue = await dbconn?.("queue")
+      .whereNotIn("status", [QUEUE_ENUM.CANCELLED, QUEUE_ENUM.ACKNOWLEDGED])
+      .andWhere({ id: queueId })
+      .update({
+        status: QUEUE_ENUM.USER_CANCELLED,
+        notes: notes,
+        updated_at: new Date().toISOString()
+      })
+      .returning("*");
 
-  return queue?.find(Boolean);
-});
+    return queue?.find(Boolean);
+  }
+);
 
 export const acknowledgeQueue = serverOnly$(async (queueId: string) => {
   const queue = await dbconn?.("queue")

@@ -61,7 +61,14 @@ import {
 } from "app/service/order";
 import { getPOSTax, validatePOSId } from "app/service/pos";
 import { startCase } from "lodash-es";
-import { Ban, CircleCheck, CircleX, Timer, Utensils } from "lucide-react";
+import {
+  Ban,
+  CircleCheck,
+  CircleX,
+  ShoppingCart,
+  Timer,
+  Utensils
+} from "lucide-react";
 import { DateTime } from "luxon";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useDebouncedMenu } from "./admin.$posId";
@@ -117,7 +124,7 @@ export const action = wrapActionError(async function ({
     );
     const result = await createOrder?.(payload);
     if (result?.id) {
-      throw redirect(`/menu/${payload.pos_id}`, {
+      throw redirect(`/${payload.pos_id}/menu`, {
         headers: {
           "Set-Cookie": await orderCookie.serialize(result.id)
         }
@@ -125,7 +132,7 @@ export const action = wrapActionError(async function ({
     }
   } else if (payload._action === "_cancelOrder") {
     await userCancelOrder?.(cookie, payload?.notes);
-    throw redirect(`/menu/${payload.pos_id}`, {
+    throw redirect(`/${payload.pos_id}/menu`, {
       headers: {
         "Set-Cookie": await orderCookie.serialize("", { maxAge: 0 })
       }
@@ -290,16 +297,19 @@ export default function Menu() {
             }
           >
             <span className="block">Pesanan</span>
-            {order?.id &&
-              (order.status === "ACCEPTED" ? (
-                <Utensils className="ml-1.5 h-4 w-4" />
-              ) : order.status === "COMPLETED" ? (
-                <CircleCheck className="ml-1.5 h-4 w-4" />
-              ) : order.status === "CANCELLED" ? (
-                <Ban className="ml-1.5 h-4 w-4" />
-              ) : (
-                <Timer className="ml-1.5 h-4 w-4" />
-              ))}
+            {(() => {
+              if (order?.status === ORDER_STATUS_ENUM.ACCEPTED) {
+                return <Utensils className="ml-1.5 h-4 w-4" />;
+              } else if (order?.status === ORDER_STATUS_ENUM.COMPLETED) {
+                return <CircleCheck className="ml-1.5 h-4 w-4" />;
+              } else if (order?.status === ORDER_STATUS_ENUM.CANCELLED) {
+                return <Ban className="ml-1.5 h-4 w-4" />;
+              } else if (order?.id) {
+                return <Timer className="ml-1.5 h-4 w-4" />;
+              } else if (Object.keys(draftOrder || {}).length) {
+                return <ShoppingCart className="ml-1.5 h-4 w-4" />;
+              }
+            })()}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="menu" className="m-0 overflow-x-hidden p-0 pb-8">
@@ -480,10 +490,7 @@ export default function Menu() {
                       {order.notes && (
                         <TableRow>
                           <TableCell className="whitespace-nowrap">
-                            {order?.status !==
-                            ORDER_STATUS_ENUM.CANCELLED_BY_USER
-                              ? "Catatan penjual"
-                              : "Catatan pelanggan"}
+                            Catatan
                           </TableCell>
                           <TableCell className="text-right">
                             {order.notes}

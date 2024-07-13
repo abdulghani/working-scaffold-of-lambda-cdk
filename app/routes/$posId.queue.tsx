@@ -6,8 +6,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
+  AlertDialogTitle
 } from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -30,6 +29,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { wrapActionError } from "@/lib/action-error";
 import { padNumber } from "@/lib/pad-number";
 import { parsePhone } from "@/lib/parse-phone";
@@ -86,9 +86,9 @@ export const action = wrapActionError(async function ({
       ![QUEUE_ENUM.ACKNOWLEDGED, QUEUE_ENUM.CANCELLED].includes(queue.status) &&
       posId === queue?.pos_id
     ) {
-      await userCancelQueue?.(queue.id as string);
+      await userCancelQueue?.(queue.id as string, payload.notes);
     }
-    throw redirect(`/queue/${posId}`, {
+    throw redirect(`/${posId}/queue`, {
       headers: {
         "Set-Cookie": await queueCookie.serialize("", { maxAge: 0 })
       }
@@ -102,7 +102,7 @@ export const action = wrapActionError(async function ({
     posId
   });
 
-  throw redirect(`/queue/${posId}`, {
+  throw redirect(`/${posId}/queue`, {
     headers: {
       "Set-Cookie": await queueCookie.serialize(newQueue)
     }
@@ -136,7 +136,7 @@ export default function Queue() {
                   <div className="ml-3">
                     <CardTitle>{pos.name}</CardTitle>
                     <CardDescription>
-                      Antrian {pos.description || "List antrian restoran"}
+                      Antrian {pos.description || pos.name}
                     </CardDescription>
                   </div>
                 </div>
@@ -185,51 +185,74 @@ export default function Queue() {
                       Anda sudah mengantri atas nama {queue.name} (untuk{" "}
                       {queue.pax} orang)
                     </CardDescription>
-                    <CardDescription>
-                      {new Date(queue.created_at).toLocaleString()} (
-                      {DateTime.fromISO(queue.created_at).toRelative()})
-                    </CardDescription>
+                    <Table>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">#</TableCell>
+                          <TableCell className="text-right">
+                            {padNumber(queue.temp_count)}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            Nama
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {queue.name}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            PAX
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {queue.pax}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            Status
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {queue.status}
+                          </TableCell>
+                        </TableRow>
+                        {queue.notes && (
+                          <TableRow>
+                            <TableCell className="whitespace-nowrap">
+                              Catatan
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {queue.notes}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            Waktu antrian
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span>
+                              {DateTime.fromISO(queue.created_at).toFormat(
+                                "dd MMM yyyy, HH:mm ZZZZ"
+                              )}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                              {DateTime.fromISO(queue.created_at).toRelative()}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
                   </CardHeader>
                   <CardFooter>
-                    <AlertDialog
-                      open={cancelDialog}
-                      onOpenChange={setCancelDialog}
+                    <Button
+                      className="w-full"
+                      variant="secondary"
+                      onClick={() => setCancelDialog(true)}
                     >
-                      <AlertDialogTrigger asChild>
-                        <Button className="w-full" variant="outline">
-                          Batalkan antrian
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-sm py-8">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Apakah Anda yakin?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Antrian akan dibatalkan dan tidak bisa dikembalikan
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <Form
-                          method="post"
-                          className="w-full"
-                          onSubmit={() => setCancelDialog(false)}
-                        >
-                          <AlertDialogFooter className="flex flex-row items-center justify-center">
-                            <AlertDialogAction
-                              type="submit"
-                              name="cancel"
-                              value="true"
-                              className="mr-3 w-1/2"
-                            >
-                              Hapus
-                            </AlertDialogAction>
-                            <AlertDialogCancel className="mt-0 w-1/2">
-                              Batal
-                            </AlertDialogCancel>
-                          </AlertDialogFooter>
-                        </Form>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                      Batalkan antrian
+                    </Button>
                   </CardFooter>
                 </>
               ) : queue?.status === QUEUE_ENUM.ACKNOWLEDGED ? (
@@ -240,60 +263,77 @@ export default function Queue() {
                       <CircleCheck className="ml-2 h-5 w-5 text-green-500" />
                     </CardTitle>
                     <CardDescription>
-                      Antrian Anda diterima oleh pihak restoran, segera datang
+                      Antrian Anda diterima oleh pihak pedagang, segera datang
                       untuk menerima pelayanan.
                     </CardDescription>
-                    <CardDescription>
-                      {[queue.name, queue.phone, `${queue.pax} PAX`]
-                        .filter(Boolean)
-                        .join(", ")}
-                    </CardDescription>
-                    <CardDescription>
-                      {DateTime.fromISO(queue.updated_at).toRelative()}
-                    </CardDescription>
+                    <Table>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">#</TableCell>
+                          <TableCell className="text-right">
+                            {padNumber(queue.temp_count)}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            Nama
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {queue.name}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            PAX
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {queue.pax}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            Status
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {queue.status}
+                          </TableCell>
+                        </TableRow>
+                        {queue.notes && (
+                          <TableRow>
+                            <TableCell className="whitespace-nowrap">
+                              Catatan
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {queue.notes}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            Waktu antrian
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span>
+                              {DateTime.fromISO(queue.created_at).toFormat(
+                                "dd MMM yyyy, HH:mm ZZZZ"
+                              )}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                              {DateTime.fromISO(queue.created_at).toRelative()}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
                   </CardHeader>
                   <CardFooter>
-                    <AlertDialog
-                      open={cancelDialog}
-                      onOpenChange={setCancelDialog}
+                    <Button
+                      className="w-full"
+                      variant="secondary"
+                      onClick={() => setCancelDialog(true)}
                     >
-                      <AlertDialogTrigger asChild>
-                        <Button className="w-full" variant="outline">
-                          Buat antrian baru
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-sm py-8">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Apakah Anda yakin?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Antrian akan dihapus dan tidak bisa dikembalikan
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <Form
-                          method="post"
-                          className="w-full"
-                          onSubmit={() => {
-                            setCancelDialog(false);
-                          }}
-                        >
-                          <AlertDialogFooter className="flex flex-row items-center justify-center">
-                            <AlertDialogAction
-                              type="submit"
-                              name="cancel"
-                              value="true"
-                              className="mr-3 w-1/2"
-                            >
-                              Hapus
-                            </AlertDialogAction>
-                            <AlertDialogCancel className="mt-0 w-1/2">
-                              Batal
-                            </AlertDialogCancel>
-                          </AlertDialogFooter>
-                        </Form>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                      Buat antrian baru
+                    </Button>
                   </CardFooter>
                 </>
               ) : queue?.status === QUEUE_ENUM.CANCELLED ? (
@@ -304,60 +344,76 @@ export default function Queue() {
                       <CircleX className="ml-2 h-5 w-5 text-red-500" />
                     </CardTitle>
                     <CardDescription>
-                      Antrian dibatalkan oleh pihak restoran, karena tidak
-                      berada ditempat saat antrian diterima.
+                      Antrian dibatalkan oleh pihak pedagang.
                     </CardDescription>
-                    <CardDescription>
-                      {[queue.name, queue.phone, `${queue.pax} PAX`]
-                        .filter(Boolean)
-                        .join(", ")}
-                    </CardDescription>
-                    <CardDescription>
-                      {DateTime.fromISO(queue.created_at).toRelative()}
-                    </CardDescription>
+                    <Table>
+                      <TableBody>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">#</TableCell>
+                          <TableCell className="text-right">
+                            {padNumber(queue.temp_count)}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            Nama
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {queue.name}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            PAX
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {queue.pax}
+                          </TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            Status
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {queue.status}
+                          </TableCell>
+                        </TableRow>
+                        {queue.notes && (
+                          <TableRow>
+                            <TableCell className="whitespace-nowrap">
+                              Catatan
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {queue.notes}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        <TableRow>
+                          <TableCell className="whitespace-nowrap">
+                            Waktu antrian
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span>
+                              {DateTime.fromISO(queue.created_at).toFormat(
+                                "dd MMM yyyy, HH:mm ZZZZ"
+                              )}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                              {DateTime.fromISO(queue.created_at).toRelative()}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
                   </CardHeader>
                   <CardFooter>
-                    <AlertDialog
-                      open={cancelDialog}
-                      onOpenChange={setCancelDialog}
+                    <Button
+                      className="w-full"
+                      variant="secondary"
+                      onClick={() => setCancelDialog(true)}
                     >
-                      <AlertDialogTrigger asChild>
-                        <Button className="w-full" variant="outline">
-                          Buat antrian baru
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-sm py-8">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>
-                            Apakah Anda yakin?
-                          </AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Antrian akan dihapus dan tidak bisa dikembalikan
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <Form
-                          method="post"
-                          className="w-full"
-                          onSubmit={() => {
-                            setCancelDialog(false);
-                          }}
-                        >
-                          <AlertDialogFooter className="flex flex-row items-center justify-center">
-                            <AlertDialogAction
-                              type="submit"
-                              name="cancel"
-                              value="true"
-                              className="mr-3 w-1/2"
-                            >
-                              Hapus
-                            </AlertDialogAction>
-                            <AlertDialogCancel className="mt-0 w-1/2">
-                              Batal
-                            </AlertDialogCancel>
-                          </AlertDialogFooter>
-                        </Form>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                      Buat antrian baru
+                    </Button>
                   </CardFooter>
                 </>
               ) : (
@@ -444,6 +500,44 @@ export default function Queue() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <AlertDialog open={cancelDialog} onOpenChange={setCancelDialog}>
+        <AlertDialogContent className="rounded-none py-8">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Antrian akan dibatalkan dan tidak bisa dikembalikan
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Form
+            method="post"
+            className="w-full"
+            onSubmit={() => setCancelDialog(false)}
+          >
+            {queue?.status === QUEUE_ENUM.PENDING && (
+              <Textarea
+                name="notes"
+                placeholder="Alasan pembatalan"
+                rows={2}
+                className="mb-3"
+              />
+            )}
+            <AlertDialogFooter className="flex flex-row items-center justify-center">
+              <AlertDialogAction
+                type="submit"
+                name="cancel"
+                value="true"
+                className="mr-3 w-1/2"
+              >
+                Hapus
+              </AlertDialogAction>
+              <AlertDialogCancel className="mt-0 w-1/2">
+                Batal
+              </AlertDialogCancel>
+            </AlertDialogFooter>
+          </Form>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

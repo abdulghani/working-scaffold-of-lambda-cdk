@@ -1,11 +1,13 @@
 import { MAX_FILE_SIZE, MAX_FILE_SIZE_LABEL } from "@/constants/max-file-size";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { ulid } from "ulid";
 import { Input } from "./input";
 import { Label } from "./label";
 
 export function FileInput({ children, ...props }: any) {
   const [invalid, setInvalid] = useState<string | null>(null);
+  const key = useMemo(() => `file_input_${ulid()}`, []);
 
   return (
     <div
@@ -16,7 +18,7 @@ export function FileInput({ children, ...props }: any) {
       )}
     >
       <Label
-        htmlFor="complete_file_upload"
+        htmlFor={key}
         className={cn(
           "flex-grow whitespace-nowrap pl-5",
           invalid && "text-red-500"
@@ -32,7 +34,7 @@ export function FileInput({ children, ...props }: any) {
       </Label>
       <Input
         {...props}
-        id="complete_file_upload"
+        id={key}
         type="file"
         className={cn(
           "flex max-w-[40%] flex-col items-center border-0 px-0 text-background"

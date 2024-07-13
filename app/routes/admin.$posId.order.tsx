@@ -41,6 +41,7 @@ import {
   adminGetAcceptedOrders,
   adminGetHistoryOrders,
   adminGetPendingOrders,
+  adminUpdatePaymentProof,
   generateOrderQrCode,
   ORDER_ERROR_CODE,
   ORDER_STATUS_ENUM,
@@ -48,7 +49,7 @@ import {
 } from "app/service/order";
 import { s3UploadHandler } from "app/service/s3";
 import { capitalize } from "lodash-es";
-import { CircleX, Trash } from "lucide-react";
+import { CircleCheck, CircleX, QrCode, Trash, Upload } from "lucide-react";
 import { DateTime } from "luxon";
 import qrcode from "qrcode";
 import {
@@ -110,6 +111,9 @@ export const action = wrapActionError(async function ({
   } else if (payload._action === "generate_payment_qr") {
     const qrcode = await generateOrderQrCode?.(payload.order_id!);
     return { qrcode, order_id: payload.order_id! };
+  } else if (payload._action === "upload_payment_proof") {
+    const order = await adminUpdatePaymentProof?.(payload);
+    return { order };
   }
 
   return {};
@@ -119,19 +123,37 @@ export default function OrderAdmin() {
   const { pos } = useOutletContext<any>();
   const { orders, accepted, history } = useLoaderData<typeof loader>();
   const action = useActionData<any>();
-  const navigation = useNavigation();
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<any>(null);
   const [query, setQuery] = useState<string>("");
   const [qrPayment, setQrPayment] = useState<string>("");
   const [cancelOrder, setCancelOrder] = useState<any>(null);
   const [completeOrder, setCompleteOrder] = useState<any>(null);
   const [paymentProof, setPaymentProof] = useState<any>(null);
+  const [uploadProof, setUploadProof] = useState<any>(null);
   const { toast } = useToast();
+  const navigation = useNavigation();
 
   useRevalidation();
 
   /** STATE STUFF */
-  const deferredOrder = useDeferredValue(selectedOrder);
+  const isSubmitting = useMemo(
+    () => navigation.state === "submitting",
+    [navigation.state]
+  );
+  const orderMap = useMemo(() => {
+    const map = {} as any;
+    orders?.forEach((o) => {
+      map[o.id] = o;
+    });
+    accepted?.forEach((o) => {
+      map[o.id] = o;
+    });
+    history?.forEach((o) => {
+      map[o.id] = o;
+    });
+    return map;
+  }, [orders, accepted, history]);
+  const deferredOrder = useDeferredValue(orderMap[selectedOrderId]);
   const deferredQuery = useDeferredValue(query);
   const [filteredOrders, filteredAccepted, filteredHistory] = useMemo(() => {
     if (!deferredQuery) {
@@ -286,7 +308,7 @@ export default function OrderAdmin() {
               <TableBody>
                 {filteredOrders?.map((o) => (
                   <Fragment key={o.id}>
-                    <TableRow onClick={() => setSelectedOrder(o)}>
+                    <TableRow onClick={() => setSelectedOrderId(o.id)}>
                       <TableCell className="font-medium">
                         {padNumber(o.temp_count)}
                       </TableCell>
@@ -331,7 +353,7 @@ export default function OrderAdmin() {
               <TableBody>
                 {filteredAccepted?.map((o) => (
                   <Fragment key={o.id}>
-                    <TableRow onClick={() => setSelectedOrder(o)}>
+                    <TableRow onClick={() => setSelectedOrderId(o.id)}>
                       <TableCell className="font-medium">
                         {padNumber(o.temp_count)}
                       </TableCell>
@@ -376,7 +398,7 @@ export default function OrderAdmin() {
               <TableBody>
                 {filteredHistory?.map((q) => (
                   <Fragment key={q.id}>
-                    <TableRow onClick={() => setSelectedOrder(q)}>
+                    <TableRow onClick={() => setSelectedOrderId(q.id)}>
                       <TableCell className="font-medium">
                         {padNumber(q.temp_count)}
                       </TableCell>
@@ -401,17 +423,17 @@ export default function OrderAdmin() {
           className="flex min-h-[50svh] flex-col gap-3 px-4 py-3 sm:rounded-sm"
           onClickOverlay={() => setQrPayment("")}
         >
-          <div className="flex flex-row justify-center p-0">
-            <span className="mb-0 block p-0 text-xl font-semibold">
-              Pesanan no {padNumber(deferredOrder?.temp_count)},{" "}
+          <div className="flex h-fit flex-row items-center justify-center overflow-hidden p-0">
+            <span className="mb-0 block truncate whitespace-nowrap p-0 pr-4 font-mono text-xl font-semibold">
+              Pesanan {padNumber(deferredOrder?.temp_count)},{" "}
               {deferredOrder?.name}
             </span>
           </div>
           <img
             src={qrPayment}
-            className="pointer-events-none mt-0 w-full object-contain"
+            className="pointer-events-none mt-0 max-h-[60svh] w-full object-contain"
           />
-          <div className="flex flex-row justify-center">
+          <div className="flex flex-row justify-center font-mono">
             <span className="text-xl font-semibold">
               {formatPrice(totalWTax)}
             </span>
@@ -437,7 +459,7 @@ export default function OrderAdmin() {
             encType="multipart/form-data"
             className="flex w-full flex-col"
             onSubmit={() => {
-              setSelectedOrder(null);
+              setSelectedOrderId(null);
               setCancelOrder(null);
             }}
           >
@@ -505,7 +527,7 @@ export default function OrderAdmin() {
             encType="multipart/form-data"
             className="flex w-full flex-col"
             onSubmit={() => {
-              setSelectedOrder(null);
+              setSelectedOrderId(null);
               setCompleteOrder(null);
             }}
           >
@@ -542,6 +564,54 @@ export default function OrderAdmin() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog
+        open={!!uploadProof && deferredOrder?.id}
+        onOpenChange={(e) => !e && setUploadProof(null)}
+      >
+        <AlertDialogContent
+          className="flex flex-col px-3 pb-5 pt-3 sm:rounded-sm"
+          onClickOverlay={() => setUploadProof(null)}
+        >
+          <div className="flex flex-col items-center">
+            <span className="font-semibold">
+              Upload {padNumber(deferredOrder?.temp_count)}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              Upload bukti pembayaran {padNumber(deferredOrder?.temp_count)}
+            </span>
+          </div>
+          <Form
+            method="post"
+            encType="multipart/form-data"
+            className="flex w-full flex-col"
+            onSubmit={() => {
+              setUploadProof(null);
+            }}
+          >
+            <FileInput
+              accept="image/jpeg,image/png,image/webp"
+              name="payment_proof"
+              className="mb-3"
+              required
+            >
+              Bukti pembayaran
+            </FileInput>
+            <Input type="hidden" name="order_id" value={deferredOrder?.id} />
+            <div className="flex w-full flex-row gap-2">
+              <Button
+                variant={"default"}
+                type="submit"
+                name="_action"
+                value="upload_payment_proof"
+                className="w-full"
+              >
+                Upload
+              </Button>
+            </div>
+          </Form>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ORDER DRAWER */}
       <Drawer
         open={
@@ -549,7 +619,9 @@ export default function OrderAdmin() {
           !qrPayment &&
           !cancelOrder &&
           !completeOrder &&
-          !paymentProof
+          !paymentProof &&
+          !uploadProof &&
+          !isSubmitting
         }
         onOpenChange={(e) =>
           !e &&
@@ -557,7 +629,9 @@ export default function OrderAdmin() {
           !cancelOrder &&
           !completeOrder &&
           !paymentProof &&
-          setSelectedOrder(null)
+          !uploadProof &&
+          !isSubmitting &&
+          setSelectedOrderId(null)
         }
         disablePreventScroll={true}
         handleOnly={true}
@@ -608,10 +682,7 @@ export default function OrderAdmin() {
                     {deferredOrder?.notes && (
                       <TableRow>
                         <TableCell className="whitespace-nowrap">
-                          {deferredOrder?.status !==
-                          ORDER_STATUS_ENUM.CANCELLED_BY_USER
-                            ? "Catatan penjual"
-                            : "Catatan pelanggan"}
+                          Catatan
                         </TableCell>
                         <TableCell className="text-right">
                           {deferredOrder?.notes}
@@ -718,19 +789,78 @@ export default function OrderAdmin() {
                 </div>
 
                 {deferredOrder?.status === "PENDING" ? (
-                  <div className="mt-3 flex w-full flex-row gap-2 px-2">
+                  <Form
+                    method="post"
+                    encType="multipart/form-data"
+                    onSubmit={() => setSelectedOrderId(null)}
+                    className="mt-3 flex w-full flex-row gap-2 px-2"
+                  >
+                    <Input
+                      type="hidden"
+                      name="order_id"
+                      value={deferredOrder?.id}
+                    />
                     <Button
+                      type="button"
                       variant={"outline"}
                       className="w-1/2"
                       onClick={() => setCancelOrder(deferredOrder?.id)}
                     >
+                      <CircleX className="mr-2 w-4" />
                       Tolak
                     </Button>
+                    <Button
+                      variant={"default"}
+                      className="w-1/2"
+                      type="submit"
+                      name="_action"
+                      value="accept"
+                    >
+                      <CircleCheck className="mr-2 w-4" />
+                      Terima
+                    </Button>
+                  </Form>
+                ) : deferredOrder?.status === "ACCEPTED" ? (
+                  <Form
+                    method="post"
+                    encType="multipart/form-data"
+                    className="mt-3 flex w-full flex-row gap-2 px-2"
+                  >
+                    <Input
+                      type="hidden"
+                      name="order_id"
+                      value={deferredOrder?.id}
+                    />
+                    <Button
+                      type="button"
+                      variant={"outline"}
+                      className="w-1/2"
+                      onClick={() => setCompleteOrder(deferredOrder?.id)}
+                    >
+                      <CircleCheck className="mr-2 w-4" />
+                      Selesai
+                    </Button>
+                    <Button
+                      variant={"default"}
+                      className="w-1/2 whitespace-nowrap"
+                      value="generate_payment_qr"
+                      name="_action"
+                      type="submit"
+                    >
+                      <QrCode className="mr-2 w-4" />
+                      QR Pembayaran
+                    </Button>
+                  </Form>
+                ) : (
+                  (!deferredOrder?.payment_proof ||
+                    deferredOrder?.payment_proof === "{}") &&
+                  deferredOrder?.status !== ORDER_STATUS_ENUM.CANCELLED &&
+                  deferredOrder?.status !==
+                    ORDER_STATUS_ENUM.CANCELLED_BY_USER && (
                     <Form
                       method="post"
                       encType="multipart/form-data"
-                      onSubmit={() => setSelectedOrder(null)}
-                      className="w-1/2"
+                      className="mt-3 flex w-full flex-row gap-2 px-2"
                     >
                       <Input
                         type="hidden"
@@ -738,70 +868,29 @@ export default function OrderAdmin() {
                         value={deferredOrder?.id}
                       />
 
-                      <Button
-                        variant={"default"}
-                        className="w-full"
-                        type="submit"
-                        name="_action"
-                        value="accept"
-                      >
-                        Terima
-                      </Button>
+                      <div className="flex w-full flex-row gap-2">
+                        <Button
+                          variant={"default"}
+                          className="w-1/2"
+                          type="button"
+                          onClick={() => setUploadProof(true)}
+                        >
+                          <Upload className="mr-2 w-4" />
+                          Upload bukti
+                        </Button>
+                        <Button
+                          variant={"secondary"}
+                          className="w-1/2"
+                          type="submit"
+                          name="_action"
+                          value="generate_payment_qr"
+                        >
+                          <QrCode className="mr-2 w-4" />
+                          QR Pembayaran
+                        </Button>
+                      </div>
                     </Form>
-                  </div>
-                ) : deferredOrder?.status === "ACCEPTED" ? (
-                  <div className="mt-3 flex w-full flex-row gap-2 px-2">
-                    <Button
-                      variant={"outline"}
-                      className="w-1/2"
-                      onClick={() => setCompleteOrder(deferredOrder?.id)}
-                    >
-                      Selesai
-                    </Button>
-                    <Form
-                      method="post"
-                      encType="multipart/form-data"
-                      className="w-1/2"
-                    >
-                      <Input
-                        type="hidden"
-                        name="order_id"
-                        value={deferredOrder?.id}
-                      />
-                      <Button
-                        variant={"default"}
-                        className="w-full"
-                        value="generate_payment_qr"
-                        name="_action"
-                        type="submit"
-                      >
-                        QR Pembayaran
-                      </Button>
-                    </Form>
-                  </div>
-                ) : (
-                  <div className="mt-3 flex w-full flex-row gap-2 px-2">
-                    <Form
-                      method="post"
-                      encType="multipart/form-data"
-                      className="w-full"
-                    >
-                      <Input
-                        type="hidden"
-                        name="order_id"
-                        value={deferredOrder?.id}
-                      />
-                      <Button
-                        variant={"secondary"}
-                        className="w-full"
-                        type="submit"
-                        name="_action"
-                        value="generate_payment_qr"
-                      >
-                        QR Pembayaran
-                      </Button>
-                    </Form>
-                  </div>
+                  )
                 )}
               </div>
             );

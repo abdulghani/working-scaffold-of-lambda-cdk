@@ -1,5 +1,6 @@
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
+  MemoryUploadHandlerFilterArgs,
   unstable_composeUploadHandlers,
   unstable_createMemoryUploadHandler,
   writeAsyncIterableToWritable
@@ -42,7 +43,7 @@ export const S3_ERROR_CODES = {
 
 export const s3UploadHandler = unstable_composeUploadHandlers(
   async function (args) {
-    const { name, contentType, data, filename } = args;
+    const { contentType, data } = args;
 
     /** IGNORE HEIC IMAGE */
     if (!contentType?.startsWith("image") || contentType === "image/heic") {
@@ -76,6 +77,10 @@ export const s3UploadHandler = unstable_composeUploadHandlers(
     return buildUrl(key);
   },
   unstable_createMemoryUploadHandler({
+    filter: (args: MemoryUploadHandlerFilterArgs) => {
+      /** FILTER OUT FIELD THAT IS NOT FILE */
+      return args.filename === undefined;
+    },
     maxPartSize: 10 * 1024 * 1024 // 10MB
   })
 );

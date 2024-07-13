@@ -336,6 +336,43 @@ export const adminCompleteOrder = serverOnly$(async function (options: any) {
   return result?.find(Boolean);
 });
 
+export const adminUpdatePaymentProof = serverOnly$(async function (
+  options: any
+) {
+  const { order_id, payment_proof } = options;
+  const order = await dbconn?.("order").where({ id: order_id }).first();
+
+  if (!order) {
+    throw new ActionError({
+      message: "Order not found",
+      status: 404,
+      details: {
+        order_id
+      }
+    });
+  }
+
+  if (order.payment_proof && order.payment_proof !== "{}") {
+    throw new ActionError({
+      message: "Payment proof already present",
+      status: 400,
+      details: {
+        order_id
+      }
+    });
+  }
+
+  const result = await dbconn?.("order")
+    .where({ id: order_id })
+    .update({
+      payment_proof,
+      updated_at: new Date().toISOString()
+    })
+    .returning("*");
+
+  return result?.find(Boolean);
+});
+
 export const generateOrderQrCode = serverOnly$(async function (
   orderId: string
 ) {

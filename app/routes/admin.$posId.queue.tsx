@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -16,6 +26,7 @@ import {
   TableRow
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { padNumber } from "@/lib/pad-number";
 import { useRevalidation } from "@/lib/use-revalidation";
 import { TabsContent } from "@radix-ui/react-tabs";
@@ -66,10 +77,11 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 
 export async function action({ request }: ActionFunctionArgs) {
   const payload = await request.formData().then(Object.fromEntries);
+
   if (payload._action === "acknowledge") {
     await acknowledgeQueue?.(payload.queue_id);
   } else if (payload._action === "cancel") {
-    await cancelQueue?.(payload.queue_id);
+    await cancelQueue?.(payload.queue_id, payload.notes);
   }
 
   return null;
@@ -78,13 +90,12 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function QueueAdmin() {
   const { pos } = useOutletContext<any>();
   const { queues, history } = useLoaderData<typeof loader>();
-  const [historyQueue, setHistoryQueue] = useState<any>(null);
-  const [listQueue, setListQueue] = useState<any>(null);
+  const [selectedQueue, setSelectedQueue] = useState<any>(null);
   const [query, setQuery] = useState<string>("");
+  const [cancelQueueId, setCancelQueueId] = useState<string | null>(null);
 
   /** DEBOUNCED STUFF */
-  const historyQueueDebounced = useDebouncedMenu(historyQueue, 500);
-  const listQueueDebounced = useDebouncedMenu(listQueue, 500);
+  const selectedQueueDebounced = useDebouncedMenu(selectedQueue, 500);
 
   useRevalidation();
 
@@ -156,7 +167,7 @@ export default function QueueAdmin() {
               <TableBody>
                 {queuesFiltered?.map((q) => (
                   <Fragment key={q.id}>
-                    <TableRow onClick={() => setListQueue(q)}>
+                    <TableRow onClick={() => setSelectedQueue(q)}>
                       <TableCell className="font-medium">
                         {padNumber(q.temp_count)}
                       </TableCell>
@@ -202,7 +213,7 @@ export default function QueueAdmin() {
               <TableBody>
                 {historyFiltered?.map((q) => (
                   <Fragment key={q.id}>
-                    <TableRow onClick={() => setHistoryQueue(q)}>
+                    <TableRow onClick={() => setSelectedQueue(q)}>
                       <TableCell className="font-medium">
                         {padNumber(q.temp_count)}
                       </TableCell>
@@ -222,14 +233,14 @@ export default function QueueAdmin() {
 
       {/* LIST DRAWER */}
       <Drawer
-        open={listQueue?.id}
-        onOpenChange={(e) => setListQueue(e ? listQueue : null)}
+        open={selectedQueue?.id && !cancelQueueId}
+        onOpenChange={(e) => !e && !cancelQueueId && setSelectedQueue(null)}
         disablePreventScroll={true}
       >
-        <DrawerContent className="rounded-t-sm px-3">
+        <DrawerContent className="rounded-t-sm px-3 pb-5">
           <DrawerHeader>
             <DrawerTitle>
-              Antrian {padNumber(listQueueDebounced?.temp_count)}
+              Antrian {padNumber(selectedQueueDebounced?.temp_count)}
             </DrawerTitle>
             <DrawerDescription>
               Terima antrian atau tolak antrian ini
@@ -238,44 +249,49 @@ export default function QueueAdmin() {
           <Table>
             <TableBody>
               <TableRow>
-                <TableCell className="text-left">No antrian</TableCell>
+                <TableCell className="whitespace-nowrap">No antrian</TableCell>
                 <TableCell className="text-right">
-                  {padNumber(listQueueDebounced?.temp_count)}
+                  {padNumber(selectedQueueDebounced?.temp_count)}
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="text-left">Nama</TableCell>
+                <TableCell className="whitespace-nowrap">Nama</TableCell>
                 <TableCell className="text-right">
-                  {listQueueDebounced?.name}
+                  {selectedQueueDebounced?.name}
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="text-left">PAX</TableCell>
+                <TableCell className="whitespace-nowrap">PAX</TableCell>
                 <TableCell className="text-right">
-                  {listQueueDebounced?.pax}
+                  {selectedQueueDebounced?.pax}
                   {" Orang"}
                 </TableCell>
               </TableRow>
               <TableRow
                 onClick={() => {
-                  if (listQueueDebounced?.phone) {
+                  if (selectedQueueDebounced?.phone) {
                     const encoded = encodeURIComponent(
-                      TEXT_TEMPLATE.replace("{name}", listQueueDebounced?.name)
+                      TEXT_TEMPLATE.replace(
+                        "{name}",
+                        selectedQueueDebounced?.name
+                      )
                         .replace("{pos}", pos.name)
-                        .replace("{pax}", `${listQueueDebounced?.pax} PAX`)
+                        .replace("{pax}", `${selectedQueueDebounced?.pax} PAX`)
                     );
                     window.open(
-                      `https://wa.me/${listQueueDebounced?.phone}?text=${encoded}`
+                      `https://wa.me/${selectedQueueDebounced?.phone}?text=${encoded}`
                     );
                   }
                 }}
               >
-                <TableCell className="text-left">No handphone</TableCell>
+                <TableCell className="whitespace-nowrap">
+                  No handphone
+                </TableCell>
                 <TableCell className="text-right">
-                  {listQueueDebounced?.phone ? (
+                  {selectedQueueDebounced?.phone ? (
                     <>
                       <Phone className="-mt-0.5 mr-2.5 inline w-4 text-blue-400" />
-                      <span>{listQueueDebounced?.phone}</span>
+                      <span>{selectedQueueDebounced?.phone}</span>
                     </>
                   ) : (
                     <span className="text-muted-foreground">
@@ -285,160 +301,117 @@ export default function QueueAdmin() {
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="text-left">Waktu antrian</TableCell>
+                <TableCell className="whitespace-nowrap">
+                  Waktu antrian
+                </TableCell>
                 <TableCell className="text-right">
-                  {DateTime.fromISO(listQueueDebounced?.created_at).toFormat(
-                    "ccc, dd MMM yyyy"
-                  )}
+                  {DateTime.fromISO(
+                    selectedQueueDebounced?.created_at
+                  ).toFormat("ccc, dd MMM yyyy")}
                   <span className="mt-1 block text-xs text-muted-foreground">
                     (
-                    {DateTime.fromISO(listQueueDebounced?.created_at).toFormat(
-                      "HH:mm ZZZZ"
-                    )}
+                    {DateTime.fromISO(
+                      selectedQueueDebounced?.created_at
+                    ).toFormat("HH:mm ZZZZ")}
                     {", "}
                     {DateTime.fromISO(
-                      listQueueDebounced?.created_at
+                      selectedQueueDebounced?.created_at
                     ).toRelative()}
                     )
                   </span>
                 </TableCell>
               </TableRow>
-              <TableRow className="border-b-0">
-                <TableCell className="text-left">Status</TableCell>
+              <TableRow>
+                <TableCell className="whitespace-nowrap">Status</TableCell>
                 <TableCell className="text-right">
-                  {QUEUE_ENUM_LABEL[listQueueDebounced?.status]}
+                  {QUEUE_ENUM_LABEL[selectedQueueDebounced?.status]}
                 </TableCell>
               </TableRow>
+              {selectedQueueDebounced?.notes && (
+                <TableRow className="border-b-0">
+                  <TableCell className="whitespace-nowrap">Catatan</TableCell>
+                  <TableCell className="text-right">
+                    {selectedQueueDebounced?.notes}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
-          <Form method="post" onSubmit={() => setListQueue(null)}>
-            <Input
-              type="hidden"
-              name="queue_id"
-              value={listQueueDebounced?.id}
-            />
-            <div className="mx-2 mb-6 mt-2 flex flex-row items-center">
-              <Button
-                className="mt-0 w-1/2"
-                variant={"outline"}
-                type="submit"
-                name="_action"
-                value="cancel"
-              >
-                <CircleX className="mr-2 w-4 text-red-400" />
-                Tolak
-              </Button>
-              <Button
-                variant={"outline"}
-                className="ml-3 mt-0 w-1/2"
-                type="submit"
-                name="_action"
-                value="acknowledge"
-              >
-                <CircleCheck className="mr-2 w-4 text-green-400" />
-                Terima
-              </Button>
-            </div>
-          </Form>
+          {selectedQueueDebounced?.status === "PENDING" && (
+            <Form method="post" onSubmit={() => setSelectedQueue(null)}>
+              <Input
+                type="hidden"
+                name="queue_id"
+                value={selectedQueueDebounced?.id}
+              />
+              <div className="mx-2 mt-2 flex flex-row items-center">
+                <Button
+                  className="mt-0 w-1/2"
+                  variant={"outline"}
+                  type="button"
+                  onClick={() => setCancelQueueId(selectedQueueDebounced?.id)}
+                >
+                  <CircleX className="mr-2 w-4" />
+                  Tolak
+                </Button>
+                <Button
+                  variant={"default"}
+                  className="ml-3 mt-0 w-1/2"
+                  type="submit"
+                  name="_action"
+                  value="acknowledge"
+                >
+                  <CircleCheck className="mr-2 w-4" />
+                  Terima
+                </Button>
+              </div>
+            </Form>
+          )}
         </DrawerContent>
       </Drawer>
 
-      {/* HISTORY DRAWER */}
-      <Drawer
-        open={historyQueue?.id}
-        onOpenChange={(e) => setHistoryQueue(e ? historyQueue : null)}
-        disablePreventScroll={true}
+      <AlertDialog
+        open={!!cancelQueueId}
+        onOpenChange={(e) => !e && setCancelQueueId(null)}
       >
-        <DrawerContent className="rounded-t-sm px-3 pb-5">
-          <DrawerHeader>
-            <DrawerTitle>
-              Data antrian {padNumber(historyQueueDebounced?.temp_count)}
-            </DrawerTitle>
-          </DrawerHeader>
-          <Table>
-            <TableBody>
-              <TableRow>
-                <TableCell className="text-left">No antrian</TableCell>
-                <TableCell className="text-right">
-                  {padNumber(historyQueueDebounced?.temp_count)}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="text-left">Nama</TableCell>
-                <TableCell className="text-right">
-                  {historyQueueDebounced?.name}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="text-left">PAX</TableCell>
-                <TableCell className="text-right">
-                  {historyQueueDebounced?.pax}
-                  {" Orang"}
-                </TableCell>
-              </TableRow>
-              <TableRow
-                onClick={() => {
-                  if (historyQueueDebounced?.phone) {
-                    window.open(
-                      `https://wa.me/${historyQueueDebounced?.phone}`
-                    );
-                  }
-                }}
+        <AlertDialogContent className="rounded-sm py-8">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Apakah Anda yakin?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Antrian akan dibatalkan dan tidak bisa dikembalikan
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Form
+            method="post"
+            className="w-full"
+            onSubmit={() => {
+              setCancelQueueId(null);
+              setSelectedQueue(null);
+            }}
+          >
+            <Input type="hidden" name="queue_id" value={cancelQueueId!} />
+            <Textarea
+              name="notes"
+              placeholder="Alasan pembatalan"
+              rows={2}
+              className="mb-3"
+            />
+            <AlertDialogFooter className="flex flex-row items-center justify-center">
+              <AlertDialogAction
+                type="submit"
+                name="_action"
+                value="cancel"
+                className="mr-3 w-1/2"
               >
-                <TableCell className="text-left">No handphone</TableCell>
-                <TableCell className="text-right">
-                  {historyQueueDebounced?.phone ? (
-                    <>
-                      <Phone className="-mt-0.5 mr-2.5 inline w-4 text-blue-400" />
-                      <span>{historyQueueDebounced?.phone}</span>
-                    </>
-                  ) : (
-                    <span className="text-muted-foreground">
-                      Tidak tersedia
-                    </span>
-                  )}
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="text-left">Waktu antrian</TableCell>
-                <TableCell className="text-right">
-                  {DateTime.fromISO(historyQueueDebounced?.created_at).toFormat(
-                    "ccc, dd MMM yyyy"
-                  )}
-                  <span className="mt-1 block text-xs text-muted-foreground">
-                    (
-                    {DateTime.fromISO(
-                      historyQueueDebounced?.created_at
-                    ).toFormat("HH:mm ZZZZ")}
-                    {", "}
-                    {DateTime.fromISO(
-                      historyQueueDebounced?.created_at
-                    ).toRelative()}
-                    )
-                  </span>
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="text-left">Status</TableCell>
-                <TableCell className="text-right">
-                  {QUEUE_ENUM_LABEL[historyQueueDebounced?.status]}
-                  <span className="mt-1 block text-xs text-muted-foreground">
-                    (
-                    {DateTime.fromISO(
-                      historyQueueDebounced?.updated_at
-                    ).toFormat("HH:mm ZZZZ")}
-                    {", "}
-                    {DateTime.fromISO(
-                      historyQueueDebounced?.updated_at
-                    ).toRelative()}
-                    )
-                  </span>
-                </TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </DrawerContent>
-      </Drawer>
+                Hapus
+              </AlertDialogAction>
+              <AlertDialogCancel className="mt-0 w-1/2">
+                Batal
+              </AlertDialogCancel>
+            </AlertDialogFooter>
+          </Form>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -1,8 +1,9 @@
 import { Switch } from "@/components/ui/switch";
 import { formatPrice } from "@/lib/format-price";
+import { cn } from "@/lib/utils";
 import { useFetcher } from "@remix-run/react";
 
-export function Addon({ addon, menu }: any) {
+export function Addon({ addon, menu, className }: any) {
   const fetcher = useFetcher();
 
   function toggleAddon(addon: any) {
@@ -31,7 +32,7 @@ export function Addon({ addon, menu }: any) {
         </span>
       </div>
       <Switch
-        className="ml-3 mr-1"
+        className={cn("ml-3 mr-1", className)}
         checked={menu?.active && addon?.active}
         onCheckedChange={() => toggleAddon(addon)}
         disabled={fetcher.state === "submitting" || !menu?.active}
