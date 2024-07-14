@@ -3,7 +3,7 @@ import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 import { useFetcher } from "@remix-run/react";
 
-export function Addon({ addon, menu, className }: any) {
+export function Addon({ addon, menu, className, disabled }: any) {
   const fetcher = useFetcher();
 
   function toggleAddon(addon: any) {
@@ -35,7 +35,7 @@ export function Addon({ addon, menu, className }: any) {
         className={cn("ml-3 mr-1", className)}
         checked={menu?.active && addon?.active}
         onCheckedChange={() => toggleAddon(addon)}
-        disabled={fetcher.state === "submitting" || !menu?.active}
+        disabled={disabled && (fetcher.state === "submitting" || !menu?.active)}
       />
     </div>
   );

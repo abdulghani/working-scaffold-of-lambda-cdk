@@ -38,7 +38,12 @@ import {
   LoaderFunctionArgs,
   redirect
 } from "@remix-run/node";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import {
+  Form,
+  useActionData,
+  useLoaderData,
+  useNavigation
+} from "@remix-run/react";
 import { validatePOSId } from "app/service/pos";
 import {
   QUEUE_ENUM,
@@ -50,7 +55,7 @@ import {
 } from "app/service/queue";
 import { CircleCheck, CircleX, Timer } from "lucide-react";
 import { DateTime } from "luxon";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export const loader = wrapActionError(async function ({
   request,
@@ -111,8 +116,13 @@ export const action = wrapActionError(async function ({
 
 export default function Queue() {
   const action = useActionData<any>();
+  const navigation = useNavigation();
   const { queue, queues, pos } = useLoaderData<any>();
   const [cancelDialog, setCancelDialog] = useState(false);
+
+  const isLoading = useMemo(() => {
+    return navigation.state === "submitting";
+  }, [navigation.state]);
 
   return (
     <>
@@ -141,36 +151,36 @@ export default function Queue() {
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-2">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>#</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>PAX</TableHead>
-                      <TableHead className="text-right">Time</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {queues.map((q, i) => (
-                      <TableRow
-                        key={q.id}
-                        className={q.id === queue?.id ? "bg-sky-50" : undefined}
-                      >
-                        <TableCell className="font-medium">
-                          {padNumber(q.temp_count)}
-                        </TableCell>
-                        <TableCell>{q.name}</TableCell>
-                        <TableCell>{q.pax}</TableCell>
-                        <TableCell className="text-right">
-                          {DateTime.fromISO(q.created_at).toRelative()}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
             </Card>
+            <div className="px-4">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="px-2">#</TableHead>
+                    <TableHead className="px-2">Name</TableHead>
+                    <TableHead className="px-2">PAX</TableHead>
+                    <TableHead className="px-2 text-right">Time</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {queues.map((q, i) => (
+                    <TableRow
+                      key={q.id}
+                      className={q.id === queue?.id ? "bg-sky-50" : undefined}
+                    >
+                      <TableCell className="px-2 font-medium">
+                        {padNumber(q.temp_count)}
+                      </TableCell>
+                      <TableCell className="px-2">{q.name}</TableCell>
+                      <TableCell className="px-2">{q.pax}</TableCell>
+                      <TableCell className="px-2 text-right">
+                        {DateTime.fromISO(q.created_at).toRelative()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </TabsContent>
           <TabsContent value="input">
             <Card className="border-0 shadow-none">
@@ -188,50 +198,52 @@ export default function Queue() {
                     <Table>
                       <TableBody>
                         <TableRow>
-                          <TableCell className="whitespace-nowrap">#</TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="whitespace-nowrap px-2">
+                            #
+                          </TableCell>
+                          <TableCell className="px-2 text-right">
                             {padNumber(queue.temp_count)}
                           </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell className="whitespace-nowrap">
+                          <TableCell className="whitespace-nowrap px-2">
                             Nama
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="px-2 text-right">
                             {queue.name}
                           </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell className="whitespace-nowrap">
+                          <TableCell className="whitespace-nowrap px-2">
                             PAX
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="px-2 text-right">
                             {queue.pax}
                           </TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell className="whitespace-nowrap">
+                          <TableCell className="whitespace-nowrap px-2">
                             Status
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="px-2 text-right">
                             {queue.status}
                           </TableCell>
                         </TableRow>
                         {queue.notes && (
                           <TableRow>
-                            <TableCell className="whitespace-nowrap">
+                            <TableCell className="whitespace-nowrap px-2">
                               Catatan
                             </TableCell>
-                            <TableCell className="text-right">
+                            <TableCell className="px-2 text-right">
                               {queue.notes}
                             </TableCell>
                           </TableRow>
                         )}
                         <TableRow>
-                          <TableCell className="whitespace-nowrap">
+                          <TableCell className="whitespace-nowrap px-2">
                             Waktu antrian
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="px-2 text-right">
                             <span>
                               {DateTime.fromISO(queue.created_at).toFormat(
                                 "dd MMM yyyy, HH:mm ZZZZ"
@@ -463,6 +475,7 @@ export default function Queue() {
                           className={
                             action?.error?.details?.pax && "border-red-400"
                           }
+                          disabled={isLoading}
                         />
                       </div>
                       <div className="space-y-1">
@@ -485,11 +498,16 @@ export default function Queue() {
                           onChange={(e) => {
                             e.target.value = parsePhone(e.target.value);
                           }}
+                          disabled={isLoading}
                         />
                       </div>
                     </CardContent>
                     <CardFooter>
-                      <Button className="w-full" type="submit">
+                      <Button
+                        className="w-full"
+                        type="submit"
+                        disabled={isLoading}
+                      >
                         Antri
                       </Button>
                     </CardFooter>

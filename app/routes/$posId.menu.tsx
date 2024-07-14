@@ -28,7 +28,6 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/components/ui/use-toast";
 import { Element, RecordItem } from "@/constants/element";
 import { wrapActionError } from "@/lib/action-error";
 import { calculateTax } from "@/lib/calculate-tax";
@@ -45,6 +44,7 @@ import {
   redirect,
   useActionData,
   useLoaderData,
+  useNavigation,
   useParams
 } from "@remix-run/react";
 import type { Menu } from "app/service/menu";
@@ -61,16 +61,10 @@ import {
 } from "app/service/order";
 import { getPOSTax, validatePOSId } from "app/service/pos";
 import { startCase } from "lodash-es";
-import {
-  Ban,
-  CircleCheck,
-  CircleX,
-  ShoppingCart,
-  Timer,
-  Utensils
-} from "lucide-react";
+import { Ban, CircleCheck, ShoppingCart, Timer, Utensils } from "lucide-react";
 import { DateTime } from "luxon";
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useDebouncedMenu } from "./admin.$posId";
 import {
   orderDraftReducer,
@@ -155,6 +149,7 @@ export default function Menu() {
     posTax
   } = useLoaderData<typeof loader>();
   const action = useActionData<any>();
+  const navigation = useNavigation();
 
   useRevalidation();
 
@@ -176,7 +171,11 @@ export default function Menu() {
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(
     null
   );
-  const { toast } = useToast();
+
+  const isLoading = useMemo(
+    () => navigation.state === "submitting",
+    [navigation.state]
+  );
 
   /** STATE UTIL OPTIMIZATION, DEBOUNCED */
   const selectedMenuIdDebounced = useDebouncedMenu(selectedMenuId, 500);
@@ -262,13 +261,7 @@ export default function Menu() {
 
   useEffect(() => {
     if (action?.error?.code === ORDER_ERROR_CODE.ORDER_NOT_CANCELLABLE) {
-      toast({
-        title: (
-          <div className="flex flex-row items-center">
-            <CircleX className="mr-1.5 h-4 w-4 text-red-500" />
-            Pesanan gagal dibatalkan
-          </div>
-        ),
+      toast.error("Pesanan gagal dibatalkan", {
         description: (
           <span className="text-xs">{action?.error?.details?.status}</span>
         ),
@@ -470,20 +463,20 @@ export default function Menu() {
                   <Table className="mb-1 border-b border-muted">
                     <TableBody>
                       <TableRow>
-                        <TableCell>#</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-2">#</TableCell>
+                        <TableCell className="px-2 text-right">
                           {padNumber(order.temp_count)}
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell>Nama</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-2">Nama</TableCell>
+                        <TableCell className="px-2 text-right">
                           {order.name}
                         </TableCell>
                       </TableRow>
                       <TableRow>
-                        <TableCell>Status</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-2">Status</TableCell>
+                        <TableCell className="px-2 text-right">
                           {ORDER_STATUS_LABEL_ID[order.status]}
                         </TableCell>
                       </TableRow>
@@ -492,14 +485,14 @@ export default function Menu() {
                           <TableCell className="whitespace-nowrap">
                             Catatan
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="px-2 text-right">
                             {order.notes}
                           </TableCell>
                         </TableRow>
                       )}
                       <TableRow>
-                        <TableCell>Waktu</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-2">Waktu</TableCell>
+                        <TableCell className="px-2 text-right">
                           <span className="block">
                             {DateTime.fromISO(order.created_at).toFormat(
                               "dd MMM yyyy, HH:mm ZZZZ"
@@ -512,10 +505,10 @@ export default function Menu() {
                       </TableRow>
                       {order.tax_snapshot?.value && (
                         <TableRow className="text-xs">
-                          <TableCell className="whitespace-nowrap">
+                          <TableCell className="whitespace-nowrap px-2">
                             Pajak daerah ({order.tax_snapshot.value}%)
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="px-2 text-right">
                             {formatPrice(
                               calculateTax(
                                 _currentTotal,
@@ -526,10 +519,10 @@ export default function Menu() {
                         </TableRow>
                       )}
                       <TableRow>
-                        <TableCell>
+                        <TableCell className="px-2">
                           <span className="block">Total</span>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="px-2 text-right">
                           <span className="block">
                             {formatPrice(_totalWTax)}
                           </span>
@@ -744,6 +737,7 @@ export default function Menu() {
                         className={`capitalize ${action?.error?.details?.name && "border-red-400"}`}
                         placeholder="Nama Anda"
                         required
+                        disabled={isLoading}
                       />
                     </div>
                     <div className="mt-2 space-y-1">
@@ -767,6 +761,7 @@ export default function Menu() {
                         onChange={(e) => {
                           e.target.value = parsePhone(e.target.value);
                         }}
+                        disabled={isLoading}
                       />
                     </div>
                     <Input type="hidden" name="pos_id" value={posId} />
@@ -780,6 +775,7 @@ export default function Menu() {
                       className="mt-5 w-full"
                       variant="default"
                       type="submit"
+                      disabled={isLoading}
                     >
                       Buat pesanan
                     </Button>

@@ -435,3 +435,13 @@ export const generateOrderQrCode = serverOnly$(async function (
     customer_name: order.name
   });
 });
+
+export const adminPollOrder = serverOnly$(async function (options: any) {
+  const { posId, currentTime } = options;
+  const orders = await dbconn?.("order")
+    .select("id", "temp_count", "status", "name")
+    .where({ pos_id: posId })
+    .andWhere("created_at", ">=", currentTime);
+
+  return orders;
+});

@@ -22,7 +22,7 @@ export const queueCookie = createCookie(COOKIE_NAME, {
   sameSite: "lax",
   secrets: [COOKIE_SECRET],
   secure: process.env.NODE_ENV === "production",
-  maxAge: 60 * 60 * 4 // 4 hours
+  maxAge: 60 * 60 * 24 * 7 // 7 days
 });
 
 export const getQueueList = serverOnly$(async (posId: string) => {

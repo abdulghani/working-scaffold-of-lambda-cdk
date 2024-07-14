@@ -116,28 +116,30 @@ export default function AdminMenu() {
           </Button>
         ))}
       </div>
-      <div
-        className={cn(
-          "mb-1 mt-0.5 flex w-full flex-row items-center rounded-md px-3",
-          query && "border border-blue-200"
-        )}
-      >
-        <Button
-          variant={"outline"}
-          className="rounded-r-none"
-          disabled={!query?.trim()}
-          onClick={() => setQuery("")}
+      <div className="px-3">
+        <div
+          className={cn(
+            "mb-1 mt-0.5 flex w-full flex-row items-center rounded-md",
+            query && "border border-blue-200"
+          )}
         >
-          <Trash className="w-4" />
-        </Button>
-        <Input
-          type="text"
-          inputMode="search"
-          placeholder="Cari nama, addon"
-          className="rounded-l-none border-l-0"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
+          <Button
+            variant={"outline"}
+            className="rounded-r-none"
+            disabled={!query?.trim()}
+            onClick={() => setQuery("")}
+          >
+            <Trash className="w-4" />
+          </Button>
+          <Input
+            type="text"
+            inputMode="search"
+            placeholder="Cari nama, addon"
+            className="rounded-l-none border-l-0"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
       </div>
 
       {filtered?.map((i) => {
@@ -227,6 +229,7 @@ export default function AdminMenu() {
                     addon={j}
                     menu={debouncedSelectedMenu}
                     className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-700"
+                    disabled={fetcher.state === "submitting"}
                   />
                 ))}
               </Fragment>

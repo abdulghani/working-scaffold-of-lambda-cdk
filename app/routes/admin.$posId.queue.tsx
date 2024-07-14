@@ -23,7 +23,6 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { openPhoneLink } from "@/lib/open-phone-link";
 import { padNumber } from "@/lib/pad-number";
-import { useRevalidation } from "@/lib/use-revalidation";
 import { cn } from "@/lib/utils";
 import { TabsContent } from "@radix-ui/react-tabs";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
@@ -99,8 +98,6 @@ export default function QueueAdmin() {
     [queues, history, selectedQueueId]
   );
   const selectedQueueDebounced = useDebouncedMenu(selectedQueue, 500);
-
-  useRevalidation();
 
   /** FILTERED STUFF */
   const queryDeferred = useDeferredValue(query);
@@ -267,20 +264,20 @@ export default function QueueAdmin() {
           <Table>
             <TableBody>
               <TableRow>
-                <TableCell className="whitespace-nowrap">#</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="whitespace-nowrap px-2">#</TableCell>
+                <TableCell className="px-2 text-right">
                   {padNumber(selectedQueueDebounced?.temp_count)}
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="whitespace-nowrap">Nama</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="whitespace-nowrap px-2">Nama</TableCell>
+                <TableCell className="px-2 text-right">
                   {selectedQueueDebounced?.name}
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="whitespace-nowrap">PAX</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="whitespace-nowrap px-2">PAX</TableCell>
+                <TableCell className="px-2 text-right">
                   {selectedQueueDebounced?.pax}
                   {" Orang"}
                 </TableCell>
@@ -300,8 +297,10 @@ export default function QueueAdmin() {
                   }
                 }}
               >
-                <TableCell className="whitespace-nowrap">Handphone</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="whitespace-nowrap px-2">
+                  Handphone
+                </TableCell>
+                <TableCell className="px-2 text-right">
                   {selectedQueueDebounced?.phone ? (
                     <>
                       <Phone className="-mt-0.5 mr-2.5 inline w-4 text-blue-600" />
@@ -315,10 +314,10 @@ export default function QueueAdmin() {
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="whitespace-nowrap">
+                <TableCell className="whitespace-nowrap px-2">
                   Waktu antrian
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="px-2 text-right">
                   {DateTime.fromISO(
                     selectedQueueDebounced?.created_at
                   ).toFormat("ccc, dd MMM yyyy")}
@@ -336,15 +335,17 @@ export default function QueueAdmin() {
                 </TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="whitespace-nowrap">Status</TableCell>
-                <TableCell className="text-right">
+                <TableCell className="whitespace-nowrap px-2">Status</TableCell>
+                <TableCell className="px-2 text-right">
                   {QUEUE_ENUM_LABEL[selectedQueueDebounced?.status]}
                 </TableCell>
               </TableRow>
               {selectedQueueDebounced?.notes && (
                 <TableRow className="border-b-0">
-                  <TableCell className="whitespace-nowrap">Catatan</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="whitespace-nowrap px-2">
+                    Catatan
+                  </TableCell>
+                  <TableCell className="px-2 text-right">
                     {selectedQueueDebounced?.notes}
                   </TableCell>
                 </TableRow>

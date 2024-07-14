@@ -1,8 +1,9 @@
 import { CardDescription, CardTitle } from "@/components/ui/card";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "@/components/ui/sonner";
 import { initializeLocale } from "@/lib/date";
 import { LinksFunction } from "@remix-run/node";
 import { Links, Meta, Outlet, Scripts, useRouteError } from "@remix-run/react";
+import { CircleCheck, CircleX } from "lucide-react";
 import favicon from "../public/react.svg?url";
 import stylesheet from "./style.css?url";
 
@@ -53,7 +54,14 @@ export default function App() {
       </head>
       <body className="bg-background font-sans antialiased">
         <Outlet />
-        <Toaster />
+        <Toaster
+          position="bottom-right"
+          expand={false}
+          icons={{
+            success: <CircleCheck className="mr-1.5 h-4 w-4 text-green-500" />,
+            error: <CircleX className="mr-1.5 h-4 w-4 text-red-500" />
+          }}
+        />
         <Scripts />
       </body>
     </html>

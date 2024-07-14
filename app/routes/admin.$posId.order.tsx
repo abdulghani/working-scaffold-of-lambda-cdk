@@ -14,12 +14,10 @@ import { wrapActionError } from "@/lib/action-error";
 import { calculateTax } from "@/lib/calculate-tax";
 import { formatPrice } from "@/lib/format-price";
 import { padNumber } from "@/lib/pad-number";
-import { useRevalidation } from "@/lib/use-revalidation";
 
 import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
 import { FileInput } from "@/components/ui/file-input";
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/components/ui/use-toast";
 import { openPhoneLink } from "@/lib/open-phone-link";
 import { cn } from "@/lib/utils";
 import {
@@ -62,17 +60,24 @@ import { DateTime } from "luxon";
 import qrcode from "qrcode";
 import {
   Fragment,
+  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState
 } from "react";
+import { toast } from "sonner";
+import { useCheckOrder } from "./admin.$posId.order/use-check-order";
 
 const TEXT_TEMPLATE = `
 Halo {name}, pesanan #{order_number} {pos}  sudah siap.
 
 Terima kasih.
 `.trim();
+
+const NOTIFICATION_SOUND_URL =
+  "https://pranaga-random-bucket.s3.ap-southeast-1.amazonaws.com/notification-sound.wav";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
@@ -131,10 +136,14 @@ export default function OrderAdmin() {
   const [completeOrder, setCompleteOrder] = useState<any>(null);
   const [paymentProof, setPaymentProof] = useState<any>(null);
   const [uploadProof, setUploadProof] = useState<any>(null);
-  const { toast } = useToast();
   const navigation = useNavigation();
+  const notificationRef = useRef<HTMLAudioElement>(null);
 
-  useRevalidation();
+  useCheckOrder({
+    posId: pos?.id,
+    onClick: setSelectedOrderId,
+    notificationRef
+  });
 
   /** STATE STUFF */
   const isSubmitting = useMemo(
@@ -219,13 +228,7 @@ export default function OrderAdmin() {
 
   useEffect(() => {
     if (action?.error?.code === ORDER_ERROR_CODE.INVALID_ORDER_STATUS) {
-      toast({
-        title: (
-          <div className="flex flex-row items-center">
-            <CircleX className="mr-1.5 h-4 w-4 text-red-500" />
-            Pesanan gagal diperbarui
-          </div>
-        ),
+      toast.error("Pesanan gagal diperbarui", {
         description: (
           <span className="text-xs">{action?.error?.details?.status}</span>
         ),
@@ -247,23 +250,39 @@ export default function OrderAdmin() {
           if (action.order_id === deferredOrder?.id) {
             setQrPayment(url);
           } else {
-            toast({
-              title: (
-                <div className="flex flex-row items-center">
-                  <CircleX className="mr-1.5 h-4 w-4 text-red-500" />
-                  QR Pembayaran gagal
-                </div>
-              ),
-              description: <span className="text-xs">Coba lagi</span>,
-              duration: 4000
+            toast.error("QR Pembayaran gagal", {
+              description: "Coba lagi"
             });
           }
         });
     }
   }, [action]);
 
+  /** NEED TO BYPASS SAFARI PERMISSION BY PLAY ON ACTUAL PRESS EVENT */
+  const registerSound = useCallback(() => {
+    if (notificationRef.current) {
+      notificationRef.current.muted = true;
+      notificationRef.current.volume = 1;
+      notificationRef.current.play();
+    }
+  }, [notificationRef]);
+
+  useEffect(() => {
+    window.addEventListener("touchstart", registerSound);
+    return () => {
+      window.removeEventListener("touchstart", registerSound);
+    };
+  }, [registerSound]);
+
   return (
     <>
+      <audio
+        autoPlay={false}
+        className="hidden"
+        src={NOTIFICATION_SOUND_URL}
+        ref={notificationRef}
+        preload="auto"
+      />
       <div className={cn("flex w-screen justify-center")}>
         <Tabs
           defaultValue="list"
@@ -314,7 +333,11 @@ export default function OrderAdmin() {
               <TableBody>
                 {filteredOrders?.map((o) => (
                   <Fragment key={o.id}>
-                    <TableRow onClick={() => setSelectedOrderId(o.id)}>
+                    <TableRow
+                      onClick={() => {
+                        setSelectedOrderId(o.id);
+                      }}
+                    >
                       <TableCell className="font-medium">
                         {padNumber(o.temp_count)}
                       </TableCell>
@@ -364,7 +387,11 @@ export default function OrderAdmin() {
               <TableBody>
                 {filteredAccepted?.map((o) => (
                   <Fragment key={o.id}>
-                    <TableRow onClick={() => setSelectedOrderId(o.id)}>
+                    <TableRow
+                      onClick={() => {
+                        setSelectedOrderId(o.id);
+                      }}
+                    >
                       <TableCell className="font-medium">
                         {padNumber(o.temp_count)}
                       </TableCell>
@@ -414,7 +441,11 @@ export default function OrderAdmin() {
               <TableBody>
                 {filteredHistory?.map((q) => (
                   <Fragment key={q.id}>
-                    <TableRow onClick={() => setSelectedOrderId(q.id)}>
+                    <TableRow
+                      onClick={() => {
+                        setSelectedOrderId(q.id);
+                      }}
+                    >
                       <TableCell className="font-medium">
                         {padNumber(q.temp_count)}
                       </TableCell>
