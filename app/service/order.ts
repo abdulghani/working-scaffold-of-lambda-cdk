@@ -14,7 +14,7 @@ import { z } from "zod";
 import { dbconn } from "./db";
 import { orderGetMenu } from "./menu";
 import { getPOSTax } from "./pos";
-import { sendNewOrderNotification } from "./push";
+import { invokeNewOrderNotification } from "./push";
 import { generateQRData } from "./qrcode";
 
 const ORDER_INSTANCE_SCHEMA = z.object({
@@ -157,7 +157,9 @@ export const createOrder = serverOnly$(async function (orderDraft: {
   }
 
   await transaction?.commit();
-  await sendNewOrderNotification?.(pos_id);
+
+  /** INVOKE NOTIFICATION BY CALLING ANOTHER API */
+  invokeNewOrderNotification?.(pos_id);
 
   return result?.find(Boolean);
 });

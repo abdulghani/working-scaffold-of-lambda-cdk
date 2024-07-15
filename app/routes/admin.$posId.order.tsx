@@ -60,24 +60,18 @@ import { DateTime } from "luxon";
 import qrcode from "qrcode";
 import {
   Fragment,
-  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
-  useRef,
   useState
 } from "react";
 import { toast } from "sonner";
-import { useCheckOrder } from "./admin.$posId.order/use-check-order";
 
 const TEXT_TEMPLATE = `
-Halo {name}, pesanan #{order_number} {pos}  sudah siap.
+Halo {name}, pesanan #{order_number} {pos} sudah siap.
 
 Terima kasih.
 `.trim();
-
-const NOTIFICATION_SOUND_URL =
-  "https://pranaga-random-bucket.s3.ap-southeast-1.amazonaws.com/notification-sound.wav";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
@@ -137,13 +131,6 @@ export default function OrderAdmin() {
   const [paymentProof, setPaymentProof] = useState<any>(null);
   const [uploadProof, setUploadProof] = useState<any>(null);
   const navigation = useNavigation();
-  const notificationRef = useRef<HTMLAudioElement>(null);
-
-  useCheckOrder({
-    posId: pos?.id,
-    onClick: setSelectedOrderId,
-    notificationRef
-  });
 
   /** STATE STUFF */
   const isSubmitting = useMemo(
@@ -258,31 +245,8 @@ export default function OrderAdmin() {
     }
   }, [action]);
 
-  /** NEED TO BYPASS SAFARI PERMISSION BY PLAY ON ACTUAL PRESS EVENT */
-  const registerSound = useCallback(() => {
-    if (notificationRef.current) {
-      notificationRef.current.muted = true;
-      notificationRef.current.volume = 1;
-      notificationRef.current.play();
-    }
-  }, [notificationRef]);
-
-  useEffect(() => {
-    window.addEventListener("touchstart", registerSound);
-    return () => {
-      window.removeEventListener("touchstart", registerSound);
-    };
-  }, [registerSound]);
-
   return (
     <>
-      <audio
-        autoPlay={false}
-        className="hidden"
-        src={NOTIFICATION_SOUND_URL}
-        ref={notificationRef}
-        preload="auto"
-      />
       <div className={cn("flex w-screen justify-center")}>
         <Tabs
           defaultValue="list"

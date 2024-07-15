@@ -1,9 +1,9 @@
 import { CfnOutput, Stack } from "aws-cdk-lib";
-import { Construct } from "constructs";
-import { StaticConstruct } from "./static-construct";
-import { LambdaConstruct } from "./lambda-construct";
 import { HttpApi, HttpMethod } from "aws-cdk-lib/aws-apigatewayv2";
 import { HttpLambdaIntegration } from "aws-cdk-lib/aws-apigatewayv2-integrations";
+import { Construct } from "constructs";
+import { LambdaConstruct } from "./lambda-construct";
+import { StaticConstruct } from "./static-construct";
 
 export class APIConstruct extends Construct {
   constructor(
@@ -30,11 +30,18 @@ export class APIConstruct extends Construct {
       integration: lambdaIntegration
     });
 
+    const INTERNAL_API_HOST = `https://${httpAPI.httpApiId}.execute-api.${
+      Stack.of(this).region
+    }.${Stack.of(this).urlSuffix}`;
+
     new CfnOutput(this, "ApiUrl", {
       description: "The URL of the API",
-      value: `https://${httpAPI.httpApiId}.execute-api.${
-        Stack.of(this).region
-      }.${Stack.of(this).urlSuffix}`
+      value: INTERNAL_API_HOST
     });
+
+    props.lambdaConstruct.lambda.addEnvironment(
+      "INTERNAL_API_HOST",
+      INTERNAL_API_HOST
+    );
   }
 }

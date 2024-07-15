@@ -1,3 +1,4 @@
+import { INTERNAL_API_HOST, INTERNAL_API_KEY } from "@/constants/internal-api";
 import { ActionError } from "@/lib/action-error";
 import { serverOnly$ } from "vite-env-only/macros";
 import webpush from "web-push";
@@ -42,13 +43,44 @@ export const saveSubscription = serverOnly$(async function (
   );
 });
 
+export const invokeNewOrderNotification = serverOnly$(async function (
+  posId: string
+) {
+  if (!INTERNAL_API_HOST || !INTERNAL_API_KEY) {
+    return;
+  }
+
+  await fetch(`${INTERNAL_API_HOST}/api/notification`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": INTERNAL_API_KEY
+    },
+    body: JSON.stringify({ posId, action: "NEW_ORDER" })
+  });
+});
+
 export const sendNewOrderNotification = serverOnly$(async function (
   posId: string
 ) {
   const entries = await dbconn?.("user_pos").where({ pos_id: posId });
+  if (!entries?.length) {
+    return;
+  }
+  const sessions = await dbconn?.("session")
+    .whereIn(
+      "user_id",
+      entries.map((entry) => entry.user_id)
+    )
+    .andWhere("expires_at", ">", new Date().toISOString());
+  const filteredEntries = entries.filter((entry) => {
+    return (sessions || []).find(
+      (session) => session.user_id === entry.user_id
+    );
+  });
 
   await Promise.all(
-    entries?.map?.(async (entry) => {
+    filteredEntries?.map?.(async (entry) => {
       const subscription = entry.subscription;
 
       if (subscription) {
