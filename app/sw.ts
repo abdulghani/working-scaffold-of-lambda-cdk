@@ -1,6 +1,5 @@
-import { LoaderFunctionArgs } from "@remix-run/node";
+declare let self: ServiceWorkerGlobalScope;
 
-const SW_SCRIPT = `
 self.addEventListener("install", (event) => {
   console.log("Service worker installed");
 
@@ -21,7 +20,7 @@ self.addEventListener("push", (event) => {
     badge:
       "https://pranaga-random-bucket.s3.ap-southeast-1.amazonaws.com/pranaga-light-192.png",
     data: {
-      url: "/admin/gokana-lippo/order"
+      url: data?.path
     }
   });
 });
@@ -44,13 +43,3 @@ self.addEventListener("notificationclick", function (event) {
     })
   );
 });
-
-`.trim();
-
-export async function loader({ request }: LoaderFunctionArgs) {
-  return new Response(SW_SCRIPT, {
-    headers: {
-      "Content-Type": "application/javascript"
-    }
-  });
-}

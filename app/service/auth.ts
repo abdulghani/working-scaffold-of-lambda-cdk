@@ -208,6 +208,8 @@ export const verifySessionPOSAccess = serverOnly$(
         status: 403
       });
     }
+
+    return { posId, userId };
   }
 );
 

@@ -42,7 +42,9 @@ export class LambdaConstruct extends Construct {
         SMTP_PASSWORD: process.env.SMTP_PASSWORD || "",
         TZ: process.env.TZ || "",
         NODE_ENV: process.env.NODE_ENV || "production",
-        S3_IMAGE_BUCKET: process.env.S3_IMAGE_BUCKET || ""
+        S3_IMAGE_BUCKET: process.env.S3_IMAGE_BUCKET || "",
+        VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || "",
+        VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || ""
       }
     });
   }
@@ -53,7 +55,8 @@ export class LambdaConstruct extends Construct {
       "react",
       "react-dom",
       "@remix-run/node",
-      "@remix-run/react"
+      "@remix-run/react",
+      "luxon"
     ];
     const excluded = [
       "node:stream",

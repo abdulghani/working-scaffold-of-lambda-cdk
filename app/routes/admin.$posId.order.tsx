@@ -689,7 +689,7 @@ export default function OrderAdmin() {
             if (!deferredOrder) return null;
 
             return (
-              <div className="flex h-full flex-col overflow-y-scroll pb-7">
+              <div className="flex h-full flex-col overflow-y-scroll pb-9">
                 <div className="mt-1 flex w-full flex-col px-3">
                   <div className="flex flex-row items-center text-xl">
                     <span className="block font-semibold">

@@ -241,13 +241,12 @@ export default function QueueAdmin() {
         </Tabs>
       </div>
 
-      {/* LIST DRAWER */}
       <Drawer
         open={selectedQueueId && !cancelQueueId}
         onOpenChange={(e) => !e && !cancelQueueId && setSelectedQueueId(null)}
         disablePreventScroll={true}
       >
-        <DrawerContent className="rounded-t-sm px-3 pb-5">
+        <DrawerContent className="rounded-t-sm px-3 pb-9">
           <DrawerHandle />
           <div className="mt-1 flex w-full flex-col px-3">
             <div className="flex flex-row items-center text-xl">

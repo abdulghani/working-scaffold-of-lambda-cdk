@@ -19,6 +19,7 @@ import {
   LoaderCircle,
   Menu,
   NotepadText,
+  Settings2,
   Users
 } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
@@ -102,6 +103,13 @@ export default function MenuAdmin() {
                 icon: NotepadText,
                 active: sectionId === "menu",
                 to: `/admin/${params.posId}/menu`,
+                disabled: isLoading
+              },
+              {
+                title: "Pengaturan",
+                icon: Settings2,
+                active: sectionId === "settings",
+                to: `/admin/${params.posId}/settings`,
                 disabled: isLoading
               }
             ]}
