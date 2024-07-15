@@ -4,6 +4,9 @@ import path from "path";
 import { defineConfig } from "vite";
 import { envOnlyMacros } from "vite-env-only";
 
+// This installs globals such as "fetch", "Response", "Request" and "Headers".
+// installGlobals();
+
 export default defineConfig(({ command, mode }) => {
   const isBuild = command === "build" && mode === "production";
   if (isBuild) {
@@ -11,6 +14,12 @@ export default defineConfig(({ command, mode }) => {
   }
 
   return {
+    define: {
+      "process.env.NODE_DEBUG": false,
+      "process.env.VITE_SW_PATH": isBuild
+        ? `"${process.env.VITE_S3_BASE_URL}sw.js"`
+        : '"/sw.js"'
+    },
     plugins: [
       envOnlyMacros(),
       remix({
@@ -19,9 +28,6 @@ export default defineConfig(({ command, mode }) => {
         ssr: true
       })
     ],
-    define: {
-      "process.env.NODE_DEBUG": false
-    },
     base: isBuild ? process.env.VITE_S3_BASE_URL || "/" : "/",
     resolve: {
       alias: {

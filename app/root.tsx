@@ -4,13 +4,12 @@ import { initializeLocale } from "@/lib/date";
 import { LinksFunction } from "@remix-run/node";
 import { Links, Meta, Outlet, Scripts, useRouteError } from "@remix-run/react";
 import { CircleCheck, CircleX } from "lucide-react";
-import favicon from "../public/react.svg?url";
 import stylesheet from "./style.css?url";
 
 initializeLocale();
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: stylesheet },
-  { rel: "icon", href: favicon }
+  { rel: "icon", href: "/pranaga-logo-light.jpg" }
 ];
 
 export function ErrorBoundary() {

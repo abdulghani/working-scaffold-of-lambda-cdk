@@ -210,3 +210,20 @@ export const verifySessionPOSAccess = serverOnly$(
     }
   }
 );
+
+export const getSessionPOS = serverOnly$(async (request: Request) => {
+  const userId = await verifySession?.(request);
+  const connections = await dbconn?.("user_pos")
+    .where({ user_id: userId })
+    .first();
+
+  if (!connections) {
+    throw new ActionError({
+      message: "Tidak ada POS terhubung",
+      description: "Anda tidak memiliki admin akses ke POS manapun",
+      status: 403
+    });
+  }
+
+  return connections;
+});
