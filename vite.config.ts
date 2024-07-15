@@ -1,11 +1,12 @@
 import { vitePlugin as remix } from "@remix-run/dev";
+import { installGlobals } from "@remix-run/node";
 import dotenv from "dotenv";
 import path from "path";
 import { defineConfig } from "vite";
 import { envOnlyMacros } from "vite-env-only";
 
 // This installs globals such as "fetch", "Response", "Request" and "Headers".
-// installGlobals();
+installGlobals();
 
 export default defineConfig(({ command, mode }) => {
   const isBuild = command === "build" && mode === "production";

@@ -1,15 +1,18 @@
 import { CardDescription, CardTitle } from "@/components/ui/card";
 import { Toaster } from "@/components/ui/sonner";
 import { initializeLocale } from "@/lib/date";
+import { useSW } from "@/lib/use-sw";
 import { LinksFunction } from "@remix-run/node";
 import { Links, Meta, Outlet, Scripts, useRouteError } from "@remix-run/react";
 import { CircleCheck, CircleX } from "lucide-react";
+import logo from "./assets/pranaga-light-144.png?url";
 import stylesheet from "./style.css?url";
 
 initializeLocale();
 export const links: LinksFunction = () => [
+  { rel: "manifest", href: "/manifest" },
   { rel: "stylesheet", href: stylesheet },
-  { rel: "icon", href: "/pranaga-logo-light.jpg" }
+  { rel: "icon", href: logo }
 ];
 
 export function ErrorBoundary() {
@@ -41,6 +44,8 @@ export function ErrorBoundary() {
 }
 
 export default function App() {
+  useSW();
+
   return (
     <html className="">
       <head>
