@@ -1,5 +1,6 @@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { isNotificationSupported } from "@/lib/is-notification-supported";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useRevalidator } from "@remix-run/react";
 import { verifySessionPOSAccess } from "app/service/auth";
@@ -7,27 +8,22 @@ import { getSubscription } from "app/service/push";
 import { useMemo } from "react";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const { posId, userId } =
+  const { userId } =
     (await verifySessionPOSAccess?.(request, params.posId!)) || {};
   const isSubscribed = await getSubscription?.(userId);
 
   return { isSubscribed };
 }
 
-const isSupported = () =>
-  "Notification" in window &&
-  "serviceWorker" in navigator &&
-  "PushManager" in window;
-
 export default function Settings() {
   const loaderData = useLoaderData<any>();
   const revalidator = useRevalidator();
   const isSubscribed = useMemo(() => {
-    return isSupported() && loaderData.isSubscribed;
+    return isNotificationSupported() && loaderData.isSubscribed;
   }, [loaderData.isSubscribed]);
 
   function subscribeNotification(e: boolean) {
-    if (isSupported() && !isSubscribed) {
+    if (isNotificationSupported() && !isSubscribed) {
       Notification.requestPermission().then((permission) => {
         navigator.serviceWorker.ready.then((sw) => {
           sw.pushManager
@@ -73,7 +69,7 @@ export default function Settings() {
                 <Switch
                   checked={isSubscribed}
                   onCheckedChange={(e) => subscribeNotification(e)}
-                  disabled={!isSupported()}
+                  disabled={!isNotificationSupported()}
                 />
               </TableCell>
             </TableRow>

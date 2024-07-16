@@ -35,7 +35,6 @@ import { formatPrice } from "@/lib/format-price";
 import { padNumber } from "@/lib/pad-number";
 import { parsePhone } from "@/lib/parse-phone";
 import { useLocalStorageState } from "@/lib/use-localstorage-state";
-import { useRevalidation } from "@/lib/use-revalidation";
 import { cn } from "@/lib/utils";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import {
@@ -150,8 +149,6 @@ export default function Menu() {
   } = useLoaderData<typeof loader>();
   const action = useActionData<any>();
   const navigation = useNavigation();
-
-  useRevalidation();
 
   /** STATE RELATED */
   const [draftOrder, setDraftOrder] = useLocalStorageState<OrderDraftShape>(
@@ -271,7 +268,7 @@ export default function Menu() {
   }, [action]);
 
   return (
-    <div className="flex w-full justify-center">
+    <div className="flex w-full flex-col justify-center">
       <Tabs defaultValue="menu" className="w-full lg:w-[400px]">
         <TabsList className="sticky top-3 z-10 mx-4 mt-3 flex flex-row">
           <TabsTrigger className="w-full" value="menu">

@@ -10,7 +10,8 @@ import {
   useLoaderData,
   useLocation,
   useNavigation,
-  useParams
+  useParams,
+  useRevalidator
 } from "@remix-run/react";
 import { verifySessionPOSAccess } from "app/service/auth";
 import { validatePOSId } from "app/service/pos";
@@ -22,7 +23,13 @@ import {
   Settings2,
   Users
 } from "lucide-react";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState
+} from "react";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
@@ -59,16 +66,54 @@ export default function MenuAdmin() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isHeaderTop = useDebouncedMenu(isMenuOpen, 500);
   const location = useLocation();
-  const sectionId = useMemo(() => {
-    return location.pathname.split("/").pop();
-  }, [location.pathname]);
+  const sectionId = useMemo(
+    () => location.pathname.split("/").pop(),
+    [location.pathname]
+  );
   const navigation = useNavigation();
   const [isLoading, isSubmitting] = useMemo(() => {
     return [navigation.state === "loading", navigation.state === "submitting"];
   }, [navigation.state]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const revalidator = useRevalidator();
+
+  const handleScroll = useCallback(
+    function (e: TouchEvent) {
+      if (
+        0 - window.scrollY > 80 &&
+        !isRefreshing &&
+        revalidator.state !== "loading" &&
+        !isLoading
+      ) {
+        setIsRefreshing(true);
+        revalidator.revalidate();
+        setTimeout(() => {
+          setIsRefreshing(false);
+        }, 1500);
+      }
+    },
+    [revalidator, isRefreshing, isLoading]
+  );
+
+  useEffect(() => {
+    document.addEventListener("touchmove", handleScroll);
+    return () => {
+      document.removeEventListener("touchmove", handleScroll);
+    };
+  }, [handleScroll]);
 
   return (
     <>
+      <div
+        className={cn(
+          "z-50 flex w-full flex-col items-center justify-center text-muted-foreground transition-all duration-700",
+          !isRefreshing
+            ? "max-h-0 opacity-0"
+            : "max-h-[20svh] pb-6 pt-5 opacity-100"
+        )}
+      >
+        <LoaderCircle className={"h-9 w-9 animate-spin opacity-60"} />
+      </div>
       <Sheet
         open={isMenuOpen && isHeaderTop}
         onOpenChange={(e) => setIsMenuOpen(e)}
