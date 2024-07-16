@@ -75,16 +75,27 @@ export default function MenuAdmin() {
     return [navigation.state === "loading", navigation.state === "submitting"];
   }, [navigation.state]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [shouldRefresh, setShouldRefresh] = useState(false);
   const revalidator = useRevalidator();
 
   const handleScroll = useCallback(
     function (e: TouchEvent) {
+      if (0 - window.scrollY > 120 && !isRefreshing && !shouldRefresh) {
+        setShouldRefresh(true);
+      }
+    },
+    [isRefreshing, shouldRefresh]
+  );
+
+  const handleEnd = useCallback(
+    function (e: TouchEvent) {
       if (
-        0 - window.scrollY > 80 &&
-        !isRefreshing &&
+        shouldRefresh &&
         revalidator.state !== "loading" &&
-        !isLoading
+        !isLoading &&
+        !isRefreshing
       ) {
+        setShouldRefresh(false);
         setIsRefreshing(true);
         revalidator.revalidate();
         setTimeout(() => {
@@ -92,21 +103,23 @@ export default function MenuAdmin() {
         }, 1500);
       }
     },
-    [revalidator, isRefreshing, isLoading]
+    [shouldRefresh, revalidator, isLoading, isRefreshing]
   );
 
   useEffect(() => {
     document.addEventListener("touchmove", handleScroll);
+    document.addEventListener("touchend", handleEnd);
     return () => {
       document.removeEventListener("touchmove", handleScroll);
+      document.removeEventListener("touchend", handleEnd);
     };
-  }, [handleScroll]);
+  }, [handleScroll, handleEnd]);
 
   return (
     <>
       <div
         className={cn(
-          "z-50 flex w-full flex-col items-center justify-center text-muted-foreground transition-all duration-700",
+          "z-50 flex w-full flex-col items-center justify-center text-muted-foreground transition-all duration-500",
           !isRefreshing
             ? "max-h-0 opacity-0"
             : "max-h-[20svh] pb-6 pt-5 opacity-100"
