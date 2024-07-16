@@ -159,7 +159,11 @@ export const createOrder = serverOnly$(async function (orderDraft: {
   await transaction?.commit();
 
   /** INVOKE NOTIFICATION BY CALLING ANOTHER API */
-  invokeNewOrderNotification?.(pos_id);
+  invokeNewOrderNotification?.({
+    pos_id,
+    temp_count: orderCount,
+    name: parsed.data.name
+  });
 
   return result?.find(Boolean);
 });

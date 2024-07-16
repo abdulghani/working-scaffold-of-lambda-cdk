@@ -12,8 +12,8 @@ export async function action({ request }: ActionFunctionArgs) {
   validateRequestAPIKey(request);
   const payload = await request.json();
 
-  if (payload.action === "NEW_ORDER") {
-    await sendNewOrderNotification?.(payload.posId);
+  if (payload._action === "NEW_ORDER") {
+    await sendNewOrderNotification?.(payload);
   }
 
   return {};

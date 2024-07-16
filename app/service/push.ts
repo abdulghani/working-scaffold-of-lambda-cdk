@@ -1,5 +1,6 @@
 import { INTERNAL_API_HOST, INTERNAL_API_KEY } from "@/constants/internal-api";
 import { ActionError } from "@/lib/action-error";
+import { padNumber } from "@/lib/pad-number";
 import { serverOnly$ } from "vite-env-only/macros";
 import webpush from "web-push";
 import { dbconn } from "./db";
@@ -43,9 +44,11 @@ export const saveSubscription = serverOnly$(async function (
   );
 });
 
-export const invokeNewOrderNotification = serverOnly$(async function (
-  posId: string
-) {
+export const invokeNewOrderNotification = serverOnly$(async function (options: {
+  pos_id: string;
+  temp_count: number;
+  name: string;
+}) {
   if (!INTERNAL_API_HOST || !INTERNAL_API_KEY) {
     return;
   }
@@ -56,14 +59,17 @@ export const invokeNewOrderNotification = serverOnly$(async function (
       "Content-Type": "application/json",
       "x-api-key": INTERNAL_API_KEY
     },
-    body: JSON.stringify({ posId, action: "NEW_ORDER" })
+    body: JSON.stringify({ ...options, _action: "NEW_ORDER" })
   });
 });
 
-export const sendNewOrderNotification = serverOnly$(async function (
-  posId: string
-) {
-  const entries = await dbconn?.("user_pos").where({ pos_id: posId });
+export const sendNewOrderNotification = serverOnly$(async function (options: {
+  pos_id: string;
+  temp_count: number;
+  name: string;
+}) {
+  const { pos_id, temp_count, name } = options;
+  const entries = await dbconn?.("user_pos").where({ pos_id });
   if (!entries?.length) {
     return;
   }
@@ -89,7 +95,7 @@ export const sendNewOrderNotification = serverOnly$(async function (
             subscription,
             JSON.stringify({
               title: "Pesanan baru",
-              description: "Ada pesanan baru",
+              description: `Pesanan #${padNumber(temp_count)} dari ${name}`,
               path: "/admin"
             })
           );
