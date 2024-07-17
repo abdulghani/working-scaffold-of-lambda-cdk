@@ -119,7 +119,7 @@ export default function MenuAdmin() {
     <>
       <div
         className={cn(
-          "z-50 flex w-full flex-col items-center justify-center text-muted-foreground transition-all duration-500",
+          "z-50 flex w-full flex-col items-center justify-center text-muted-foreground transition-all duration-200 ease-linear",
           !isRefreshing
             ? "max-h-0 opacity-0"
             : "max-h-[20svh] pb-6 pt-5 opacity-100"

@@ -59,7 +59,7 @@ export default function App() {
       <body className="bg-background font-sans antialiased">
         <Outlet />
         <Toaster
-          position="bottom-right"
+          position="top-right"
           expand={false}
           icons={{
             success: <CircleCheck className="mr-1.5 h-4 w-4 text-green-500" />,

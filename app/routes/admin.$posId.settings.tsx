@@ -4,49 +4,66 @@ import { isNotificationSupported } from "@/lib/is-notification-supported";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useRevalidator } from "@remix-run/react";
 import { verifySessionPOSAccess } from "app/service/auth";
-import { getSubscription } from "app/service/push";
-import { useMemo } from "react";
+import { getSubscription, getVAPIDKey } from "app/service/push";
+import { useCallback, useMemo } from "react";
+import { toast } from "sonner";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   const { userId } =
     (await verifySessionPOSAccess?.(request, params.posId!)) || {};
   const isSubscribed = await getSubscription?.(userId);
+  const applicationServerKey = getVAPIDKey?.();
 
-  return { isSubscribed };
+  return { isSubscribed, applicationServerKey };
 }
 
 export default function Settings() {
   const loaderData = useLoaderData<any>();
   const revalidator = useRevalidator();
-  const isSubscribed = useMemo(() => {
-    return isNotificationSupported() && loaderData.isSubscribed;
-  }, [loaderData.isSubscribed]);
+  const [isSubscribed, applicationServerKey] = useMemo(() => {
+    return [
+      isNotificationSupported?.() &&
+        Notification?.permission === "granted" &&
+        loaderData.isSubscribed,
+      loaderData.applicationServerKey
+    ];
+  }, [loaderData]);
 
-  function subscribeNotification(e: boolean) {
-    if (isNotificationSupported() && !isSubscribed) {
-      Notification.requestPermission().then((permission) => {
-        navigator.serviceWorker.ready.then((sw) => {
-          sw.pushManager
-            .subscribe({
-              applicationServerKey:
-                "BAU6i9j1DTZMhIg2bbKjWz-0S7b3_Vk4gAonLMBU7rD3XJwLLoWHFTyj5mndQalMXTVdPnT1GD62t8GQHm4cZjI",
-              userVisibleOnly: true
-            })
-            .then((sub) => {
-              fetch("/api/subscribe-push", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json"
-                },
-                body: JSON.stringify(sub)
-              }).then(() => {
-                revalidator.revalidate();
-              });
-            });
+  const subscribeNotification = useCallback(
+    async function (e: boolean) {
+      if (!isNotificationSupported?.()) {
+        toast.error("Notifikasi tidak didukung", {
+          description: "Perangkat tidak mendukung notifikasi"
         });
-      });
-    }
-  }
+        return;
+      } else if (!isSubscribed) {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          toast.error("Notifikasi tidak diizinkan", {
+            description: "Aktifkan notifikasi di pengaturan"
+          });
+          return;
+        }
+        const sw = await navigator.serviceWorker.ready;
+        const existingSub = await sw.pushManager.getSubscription();
+        if (existingSub) {
+          await existingSub.unsubscribe();
+        }
+        const newSub = await sw.pushManager.subscribe({
+          applicationServerKey,
+          userVisibleOnly: true
+        });
+        await fetch("/api/subscribe-push", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(newSub)
+        }).then(() => revalidator.revalidate());
+      }
+    },
+    [isSubscribed, revalidator, applicationServerKey]
+  );
 
   return (
     <div className="flex flex-col">
@@ -69,7 +86,6 @@ export default function Settings() {
                 <Switch
                   checked={isSubscribed}
                   onCheckedChange={(e) => subscribeNotification(e)}
-                  disabled={!isNotificationSupported()}
                 />
               </TableCell>
             </TableRow>
