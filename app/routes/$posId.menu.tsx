@@ -269,7 +269,7 @@ export default function Menu() {
 
   return (
     <div className="flex w-full flex-col justify-center">
-      <Tabs defaultValue="menu" className="w-full lg:w-[400px]">
+      <Tabs defaultValue="menu" className="w-full">
         <TabsList className="sticky top-3 z-10 mx-4 mt-3 flex flex-row">
           <TabsTrigger className="w-full" value="menu">
             Menu

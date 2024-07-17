@@ -5,6 +5,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow
@@ -16,9 +17,14 @@ import { formatPrice } from "@/lib/format-price";
 import { padNumber } from "@/lib/pad-number";
 
 import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { FileInput } from "@/components/ui/file-input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RecordItem } from "@/constants/element";
 import { openPhoneLink } from "@/lib/open-phone-link";
+import { parsePhone } from "@/lib/parse-phone";
+import { useLocalStorageState } from "@/lib/use-localstorage-state";
 import { cn } from "@/lib/utils";
 import {
   ActionFunctionArgs,
@@ -33,6 +39,7 @@ import {
   useOutletContext
 } from "@remix-run/react";
 import { verifySessionPOSAccess } from "app/service/auth";
+import { getMenuByPOS } from "app/service/menu";
 import {
   adminAcceptOrder,
   adminCancelOrder,
@@ -41,16 +48,22 @@ import {
   adminGetHistoryOrders,
   adminGetPendingOrders,
   adminUpdatePaymentProof,
+  createOrder,
   generateOrderQrCode,
   ORDER_ERROR_CODE,
   ORDER_STATUS_ENUM,
   ORDER_STATUS_LABEL_ID
 } from "app/service/order";
+import { getPOSTax } from "app/service/pos";
 import { s3UploadHandler } from "app/service/s3";
 import { capitalize } from "lodash-es";
 import {
   CircleCheck,
   CircleX,
+  ClipboardCheck,
+  ClipboardList,
+  History,
+  Pencil,
   Phone,
   QrCode,
   Trash,
@@ -66,6 +79,11 @@ import {
   useState
 } from "react";
 import { toast } from "sonner";
+import {
+  orderDraftReducer,
+  OrderDraftShape
+} from "./menu.$posId/order-draft-reducer";
+import { createInstanceId } from "./menu.$posId/order-helper";
 
 const TEXT_TEMPLATE = `
 Halo {name}, pesanan #{order_number} {pos} sudah siap.
@@ -75,16 +93,33 @@ Terima kasih.
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
-  const [orders, accepted, history] = await Promise.all([
+  const [orders, accepted, history, menus, tax] = await Promise.all([
     adminGetPendingOrders?.(params.posId!),
     adminGetAcceptedOrders?.(params.posId!),
-    adminGetHistoryOrders?.(params.posId!)
+    adminGetHistoryOrders?.(params.posId!),
+    getMenuByPOS?.(params.posId!),
+    getPOSTax?.(params.posId!)
   ]);
+
+  const menuMap = Object.fromEntries(menus?.map((i) => [i.id, i]) || []);
+  const addonGroupMap = Object.fromEntries(
+    menus?.flatMap((i) => i.addon_groups)?.map((i) => [i?.id, i]) || []
+  );
+  const addonMap = Object.fromEntries(
+    menus
+      ?.flatMap((i) => i.addon_groups?.flatMap((j) => j.addons))
+      ?.map((i) => [i?.id, i]) || []
+  );
 
   return {
     orders,
     accepted,
-    history
+    history,
+    menus,
+    menuMap,
+    addonGroupMap,
+    addonMap,
+    tax
   };
 }
 
@@ -114,6 +149,13 @@ export const action = wrapActionError(async function ({
   } else if (payload._action === "upload_payment_proof") {
     const order = await adminUpdatePaymentProof?.(payload);
     return { order };
+  } else if (payload._action === "admin_create_order") {
+    const admin_create_order = await createOrder?.({
+      ...payload,
+      instance_record_json: JSON.parse(payload.instance_record_json || "{}"),
+      status: "ACCEPTED"
+    });
+    return { admin_create_order };
   }
 
   return {};
@@ -121,7 +163,16 @@ export const action = wrapActionError(async function ({
 
 export default function OrderAdmin() {
   const { pos } = useOutletContext<any>();
-  const { orders, accepted, history } = useLoaderData<typeof loader>();
+  const {
+    orders,
+    accepted,
+    history,
+    menus,
+    menuMap,
+    addonGroupMap,
+    addonMap,
+    tax
+  } = useLoaderData<typeof loader>();
   const action = useActionData<any>();
   const [selectedOrderId, setSelectedOrderId] = useState<any>(null);
   const [query, setQuery] = useState<string>("");
@@ -131,8 +182,24 @@ export default function OrderAdmin() {
   const [paymentProof, setPaymentProof] = useState<any>(null);
   const [uploadProof, setUploadProof] = useState<any>(null);
   const navigation = useNavigation();
+  const [addMenu, setAddMenu] = useState(false);
+  const [addMenuQuery, setAddMenuQuery] = useState("");
+  const addMenuQueryDef = useDeferredValue(addMenuQuery);
 
   /** STATE STUFF */
+  const [filteredMenus] = useMemo(() => {
+    if (!addMenuQueryDef) return [menus];
+    const regexp = new RegExp(addMenuQueryDef, "i");
+    const _filteredMenus = menus?.filter(
+      (i) =>
+        regexp.test(i.title) ||
+        i.addon_groups?.some(
+          (j) =>
+            regexp.test(j.title) || j.addons?.some((k) => regexp.test(k.title))
+        )
+    );
+    return [_filteredMenus];
+  }, [menus, addMenuQueryDef]);
   const isSubmitting = useMemo(
     () => navigation.state === "submitting",
     [navigation.state]
@@ -243,24 +310,330 @@ export default function OrderAdmin() {
           }
         });
     }
+    if (action?.admin_create_order) {
+      setDraftNamePhone(["", ""]);
+      setDraftOrder({});
+      toast.success("Pesanan berhasil dibuat", {
+        description: `Pesanan #${padNumber(action.admin_create_order.temp_count)} berhasil dibuat`,
+        action: {
+          label: "Lihat",
+          onClick: () => {
+            setSelectedOrderId(action.admin_create_order.id);
+          }
+        }
+      });
+    }
   }, [action]);
+
+  const [[draftName, draftPhone], setDraftNamePhone] = useLocalStorageState(
+    "admin-draft-name-phone",
+    ["", ""]
+  );
+  const [draftOrder, setDraftOrder] = useLocalStorageState<OrderDraftShape>(
+    "admin-draft-order",
+    {}
+  );
+  const draftOrderDef = useDeferredValue(draftOrder);
+  const [instanceTemp, setInstanceTemp] =
+    useState<RecordItem<OrderDraftShape> | null>(null);
+
+  /** STATE UTIL OPTIMIZATION, DEBOUNCED */
+  const draftTotal = useMemo(() => {
+    return Object.values(draftOrder || {}).reduce((t, instance) => {
+      const basePrice = Number(menuMap[instance.menu_id]?.price) || 0;
+      const addonPrice =
+        instance.addon_ids?.reduce((t2, addonId) => {
+          const addon = addonMap[addonId];
+          if (addon) {
+            return t2 + Number(addon.price);
+          }
+          return t2;
+        }, 0) || 0;
+
+      const instancePrice = (basePrice + addonPrice) * instance.qty;
+
+      return t + instancePrice;
+    }, 0);
+  }, [draftOrder, menuMap, addonMap]);
+
+  /** MENU ADDON SELECTION, LOCAL TO STATE */
+  function toggleSelection(addonId: string, selection: any) {
+    const addon = addonMap[addonId];
+    const addonGroup = addonGroupMap[addon?.addon_group_id];
+
+    /** SET TOGGLE VALUE */
+    const nextValue = (() => {
+      const _nextValue = !selection[addonId];
+
+      /** DISABLE TOGGLE IF IT'S REQUIRED */
+      if (
+        !_nextValue &&
+        addonGroup?.required &&
+        !addonGroup?.addons?.filter((i) => i.id !== addonId && selection[i.id])
+          .length
+      ) {
+        return !_nextValue;
+      }
+
+      return _nextValue;
+    })();
+    selection[addonId] = nextValue;
+
+    /** DESELECT OTHER PAIR IF ONE SELECTION */
+    if (
+      nextValue &&
+      !addonGroup?.multiple_select &&
+      addonGroup?.addons?.length
+    ) {
+      addonGroup.addons?.forEach((i) => {
+        if (i.id !== addonId) {
+          selection[i.id] = !nextValue;
+        }
+      });
+    }
+
+    return selection;
+  }
 
   return (
     <>
       <div className={cn("flex w-screen justify-center")}>
-        <Tabs
-          defaultValue="list"
-          className="mt-0 w-full overflow-x-hidden lg:w-[400px]"
-        >
-          <TabsList className="mx-3 mb-2 grid h-fit grid-cols-3">
-            <TabsTrigger value="list">Pesanan ({orders?.length})</TabsTrigger>
-            <TabsTrigger value="accepted">
+        <Tabs defaultValue="list" className="mt-0 w-full overflow-x-hidden">
+          <TabsList className="mx-3 mb-2 grid h-fit grid-cols-3 sm:flex sm:flex-row sm:gap-1">
+            <TabsTrigger
+              className="hidden sm:block sm:flex-grow"
+              value="create"
+            >
+              <Pencil className="mr-2 inline w-4" />
+              Pesanan baru
+            </TabsTrigger>
+            <TabsTrigger className="sm:flex-grow" value="list">
+              <ClipboardList className="mr-1.5 hidden w-4 sm:block" />
+              Pesanan ({orders?.length})
+            </TabsTrigger>
+            <TabsTrigger className="sm:flex-grow" value="accepted">
+              <ClipboardCheck className="mr-1.5 hidden w-4 sm:block" />
               Diterima ({accepted?.length})
             </TabsTrigger>
-            <TabsTrigger value="history">
+            <TabsTrigger className="sm:flex-grow" value="history">
+              <History className="mr-1.5 hidden w-4 sm:block" />
               Riwayat ({history?.length})
             </TabsTrigger>
           </TabsList>
+          <TabsContent value="create" className="flex flex-col px-3">
+            <div className="mb-4 mt-2 flex w-full flex-row items-center px-1">
+              <div className="flex w-full flex-col">
+                <span className="text-lg font-semibold">Buat pesanan baru</span>
+                <span className="text-sm text-muted-foreground">
+                  Buat pesanan baru untuk pelanggan
+                </span>
+              </div>
+              <Button
+                className=""
+                variant={"secondary"}
+                onClick={() => setAddMenu(true)}
+              >
+                Tambah menu
+              </Button>
+            </div>
+            <div className="mt-3 flex w-full flex-row items-end gap-2 px-1">
+              <div className="flex flex-grow flex-col gap-1">
+                <Label
+                  htmlFor="admin-draft-name-input"
+                  className="font-normal text-muted-foreground"
+                >
+                  Atas nama
+                </Label>
+                <Input
+                  id="admin-draft-name-input"
+                  type="text"
+                  placeholder="Nama pelanggan"
+                  className="capitalize"
+                  value={draftName}
+                  onChange={(e) =>
+                    setDraftNamePhone([e.target.value, draftPhone])
+                  }
+                />
+              </div>
+              <div className="flex flex-grow flex-col gap-1">
+                <Label
+                  htmlFor="admin-draft-phone-input"
+                  className="font-normal text-muted-foreground"
+                >
+                  Handphone
+                </Label>
+                <Input
+                  id="admin-draft-phone-input"
+                  inputMode="numeric"
+                  type="text"
+                  placeholder="Nomor handphone"
+                  value={draftPhone}
+                  onChange={(e) =>
+                    setDraftNamePhone([draftName, parsePhone(e.target.value)])
+                  }
+                />
+              </div>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead></TableHead>
+                  <TableHead>Nama</TableHead>
+                  <TableHead className="text-right">Kuantitas</TableHead>
+                </TableRow>
+              </TableHeader>
+            </Table>
+
+            <div className="mb-1 mt-1 flex flex-col gap-2">
+              {Object.entries(draftOrder || {}).map(([id, instance], i) => {
+                const currentPrice = instance.addon_ids?.reduce(
+                  (t, addonId) => {
+                    const addon = addonMap[addonId];
+                    if (addon) {
+                      return t + (Number(addon.price) || 0);
+                    }
+                    return t;
+                  },
+                  Number(menuMap[instance.menu_id]?.price) || 0
+                );
+
+                return (
+                  <div
+                    key={id}
+                    className="flex w-full flex-row items-center hover:bg-zinc-50"
+                    onClick={() => setInstanceTemp(draftOrder[id])}
+                  >
+                    <div className="w-10 px-3 text-sm text-muted-foreground">
+                      {i + 1}
+                    </div>
+                    <div>
+                      <img
+                        src={menuMap[instance.menu_id]?.imgs?.[0]}
+                        className="h-12 w-12 rounded-sm object-cover"
+                      />
+                    </div>
+                    <div className="ml-2 flex flex-grow flex-col">
+                      <div className="flex flex-col text-sm">
+                        <span>{menuMap[instance.menu_id]?.title}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {instance.addon_ids
+                            ?.map((addonId) => addonMap[addonId]?.title)
+                            .join(", ")}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {formatPrice(currentPrice)}
+                      </span>
+                    </div>
+                    <div className="flex flex-row justify-end">
+                      <Button
+                        variant={"outline"}
+                        className="rounded-r-none border-r-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDraftOrder(
+                            orderDraftReducer(draftOrder, {
+                              type: "SET_INTANCE_QTY",
+                              data: {
+                                instance_id: id,
+                                qty: instance.qty - 1
+                              }
+                            })
+                          );
+                        }}
+                      >
+                        -
+                      </Button>
+                      <Input
+                        type="number"
+                        value={instance.qty}
+                        className="w-12 rounded-none text-center"
+                        disabled
+                      />
+                      <Button
+                        variant={"outline"}
+                        className="rounded-l-none border-l-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDraftOrder(
+                            orderDraftReducer(draftOrder, {
+                              type: "SET_INTANCE_QTY",
+                              data: {
+                                instance_id: id,
+                                qty: instance.qty + 1
+                              }
+                            })
+                          );
+                        }}
+                      >
+                        +
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <Table>
+              <TableBody>
+                <TableRow className="text-xs text-muted-foreground">
+                  <TableCell>Pajak daerah (5%)</TableCell>
+                  <TableCell></TableCell>
+                  <TableCell colSpan={2} className="text-right">
+                    {formatPrice(calculateTax(draftTotal, tax.value))}
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+              <TableFooter>
+                <TableRow>
+                  <TableCell>Total</TableCell>
+                  <TableCell></TableCell>
+                  <TableCell colSpan={2} className="text-right">
+                    {formatPrice(
+                      draftTotal + calculateTax(draftTotal, tax.value)
+                    )}
+                  </TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
+            <Form method="post" encType="multipart/form-data">
+              <div className="mt-3 flex w-full flex-row gap-3">
+                <Input
+                  type="hidden"
+                  name="_action"
+                  value="admin_create_order"
+                />
+                <Input type="hidden" name="pos_id" value={pos.id} />
+                <Input type="hidden" name="name" value={draftName} />
+                <Input type="hidden" name="phone" value={draftPhone} />
+                <Input
+                  type="hidden"
+                  name="instance_record_json"
+                  value={JSON.stringify(draftOrderDef)}
+                />
+                <Button
+                  type="button"
+                  className="w-2/5"
+                  variant={"secondary"}
+                  onClick={() => {
+                    setDraftNamePhone(["", ""]);
+                    setDraftOrder({});
+                  }}
+                  disabled={!Object.keys(draftOrder).length}
+                >
+                  Hapus pesanan
+                </Button>
+                <Button
+                  className="w-3/5"
+                  variant={"default"}
+                  disabled={!Object.keys(draftOrder).length || !draftName}
+                  type="submit"
+                >
+                  Buat pesanan
+                </Button>
+              </div>
+            </Form>
+          </TabsContent>
           <TabsContent value="list" className="px-3">
             <div
               className={cn(
@@ -622,6 +995,301 @@ export default function OrderAdmin() {
           </Form>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Drawer
+        open={!!instanceTemp}
+        onOpenChange={(e) => {
+          if (!e) {
+            setInstanceTemp(null);
+            setDraftOrder(
+              orderDraftReducer(draftOrder, {
+                type: "CLEAR_EMPTY",
+                data: { menuMap }
+              })
+            );
+          }
+        }}
+        disablePreventScroll={true}
+        handleOnly={true}
+      >
+        {(() => {
+          const instance = instanceTemp;
+          const addons =
+            instance?.addon_ids?.map((i) => addonMap[i]).filter(Boolean) || [];
+          const addonSelection = Object.fromEntries(
+            instanceTemp?.addon_ids?.map((i) => [i, true]) || []
+          );
+          const menuDebounced = menuMap[instance?.menu_id || ""];
+
+          return (
+            <DrawerContent>
+              <DrawerHandle />
+              <div className="flex select-none flex-col overflow-y-scroll sm:pb-12">
+                <div className="flex flex-col">
+                  <div className="mb-2 mt-2 flex w-full flex-row px-4">
+                    <img
+                      src={menuDebounced?.imgs?.find(Boolean)}
+                      className="aspect-[1] h-12 w-12 rounded-sm object-cover"
+                    />
+                    <div className="ml-3 flex w-full flex-col overflow-hidden">
+                      <span className="block truncate font-semibold">
+                        {menuDebounced?.title}
+                      </span>
+                      {addons?.length ? (
+                        <span className="mb-2 block w-fit whitespace-nowrap text-xs text-muted-foreground">
+                          {addons.map((i) => i.title).join(", ")}
+                        </span>
+                      ) : (
+                        <span className="mb-2 block w-fit truncate whitespace-nowrap text-xs text-muted-foreground">
+                          {menuDebounced?.description}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {menuDebounced?.addon_groups?.map((i) => (
+                    <Fragment key={i.id}>
+                      <div className="flex w-full flex-col px-4">
+                        <span className="mt-1 text-sm font-semibold">
+                          {i.title}
+                        </span>
+                        <div className="w-full">
+                          <div className="mb-1 w-full border-t border-zinc-100"></div>
+                        </div>
+                      </div>
+                      {i.addons?.map((j) => (
+                        <div
+                          key={j.id}
+                          className="flex shrink-0 flex-row items-center justify-between rounded-sm px-4 py-2 transition-colors hover:bg-zinc-50"
+                          onClick={() => {
+                            if (instanceTemp) {
+                              const newSelection = toggleSelection(
+                                j.id,
+                                addonSelection
+                              );
+                              const selectedAddonIds = Object.keys(
+                                newSelection
+                              ).filter((key) => !!newSelection[key]);
+                              setInstanceTemp({
+                                ...instanceTemp,
+                                addon_ids: selectedAddonIds
+                              });
+                            }
+                          }}
+                        >
+                          <div className="flex w-full flex-col justify-start overflow-hidden">
+                            <span className="block truncate whitespace-nowrap text-sm font-semibold">
+                              {j.title}
+                            </span>
+                            <span className="block truncate whitespace-nowrap text-xs text-muted-foreground">
+                              {j.description}
+                            </span>
+                            <span className="block whitespace-nowrap text-xs text-muted-foreground">
+                              {formatPrice(j.price)}
+                            </span>
+                          </div>
+                          <div className="flex w-10 flex-row justify-center">
+                            {i.multiple_select ? (
+                              <Checkbox
+                                className="h-5 w-5 p-0"
+                                checked={
+                                  instanceTemp?.addon_ids?.includes(j.id) ||
+                                  false
+                                }
+                              />
+                            ) : (
+                              <Input
+                                type="radio"
+                                className="h-5 w-5 p-0 accent-primary"
+                                checked={
+                                  instanceTemp?.addon_ids?.includes(j.id) ||
+                                  false
+                                }
+                              />
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </Fragment>
+                  ))}
+                  <div className="mb-2 flex flex-col px-4">
+                    <Textarea
+                      placeholder="Catatan"
+                      className="mt-3 normal-case"
+                      maxLength={500}
+                      value={instanceTemp?.notes}
+                      onChange={(e) => {
+                        if (instanceTemp) {
+                          setInstanceTemp({
+                            ...instanceTemp,
+                            notes: e.target.value
+                          });
+                        }
+                      }}
+                    />
+                    <div className="mt-3 flex flex-row">
+                      <Button
+                        className="mr-0 w-fit rounded-r-none border-r-0"
+                        variant="outline"
+                        onClick={() => {
+                          if (instanceTemp && instanceTemp.qty > 0) {
+                            setInstanceTemp({
+                              ...instanceTemp,
+                              qty: instanceTemp.qty - 1
+                            });
+                          }
+                        }}
+                        disabled={!instanceTemp?.qty}
+                      >
+                        -
+                      </Button>
+                      <Input
+                        disabled
+                        type={"number"}
+                        className="mr-0 w-1/6 rounded-none text-center"
+                        value={instanceTemp?.qty || 0}
+                      />
+                      <Button
+                        className="mr-3 w-fit rounded-l-none border-l-0"
+                        variant="outline"
+                        onClick={() => {
+                          if (instanceTemp) {
+                            setInstanceTemp({
+                              ...instanceTemp,
+                              qty: (instanceTemp?.qty || 0) + 1
+                            });
+                          }
+                        }}
+                      >
+                        +
+                      </Button>
+                      <Button
+                        className="w-full"
+                        variant="default"
+                        onClick={() => {
+                          setDraftOrder(
+                            orderDraftReducer(draftOrder, {
+                              type: "FLUSH_INSTANCE_TEMP",
+                              data: {
+                                instance_id: createInstanceId(
+                                  instanceTemp?.menu_id || "",
+                                  instanceTemp?.addon_ids || []
+                                ),
+                                instance: instanceTemp
+                              }
+                            })
+                          );
+                          setInstanceTemp(null);
+                          setAddMenu(false);
+                        }}
+                      >
+                        Simpan
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </DrawerContent>
+          );
+        })()}
+      </Drawer>
+
+      <Drawer
+        open={!instanceTemp && addMenu}
+        onOpenChange={(e) => !e && !instanceTemp && setAddMenu(false)}
+        disablePreventScroll={true}
+        handleOnly={true}
+      >
+        <DrawerContent className="max-h-[90svh] sm:pb-14">
+          <DrawerHandle />
+          <div className="mt-2 flex w-full flex-col px-3">
+            <div
+              className={cn(
+                "mt-2 flex w-full flex-row items-center rounded-md",
+                addMenuQuery && "border border-blue-200"
+              )}
+            >
+              <Button
+                variant={"outline"}
+                className="rounded-r-none"
+                disabled={!addMenuQuery?.trim()}
+                onClick={() => setAddMenuQuery("")}
+              >
+                <Trash className="w-4" />
+              </Button>
+
+              <Input
+                type="text"
+                inputmode="search"
+                placeholder="Cari menu, addon"
+                className="rounded-l-none border-l-0"
+                value={addMenuQuery}
+                onChange={(e) => setAddMenuQuery(e.target.value)}
+              />
+            </div>
+
+            <div className="mt-3 flex w-full flex-col gap-2">
+              {filteredMenus?.map((i) => {
+                return (
+                  <div
+                    key={i.id}
+                    className="flex flex-row transition-colors hover:bg-zinc-50"
+                    onClick={() => {
+                      if (i.addon_groups?.length) {
+                        setInstanceTemp({
+                          menu_id: i.id,
+                          qty: 1,
+                          addon_ids: [],
+                          notes: ""
+                        });
+                      } else {
+                        setDraftOrder(
+                          orderDraftReducer(draftOrder, {
+                            type: "FLUSH_INSTANCE_TEMP",
+                            data: {
+                              instance_id: createInstanceId(i.id, []),
+                              instance: {
+                                menu_id: i.id,
+                                qty: 1,
+                                addon_ids: [],
+                                notes: ""
+                              }
+                            }
+                          })
+                        );
+                        setAddMenu(false);
+                      }
+                    }}
+                  >
+                    <img
+                      src={i.imgs?.[0]}
+                      className="h-14 w-14 rounded-sm object-cover"
+                    />
+                    <div className="ml-2 flex flex-grow flex-col justify-between overflow-hidden pr-4">
+                      <div className="flex flex-col">
+                        <span className="block truncate font-semibold">
+                          {i.title}
+                        </span>
+                        {i.addon_groups ? (
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {i.addon_groups?.map((j) => j.title).join(", ")}
+                          </span>
+                        ) : (
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {i.description}
+                          </span>
+                        )}
+                      </div>
+                      <span className="mt-1 block text-xs text-muted-foreground">
+                        {formatPrice(i.price)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* ORDER DRAWER */}
       <Drawer

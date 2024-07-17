@@ -155,7 +155,7 @@ export default function AdminMenu() {
               src={i.imgs?.[0]}
               className="h-14 w-14 rounded-sm object-cover"
             />
-            <div className="ml-3 flex flex-col justify-between overflow-hidden pr-4">
+            <div className="ml-3 flex flex-grow flex-col justify-between overflow-hidden pr-4">
               <div className="flex flex-col">
                 <span className="block truncate font-semibold">{i.title}</span>
                 {i.addon_groups ? (
@@ -189,7 +189,7 @@ export default function AdminMenu() {
         disablePreventScroll={true}
         handleOnly={true}
       >
-        <DrawerContent className="flex w-full flex-col items-center overflow-hidden rounded-t-sm px-0 pt-0">
+        <DrawerContent className="flex w-full flex-col items-center overflow-hidden rounded-t-sm px-0 pb-8 pt-0">
           <DrawerHandle />
           <div className="flex max-h-[80svh] w-full flex-col overflow-y-scroll pb-5">
             <div className="flex w-full flex-row items-center px-3 py-2 transition-colors hover:bg-zinc-50">

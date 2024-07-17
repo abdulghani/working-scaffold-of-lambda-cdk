@@ -98,6 +98,7 @@ export const createOrder = serverOnly$(async function (orderDraft: {
   name: string;
   phone?: string;
   instance_record_json: OrderDraftShape;
+  status?: keyof typeof ORDER_STATUS_ENUM;
 }) {
   const { pos_id, instance_record_json } = orderDraft;
 

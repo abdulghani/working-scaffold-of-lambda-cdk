@@ -125,14 +125,14 @@ export default function QueueAdmin() {
   return (
     <>
       <div className="flex w-screen justify-center">
-        <Tabs defaultValue="list" className="mt-0 w-full lg:w-[400px]">
+        <Tabs defaultValue="list" className="mt-0 w-full">
           <TabsList className="mx-3 mb-2 grid h-fit grid-cols-2">
             <TabsTrigger value="list">
-              <Users className="mr-2 w-4" />
+              <Users className="mr-2 hidden w-4 sm:block" />
               Antrian ({queues?.length})
             </TabsTrigger>
             <TabsTrigger value="history">
-              <History className="mr-2 w-4" />
+              <History className="mr-2 hidden w-4 sm:block" />
               Riwayat ({history?.length})
             </TabsTrigger>
           </TabsList>
@@ -245,6 +245,7 @@ export default function QueueAdmin() {
         open={selectedQueueId && !cancelQueueId}
         onOpenChange={(e) => !e && !cancelQueueId && setSelectedQueueId(null)}
         disablePreventScroll={true}
+        handleOnly={true}
       >
         <DrawerContent className="rounded-t-sm px-3 pb-9">
           <DrawerHandle />

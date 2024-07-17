@@ -76,15 +76,18 @@ export function orderDraftReducer(
       const { instance_id, qty } = action.data;
       const { menuId, addonIds } = parseInstanceId(instance_id);
 
-      return {
-        ...state,
-        [instance_id]: {
-          ...(state[instance_id] || {}),
-          qty,
-          menu_id: menuId,
-          addon_ids: addonIds
-        }
-      };
+      return orderDraftReducer(
+        {
+          ...state,
+          [instance_id]: {
+            ...(state[instance_id] || {}),
+            qty,
+            menu_id: menuId,
+            addon_ids: addonIds
+          }
+        },
+        { type: "CLEAR_EMPTY" }
+      );
     }
     default: {
       return structuredClone(state);

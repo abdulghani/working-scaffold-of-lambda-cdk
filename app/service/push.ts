@@ -110,5 +110,5 @@ export const sendNewOrderNotification = serverOnly$(async function (options: {
 export const getSubscription = serverOnly$(async function (userId: string) {
   const entry = await dbconn?.("user_pos").where({ user_id: userId }).first();
 
-  return !!entry?.subscription;
+  return entry?.subscription?.keys?.p256dh;
 });

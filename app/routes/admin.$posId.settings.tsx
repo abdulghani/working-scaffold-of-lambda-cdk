@@ -5,7 +5,7 @@ import { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useRevalidator } from "@remix-run/react";
 import { verifySessionPOSAccess } from "app/service/auth";
 import { getSubscription, getVAPIDKey } from "app/service/push";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
@@ -20,14 +20,29 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export default function Settings() {
   const loaderData = useLoaderData<any>();
   const revalidator = useRevalidator();
+  const [subP256dh, setSubP256dh] = useState<string | null | undefined>(null);
+
+  const getSubscription = useCallback(async () => {
+    const sw = await navigator?.serviceWorker?.ready;
+    const sub = await sw?.pushManager?.getSubscription?.();
+    const data = sub?.toJSON();
+    return data?.keys?.p256dh;
+  }, []);
+
+  useEffect(() => {
+    if (!subP256dh) {
+      getSubscription().then((data) => setSubP256dh(data));
+    }
+  }, [subP256dh, getSubscription]);
+
   const [isSubscribed, applicationServerKey] = useMemo(() => {
     return [
       isNotificationSupported?.() &&
         Notification?.permission === "granted" &&
-        loaderData.isSubscribed,
+        loaderData.isSubscribed === subP256dh,
       loaderData.applicationServerKey
     ];
-  }, [loaderData]);
+  }, [loaderData, subP256dh]);
 
   const subscribeNotification = useCallback(
     async function (e: boolean) {
@@ -53,6 +68,7 @@ export default function Settings() {
           applicationServerKey,
           userVisibleOnly: true
         });
+        setSubP256dh(await getSubscription());
         await fetch("/api/subscribe-push", {
           method: "POST",
           headers: {
@@ -60,9 +76,17 @@ export default function Settings() {
           },
           body: JSON.stringify(newSub)
         }).then(() => revalidator.revalidate());
+      } else if (isSubscribed) {
+        const sw = await navigator.serviceWorker.ready;
+        const existingSub = await sw.pushManager.getSubscription();
+        if (existingSub) {
+          await existingSub.unsubscribe();
+        }
+        setSubP256dh(null);
+        revalidator.revalidate();
       }
     },
-    [isSubscribed, revalidator, applicationServerKey]
+    [isSubscribed, revalidator, applicationServerKey, getSubscription]
   );
 
   return (
