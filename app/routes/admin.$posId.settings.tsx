@@ -86,6 +86,7 @@ export default function Settings() {
                 <Switch
                   checked={isSubscribed}
                   onCheckedChange={(e) => subscribeNotification(e)}
+                  suppressHydrationWarning
                 />
               </TableCell>
             </TableRow>
