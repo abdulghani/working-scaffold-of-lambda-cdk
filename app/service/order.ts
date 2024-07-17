@@ -231,7 +231,7 @@ export const adminGetPendingOrders = serverOnly$(async function (
   const result = await dbconn?.("order")
     .select("*")
     .where({ pos_id: posId, status: "PENDING" })
-    .orderBy("created_at", "desc");
+    .orderBy("created_at", "asc");
 
   return result;
 });
@@ -241,12 +241,7 @@ export const adminGetAcceptedOrders = serverOnly$(async function (
 ) {
   const result = await dbconn?.("order")
     .where({ pos_id: posId, status: "ACCEPTED" })
-    .andWhere(
-      "updated_at",
-      ">=",
-      DateTime.now().startOf("day").minus({ day: 2 }).toISO()
-    )
-    .orderBy("updated_at", "desc");
+    .orderBy("updated_at", "asc");
 
   return result;
 });

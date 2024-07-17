@@ -718,7 +718,7 @@ export default function OrderAdmin() {
                 <TableRow>
                   <TableHead>#</TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead className="text-right">Waktu pesanan</TableHead>
+                  <TableHead className="text-right">Waktu diterima</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
