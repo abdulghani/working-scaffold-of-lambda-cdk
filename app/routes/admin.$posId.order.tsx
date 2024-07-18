@@ -577,7 +577,7 @@ export default function OrderAdmin() {
             <Table>
               <TableBody>
                 <TableRow className="text-xs text-muted-foreground">
-                  <TableCell>Pajak daerah (5%)</TableCell>
+                  <TableCell>Pajak daerah ({tax.value}%)</TableCell>
                   <TableCell></TableCell>
                   <TableCell colSpan={2} className="text-right">
                     {formatPrice(calculateTax(draftTotal, tax.value))}
