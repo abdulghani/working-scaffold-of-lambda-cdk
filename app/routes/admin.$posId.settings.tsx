@@ -1,10 +1,18 @@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { isNotificationSupported } from "@/lib/is-notification-supported";
-import { LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useRevalidator } from "@remix-run/react";
-import { sessionCookie, verifySessionPOSAccess } from "app/service/auth";
-import { getSubscription, getVAPIDKey } from "app/service/push";
+import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
+import { useLoaderData, useRevalidator, useSubmit } from "@remix-run/react";
+import {
+  sessionCookie,
+  verifySession,
+  verifySessionPOSAccess
+} from "app/service/auth";
+import {
+  getSubscription,
+  getVAPIDKey,
+  saveSubscription
+} from "app/service/push";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -17,10 +25,29 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   return { isSubscribed, applicationServerKey };
 }
 
+export async function action({ request }: ActionFunctionArgs) {
+  const userId = await verifySession?.(request);
+  const body = await request.json();
+
+  if (body?._action === "subscribe_push") {
+    const sessionToken = await sessionCookie.parse(
+      request.headers.get("Cookie")
+    );
+    await saveSubscription?.({
+      userId,
+      sessionToken,
+      subscription: body.subscription
+    });
+  }
+
+  return {};
+}
+
 export default function Settings() {
   const loaderData = useLoaderData<any>();
   const revalidator = useRevalidator();
   const [subP256dh, setSubP256dh] = useState<string | null | undefined>(null);
+  const submit = useSubmit();
 
   const getSubscription = useCallback(async () => {
     const sw = await navigator?.serviceWorker?.ready;
@@ -69,13 +96,13 @@ export default function Settings() {
           userVisibleOnly: true
         });
         setSubP256dh(await getSubscription());
-        await fetch("/api/subscribe-push", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(newSub)
-        }).then(() => revalidator.revalidate());
+        submit(
+          JSON.stringify({ _action: "subscribe_push", subscription: newSub }),
+          {
+            method: "POST",
+            encType: "application/json"
+          }
+        );
       } else if (isSubscribed) {
         const sw = await navigator.serviceWorker.ready;
         const existingSub = await sw.pushManager.getSubscription();
@@ -86,7 +113,7 @@ export default function Settings() {
         revalidator.revalidate();
       }
     },
-    [isSubscribed, revalidator, applicationServerKey, getSubscription]
+    [isSubscribed, revalidator, applicationServerKey, getSubscription, submit]
   );
 
   return (
