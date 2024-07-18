@@ -15,33 +15,67 @@ export const getVAPIDKey = serverOnly$(function () {
   return process.env.VAPID_PUBLIC_KEY;
 });
 
-export const saveSubscription = serverOnly$(async function (
-  userId: string,
-  subscription: any
-) {
-  const entry = await dbconn?.("user_pos").where({ user_id: userId }).first();
+export const saveSubscription = serverOnly$(async function (options: {
+  userId: string;
+  sessionToken: string;
+  subscription: any;
+}) {
+  const { userId, sessionToken, subscription } = options;
+  const entry = await dbconn?.("user").where({ id: userId }).first();
+  const sessionEntry = await dbconn?.("session")
+    .where({ user_id: userId, session_id: sessionToken })
+    .first();
 
-  if (!entry) {
+  if (!entry || !sessionEntry) {
     throw new ActionError({
       message: "User not found",
       status: 404
     });
   }
 
-  await dbconn?.("user_pos")
-    .where({ user_id: userId })
+  const transaction = await dbconn?.transaction();
+  await transaction?.("user").where({ id: userId }).update({
+    notification: true
+  });
+  await transaction?.("session")
+    .where({ session_id: sessionToken })
     .update({
-      subscription: JSON.stringify(subscription)
+      notification_subscription: JSON.stringify(subscription)
     });
+  await transaction?.commit();
 
-  await webpush.sendNotification(
-    subscription,
-    JSON.stringify({
-      title: "Hello, World!",
-      description: "This is a test notification",
-      path: "/admin"
-    })
-  );
+  try {
+    await webpush.sendNotification(
+      subscription,
+      JSON.stringify({
+        title: "Hello, World!",
+        description: "This is a test notification",
+        path: "/admin"
+      })
+    );
+  } catch (err) {
+    console.log("FAILED SENDING PUSH ", err);
+  }
+});
+
+export const sendNotification = serverOnly$(async function (options: {
+  title: string;
+  description?: string;
+  path?: string;
+  subscription: any;
+}) {
+  try {
+    await webpush.sendNotification(
+      options.subscription,
+      JSON.stringify({
+        title: options.title,
+        description: options.description,
+        path: options.path
+      })
+    );
+  } catch (err) {
+    console.log("FAILED SENDING NOTIFICATION", err, options);
+  }
 });
 
 export const invokeNewOrderNotification = serverOnly$(async function (options: {
@@ -73,21 +107,29 @@ export const sendNewOrderNotification = serverOnly$(async function (options: {
   if (!entries?.length) {
     return;
   }
+  const users = await dbconn?.("user")
+    .whereIn(
+      "id",
+      entries.map((entry) => entry.user_id)
+    )
+    .andWhere("notification", true);
+  if (!users?.length) {
+    return;
+  }
   const sessions = await dbconn?.("session")
     .whereIn(
       "user_id",
-      entries.map((entry) => entry.user_id)
+      users.map((entry) => entry.id)
     )
-    .andWhere("expires_at", ">", new Date().toISOString());
-  const filteredEntries = entries.filter((entry) => {
-    return (sessions || []).find(
-      (session) => session.user_id === entry.user_id
-    );
-  });
+    .andWhere("expires_at", ">", new Date().toISOString())
+    .whereNotNull("notification_subscription");
+  if (!sessions?.length) {
+    return;
+  }
 
   await Promise.all(
-    filteredEntries?.map?.(async (entry) => {
-      const subscription = entry.subscription;
+    sessions.map(async (entry) => {
+      const subscription = entry.notification_subscription;
 
       if (subscription) {
         try {
@@ -103,12 +145,23 @@ export const sendNewOrderNotification = serverOnly$(async function (options: {
           console.log("FAILED SENDING PUSH ", err);
         }
       }
-    }) || []
+    })
   );
 });
 
-export const getSubscription = serverOnly$(async function (userId: string) {
-  const entry = await dbconn?.("user_pos").where({ user_id: userId }).first();
+export const getSubscription = serverOnly$(async function (
+  sessionToken: string
+) {
+  const entry = await dbconn?.("session")
+    .where({ session_id: sessionToken })
+    .first();
+  if (!entry) {
+    return null;
+  }
+  const user = await dbconn?.("user").where({ id: entry.user_id }).first();
+  if (!user || !user.notification) {
+    return null;
+  }
 
-  return entry?.subscription?.keys?.p256dh;
+  return entry?.notification_subscription?.keys?.p256dh;
 });

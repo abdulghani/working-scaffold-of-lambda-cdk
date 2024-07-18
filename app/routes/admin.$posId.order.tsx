@@ -420,7 +420,7 @@ export default function OrderAdmin() {
               Riwayat ({history?.length})
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="create" className="flex flex-col px-3">
+          <TabsContent value="create" className="hidden flex-col px-3 sm:flex">
             <div className="mb-4 mt-2 flex w-full flex-row items-center px-1">
               <div className="flex w-full flex-col">
                 <span className="text-lg font-semibold">Buat pesanan baru</span>

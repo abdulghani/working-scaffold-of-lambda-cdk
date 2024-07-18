@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { wrapActionError } from "@/lib/action-error";
+import { isNotificationSupported } from "@/lib/is-notification-supported";
 import {
   ActionFunctionArgs,
   LoaderFunctionArgs,
@@ -9,7 +10,9 @@ import {
 } from "@remix-run/node";
 import { Form, Link, useActionData, useLoaderData } from "@remix-run/react";
 import { otpFlowCookie, sendOTP, verifyOTP } from "app/service/auth";
+import { getVAPIDKey } from "app/service/push";
 import { Mail } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 export function meta() {
   return [{ title: "Login" }];
@@ -30,9 +33,17 @@ export const loader = wrapActionError(async function ({
     });
   }
 
+  const applicationServerKey = getVAPIDKey?.();
   const otpFlow = await otpFlowCookie.parse(request.headers.get("Cookie"));
 
-  return { isOTP: !!otpFlow?.id, email: otpFlow?.email };
+  return {
+    isOTP: !!otpFlow?.id,
+    email: otpFlow?.email,
+    notification: otpFlow?.notification,
+    applicationServerKey: otpFlow?.notification
+      ? applicationServerKey
+      : undefined
+  };
 });
 
 export const action = wrapActionError(async function ({
@@ -43,7 +54,11 @@ export const action = wrapActionError(async function ({
   if (payload._action === "send_otp") {
     await sendOTP(payload.email);
   } else if (payload._action === "verify_otp") {
-    await verifyOTP({ request, otpCode: payload.otp });
+    await verifyOTP({
+      request,
+      otpCode: payload.otp,
+      push_subscription: payload.push_subscription
+    });
   }
 
   return {};
@@ -51,7 +66,42 @@ export const action = wrapActionError(async function ({
 
 export default function Login() {
   const action = useActionData<any>();
-  const { isOTP, email } = useLoaderData<any>();
+  const { isOTP, email, notification, applicationServerKey } =
+    useLoaderData<any>();
+  const [pushSubscription, setPushSubscription] =
+    useState<PushSubscription | null>(null);
+
+  const subscribeNotification = useCallback(
+    async function () {
+      if (
+        isOTP &&
+        isNotificationSupported?.() &&
+        notification &&
+        applicationServerKey
+      ) {
+        const permission = Notification.permission;
+        if (permission !== "granted") {
+          return;
+        }
+
+        const sw = await navigator.serviceWorker.ready;
+        const existingSub = await sw.pushManager.getSubscription();
+        if (existingSub) {
+          await existingSub.unsubscribe();
+        }
+        const newSub = await sw.pushManager.subscribe({
+          applicationServerKey,
+          userVisibleOnly: true
+        });
+        setPushSubscription(newSub);
+      }
+    },
+    [isOTP, notification, applicationServerKey]
+  );
+
+  useEffect(() => {
+    subscribeNotification();
+  }, [subscribeNotification]);
 
   return (
     <div className="w-full">
@@ -65,6 +115,11 @@ export default function Login() {
           </div>
           {isOTP ? (
             <Form className="grid gap-4" method="post">
+              <Input
+                type="hidden"
+                name="push_subscription"
+                value={pushSubscription ? JSON.stringify(pushSubscription) : ""}
+              />
               <div className="grid gap-2">
                 <Label htmlFor="email">
                   Email{" "}

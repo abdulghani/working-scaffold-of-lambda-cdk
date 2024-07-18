@@ -3,15 +3,15 @@ import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { isNotificationSupported } from "@/lib/is-notification-supported";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useLoaderData, useRevalidator } from "@remix-run/react";
-import { verifySessionPOSAccess } from "app/service/auth";
+import { sessionCookie, verifySessionPOSAccess } from "app/service/auth";
 import { getSubscription, getVAPIDKey } from "app/service/push";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const { userId } =
-    (await verifySessionPOSAccess?.(request, params.posId!)) || {};
-  const isSubscribed = await getSubscription?.(userId);
+  await verifySessionPOSAccess?.(request, params.posId!);
+  const sessionToken = await sessionCookie.parse(request.headers.get("Cookie"));
+  const isSubscribed = await getSubscription?.(sessionToken);
   const applicationServerKey = getVAPIDKey?.();
 
   return { isSubscribed, applicationServerKey };

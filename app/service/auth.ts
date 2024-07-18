@@ -5,6 +5,7 @@ import { ulid } from "ulid";
 import { serverOnly$ } from "vite-env-only/macros";
 import { dbconn } from "./db";
 import { emailClient } from "./email";
+import { sendNotification } from "./push";
 
 const COOKIE_SECRET = process.env.COOKIE_SECRET || "default";
 
@@ -89,7 +90,11 @@ export async function sendOTP(email: string) {
     headers: [
       [
         "Set-Cookie",
-        await otpFlowCookie.serialize({ id: user.id, email: user.email })
+        await otpFlowCookie.serialize({
+          id: user.id,
+          email: user.email,
+          notification: user.notification
+        })
       ]
     ]
   });
@@ -98,6 +103,7 @@ export async function sendOTP(email: string) {
 export async function verifyOTP(options: {
   request: Request;
   otpCode: string;
+  push_subscription?: string;
 }) {
   if (!options.otpCode) {
     throw new ActionError({
@@ -140,10 +146,20 @@ export async function verifyOTP(options: {
     user_id: otpFlow.id,
     session_id: sessionToken,
     created_at: new Date().toISOString(),
-    expires_at: DateTime.now().plus({ days: 7 }).toISO()
+    expires_at: DateTime.now().plus({ days: 7 }).toISO(),
+    notification_subscription: options.push_subscription || null
   });
   await transaction?.commit();
   SESSION_CACHE.delete(sessionToken);
+
+  if (options.push_subscription) {
+    const parsed = JSON.parse(options.push_subscription);
+    await sendNotification?.({
+      subscription: parsed,
+      title: "Anda berhasil login",
+      path: "/admin"
+    });
+  }
 
   const destination = await destinationCookie.parse(
     options.request.headers.get("Cookie")
