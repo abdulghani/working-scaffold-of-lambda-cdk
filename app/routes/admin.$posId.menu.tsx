@@ -100,21 +100,23 @@ export default function AdminMenu() {
 
   return (
     <div className="flex w-full flex-col overflow-x-hidden">
-      <div className="mt-2 flex w-screen snap-x snap-mandatory flex-row gap-2 overflow-x-scroll px-2 pb-2">
-        {menuFilter.map((menu) => (
-          <Button
-            className={cn(
-              "border-zinc-100 shadow-none hover:bg-background hover:shadow-inner",
-              filter === menu.id && "bg-background shadow-inner",
-              filter !== menu.id && "text-muted-foreground"
-            )}
-            variant={"secondary"}
-            onClick={() => setFilter(menu.id)}
-            key={`menu-${menu.id}`}
-          >
-            {menu.title} ({menu.id === "all" ? menus?.length : menu.count})
-          </Button>
-        ))}
+      <div className="px-2">
+        <div className="mb-2 mt-2 flex w-full snap-x snap-mandatory flex-row gap-1 overflow-x-scroll rounded-md bg-secondary px-1 py-1 shadow-inner">
+          {menuFilter.map((menu) => (
+            <Button
+              className={cn(
+                "shrink-0 border-zinc-100 shadow-none hover:bg-background hover:shadow-sm sm:flex-grow sm:px-6",
+                filter === menu.id && "bg-background shadow-sm",
+                filter !== menu.id && "text-muted-foreground"
+              )}
+              variant={"secondary"}
+              onClick={() => setFilter(menu.id)}
+              key={`menu-${menu.id}`}
+            >
+              {menu.title} ({menu.id === "all" ? menus?.length : menu.count})
+            </Button>
+          ))}
+        </div>
       </div>
       <div className="px-3">
         <div

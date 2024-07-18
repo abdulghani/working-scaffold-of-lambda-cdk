@@ -241,7 +241,7 @@ export const adminGetAcceptedOrders = serverOnly$(async function (
 ) {
   const result = await dbconn?.("order")
     .where({ pos_id: posId, status: "ACCEPTED" })
-    .orderBy("updated_at", "asc");
+    .orderBy("created_at", "asc");
 
   return result;
 });
@@ -257,7 +257,7 @@ export const adminGetHistoryOrders = serverOnly$(async function (
       ">=",
       DateTime.now().startOf("day").minus({ day: 2 }).toISO()
     )
-    .orderBy("temp_count", "desc");
+    .orderBy("created_at", "asc");
 
   return result;
 });

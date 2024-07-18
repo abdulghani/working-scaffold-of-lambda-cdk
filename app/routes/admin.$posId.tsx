@@ -133,7 +133,7 @@ export default function MenuAdmin() {
       >
         <SheetContent
           side={"top"}
-          className="z-40 mt-12 rounded-b-sm px-3 pb-2"
+          className="z-40 mt-12 rounded-b-sm px-3 pb-2 sm:mt-[5.7rem]"
           onOpenAutoFocus={(e) => {
             e.preventDefault();
           }}
@@ -175,25 +175,28 @@ export default function MenuAdmin() {
         </SheetContent>
       </Sheet>
 
-      <div className="flex w-full flex-col">
+      <div className="flex w-full flex-col bg-background">
         <div
           className={cn(
-            "sticky top-0 border-zinc-50 bg-background px-3 pb-3",
+            "sticky top-0 border-zinc-50 bg-background px-3 pb-3 sm:pb-3 sm:pt-2",
             isHeaderTop ? "z-50" : "z-40 border-b"
           )}
           onClick={(e) => {
+            e.stopPropagation();
             setIsMenuOpen(!isMenuOpen);
           }}
         >
           <div className="mt-4 flex flex-row items-center px-2">
-            <Avatar className="h-12 w-12">
+            <Avatar className="h-12 w-12 sm:h-20 sm:w-20">
               <AvatarImage src={pos?.profile_img} />
               <AvatarFallback>{pos?.name?.substring(0, 2)}</AvatarFallback>
             </Avatar>
-            <div className="ml-3 flex w-full flex-row justify-between overflow-hidden">
+            <div className="ml-3 flex w-full flex-row justify-between overflow-hidden sm:ml-4">
               <div className="mr-3 flex flex-col overflow-hidden">
-                <CardTitle className="truncate">{pos.name}</CardTitle>
-                <CardDescription className="truncate">
+                <CardTitle className="truncate sm:text-3xl sm:leading-none">
+                  {pos.name}
+                </CardTitle>
+                <CardDescription className="truncate sm:mt-1 sm:text-base sm:leading-none">
                   {pos.description}
                 </CardDescription>
               </div>
