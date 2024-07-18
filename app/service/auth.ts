@@ -1,5 +1,6 @@
 import { ActionError } from "@/lib/action-error";
 import { createCookie, redirect } from "@remix-run/node";
+import { LRUCache } from "lru-cache";
 import { DateTime } from "luxon";
 import { ulid } from "ulid";
 import { serverOnly$ } from "vite-env-only/macros";
@@ -35,7 +36,10 @@ export const otpFlowCookie = createCookie("otpFlow", {
   maxAge: 60 * 60 * 1 // 1 hour
 });
 
-const SESSION_CACHE = new Map<string, any>();
+const SESSION_CACHE = new LRUCache({
+  ttl: 1000 * 60 * 60, // 1 hour,
+  ttlAutopurge: true
+});
 
 export async function sendOTP(email: string) {
   if (!email) {

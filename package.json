@@ -38,6 +38,7 @@
     "knex": "^3.1.0",
     "localforage": "^1.10.0",
     "lodash-es": "^4.17.21",
+    "lru-cache": "^11.0.0",
     "lucide-react": "^0.396.0",
     "luxon": "^3.4.4",
     "next-themes": "^0.3.0",

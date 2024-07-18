@@ -1,9 +1,13 @@
 import { redirect } from "@remix-run/node";
+import { LRUCache } from "lru-cache";
 import { serverOnly$ } from "vite-env-only/macros";
 import { z } from "zod";
 import { dbconn } from "./db";
 
-const POS_CACHE = new Map<string, any>();
+const POS_CACHE = new LRUCache({
+  ttl: 1000 * 60 * 60 * 24, // 1 day
+  ttlAutopurge: true
+});
 
 export const POS_SCHEMA = z.object({
   id: z.string(),
