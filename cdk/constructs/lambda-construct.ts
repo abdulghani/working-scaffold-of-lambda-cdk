@@ -2,8 +2,8 @@ import { Duration } from "aws-cdk-lib";
 import { Architecture, Runtime } from "aws-cdk-lib/aws-lambda";
 import { ICommandHooks, NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import { Construct } from "constructs";
+import crypto from "crypto";
 import fs from "fs";
-import { ulid } from "ulid";
 
 export class LambdaConstruct extends Construct {
   private lambdaFunction: NodejsFunction;
@@ -46,7 +46,7 @@ export class LambdaConstruct extends Construct {
         S3_IMAGE_BUCKET: process.env.S3_IMAGE_BUCKET || "",
         VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || "",
         VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || "",
-        INTERNAL_API_KEY: ulid()
+        INTERNAL_API_KEY: crypto.randomBytes(64).toString("hex")
       }
     });
   }

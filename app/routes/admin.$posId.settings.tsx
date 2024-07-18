@@ -11,6 +11,7 @@ import {
 import {
   getSubscription,
   getVAPIDKey,
+  removeSubscription,
   saveSubscription
 } from "app/service/push";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -28,16 +29,16 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   const userId = await verifySession?.(request);
   const body = await request.json();
+  const sessionToken = await sessionCookie.parse(request.headers.get("Cookie"));
 
   if (body?._action === "subscribe_push") {
-    const sessionToken = await sessionCookie.parse(
-      request.headers.get("Cookie")
-    );
     await saveSubscription?.({
       userId,
       sessionToken,
       subscription: body.subscription
     });
+  } else if (body?._action === "unsubscribe_push") {
+    await removeSubscription?.(sessionToken);
   }
 
   return {};
@@ -66,6 +67,8 @@ export default function Settings() {
     return [
       isNotificationSupported?.() &&
         Notification?.permission === "granted" &&
+        loaderData.isSubscribed &&
+        subP256dh &&
         loaderData.isSubscribed === subP256dh,
       loaderData.applicationServerKey
     ];
@@ -110,6 +113,15 @@ export default function Settings() {
           await existingSub.unsubscribe();
         }
         setSubP256dh(null);
+        submit(
+          JSON.stringify({
+            _action: "unsubscribe_push"
+          }),
+          {
+            method: "POST",
+            encType: "application/json"
+          }
+        );
         revalidator.revalidate();
       }
     },

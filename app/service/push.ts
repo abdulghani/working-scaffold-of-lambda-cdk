@@ -1,9 +1,9 @@
-import { INTERNAL_API_HOST, INTERNAL_API_KEY } from "@/constants/internal-api";
 import { ActionError } from "@/lib/action-error";
 import { padNumber } from "@/lib/pad-number";
 import { serverOnly$ } from "vite-env-only/macros";
 import webpush from "web-push";
 import { dbconn } from "./db";
+import { invokeInternalAction } from "./internal-action";
 
 webpush.setVapidDetails(
   "mailto:info@pranaga.com",
@@ -13,6 +13,24 @@ webpush.setVapidDetails(
 
 export const getVAPIDKey = serverOnly$(function () {
   return process.env.VAPID_PUBLIC_KEY;
+});
+
+export const removeSubscription = serverOnly$(async function (
+  sessionToken: string
+) {
+  const entry = await dbconn?.("session")
+    .where({ session_id: sessionToken })
+    .first();
+  if (!entry) {
+    return;
+  }
+
+  return await dbconn?.("session")
+    .where({ session_id: sessionToken })
+    .update({
+      notification_subscription: null
+    })
+    .returning("*");
 });
 
 export const saveSubscription = serverOnly$(async function (options: {
@@ -48,8 +66,8 @@ export const saveSubscription = serverOnly$(async function (options: {
     await webpush.sendNotification(
       subscription,
       JSON.stringify({
-        title: "Hello, World!",
-        description: "This is a test notification",
+        title: "Notifikasi aktif",
+        description: "Notifikasi berhasil diaktifkan",
         path: "/admin"
       })
     );
@@ -83,17 +101,9 @@ export const invokeNewOrderNotification = serverOnly$(async function (options: {
   temp_count: number;
   name: string;
 }) {
-  if (!INTERNAL_API_HOST || !INTERNAL_API_KEY) {
-    return;
-  }
-
-  await fetch(`${INTERNAL_API_HOST}/api/notification`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": INTERNAL_API_KEY
-    },
-    body: JSON.stringify({ ...options, _action: "NEW_ORDER" })
+  await invokeInternalAction?.({
+    _action: "NEW_ORDER",
+    ...options
   });
 });
 

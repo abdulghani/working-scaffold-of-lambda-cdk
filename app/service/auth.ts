@@ -6,6 +6,7 @@ import { ulid } from "ulid";
 import { serverOnly$ } from "vite-env-only/macros";
 import { dbconn } from "./db";
 import { emailClient } from "./email";
+import { invokeInternalAction } from "./internal-action";
 import { sendNotification } from "./push";
 
 const COOKIE_SECRET = process.env.COOKIE_SECRET || "default";
@@ -165,6 +166,11 @@ export async function verifyOTP(options: {
     });
   }
 
+  /** CLEANUP SESSION BY INVOKING ANOTHER API */
+  invokeInternalAction?.({
+    _action: "CLEANUP_SESSION"
+  });
+
   const destination = await destinationCookie.parse(
     options.request.headers.get("Cookie")
   );
@@ -248,4 +254,11 @@ export const getSessionPOS = serverOnly$(async (request: Request) => {
   }
 
   return connections;
+});
+
+export const cleanupSession = serverOnly$(async () => {
+  SESSION_CACHE.clear();
+  await dbconn?.("session")
+    .where("expires_at", "<", new Date().toISOString())
+    .delete();
 });
