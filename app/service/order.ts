@@ -257,7 +257,7 @@ export const adminGetHistoryOrders = serverOnly$(async function (
       ">=",
       DateTime.now().startOf("day").minus({ day: 2 }).toISO()
     )
-    .orderBy("created_at", "asc");
+    .orderBy("created_at", "desc");
 
   return result;
 });

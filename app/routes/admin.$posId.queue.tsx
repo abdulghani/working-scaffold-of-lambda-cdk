@@ -35,6 +35,8 @@ import {
   QUEUE_ENUM
 } from "app/service/queue";
 import {
+  ChevronDown,
+  ChevronUp,
   CircleCheck,
   CircleX,
   History,
@@ -43,7 +45,13 @@ import {
   Users
 } from "lucide-react";
 import { DateTime } from "luxon";
-import { Fragment, useDeferredValue, useMemo, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useDeferredValue,
+  useMemo,
+  useState
+} from "react";
 import { useDebouncedMenu } from "./admin.$posId";
 
 const TEXT_TEMPLATE = `
@@ -83,12 +91,41 @@ export async function action({ request }: ActionFunctionArgs) {
   return null;
 }
 
+function sortQueue({ queues, orderBy, orderDir }: any) {
+  if (!orderBy) return queues;
+  return queues.sort((a, b) => {
+    switch (orderBy) {
+      case "created_at":
+        return (
+          (new Date(a.created_at).getTime() -
+            new Date(b.created_at).getTime()) *
+          (orderDir === "asc" ? 1 : -1)
+        );
+      case "updated_at":
+        return (
+          (new Date(a.updated_at).getTime() -
+            new Date(b.updated_at).getTime()) *
+          (orderDir === "asc" ? 1 : -1)
+        );
+      case "status":
+        return a.status.localeCompare(b.status) * (orderDir === "asc" ? 1 : -1);
+      case "pax":
+        return (a.pax - b.pax) * (orderDir === "asc" ? 1 : -1);
+      default:
+        return 0;
+    }
+  });
+}
+
 export default function QueueAdmin() {
   const { pos } = useOutletContext<any>();
   const { queues, history } = useLoaderData<typeof loader>();
   const [selectedQueueId, setSelectedQueueId] = useState<any>(null);
   const [query, setQuery] = useState<string>("");
   const [cancelQueueId, setCancelQueueId] = useState<string | null>(null);
+  const [orderBy, setOrderBy] = useState<string>("");
+  const [orderDir, setOrderDir] = useState<string>("asc");
+  const [filterCycle, setFilterCycle] = useState<number>(0);
 
   /** DEBOUNCED STUFF */
   const selectedQueue = useMemo(
@@ -102,25 +139,47 @@ export default function QueueAdmin() {
   /** FILTERED STUFF */
   const queryDeferred = useDeferredValue(query);
   const [queuesFiltered, historyFiltered] = useMemo(() => {
-    if (!queryDeferred?.trim()) {
-      return [queues, history];
-    }
-    const regex = new RegExp(queryDeferred.replace(/^0/i, ""), "i");
-    const queuesFiltered = queues?.filter(
-      (q) =>
-        regex.test(q.name) ||
-        regex.test(padNumber(q.temp_count)) ||
-        regex.test(q.phone)
-    );
-    const historyFiltered = history?.filter(
-      (q) =>
-        regex.test(q.name) ||
-        regex.test(padNumber(q.temp_count)) ||
-        regex.test(q.phone)
-    );
+    const filtered = (() => {
+      if (!queryDeferred?.trim()) {
+        return [queues, history];
+      }
+      const regex = new RegExp(queryDeferred.replace(/^0/i, ""), "i");
+      const queuesFiltered = queues?.filter(
+        (q) =>
+          regex.test(q.name) ||
+          regex.test(padNumber(q.temp_count)) ||
+          regex.test(q.phone)
+      );
+      const historyFiltered = history?.filter(
+        (q) =>
+          regex.test(q.name) ||
+          regex.test(padNumber(q.temp_count)) ||
+          regex.test(q.phone)
+      );
 
-    return [queuesFiltered, historyFiltered];
-  }, [queues, history, queryDeferred]);
+      return [queuesFiltered, historyFiltered];
+    })();
+
+    if (!orderBy) return filtered;
+    return filtered.map((q) => sortQueue({ queues: q, orderBy, orderDir }));
+  }, [queues, history, queryDeferred, orderBy, orderDir]);
+
+  const cycleThroughFilter = useCallback(
+    function (filter: string) {
+      if (orderBy === filter && filterCycle === 0) {
+        setOrderBy("");
+        setFilterCycle((filterCycle + 1) % 2);
+      } else if (orderBy === filter) {
+        setOrderDir(orderDir === "asc" ? "desc" : "asc");
+        setFilterCycle((filterCycle + 1) % 2);
+      } else {
+        setOrderBy(filter);
+        setOrderDir("asc");
+        setFilterCycle(1);
+      }
+    },
+    [orderBy, filterCycle, orderDir]
+  );
 
   return (
     <>
@@ -163,10 +222,33 @@ export default function QueueAdmin() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>#</TableHead>
+                  <TableHead onClick={() => cycleThroughFilter("created_at")}>
+                    {orderBy === "created_at" && orderDir === "asc" ? (
+                      <ChevronUp className="mr-1.5 inline-block w-4" />
+                    ) : (
+                      orderBy === "created_at" &&
+                      orderDir === "desc" && (
+                        <ChevronDown className="mr-1.5 inline-block w-4" />
+                      )
+                    )}
+                    #
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>PAX</TableHead>
-                  <TableHead className="text-right">Time</TableHead>
+                  <TableHead
+                    className="text-right"
+                    onClick={() => cycleThroughFilter("created_at")}
+                  >
+                    {orderBy === "created_at" && orderDir === "asc" ? (
+                      <ChevronUp className="mr-1.5 inline-block w-4" />
+                    ) : (
+                      orderBy === "created_at" &&
+                      orderDir === "desc" && (
+                        <ChevronDown className="mr-1.5 inline-block w-4" />
+                      )
+                    )}
+                    Time
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -214,10 +296,33 @@ export default function QueueAdmin() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>#</TableHead>
+                  <TableHead onClick={() => cycleThroughFilter("created_at")}>
+                    {orderBy === "created_at" && orderDir === "asc" ? (
+                      <ChevronUp className="mr-1.5 inline-block w-4" />
+                    ) : (
+                      orderBy === "created_at" &&
+                      orderDir === "desc" && (
+                        <ChevronDown className="mr-1.5 inline-block w-4" />
+                      )
+                    )}
+                    #
+                  </TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>PAX</TableHead>
-                  <TableHead className="text-right">Status</TableHead>
+                  <TableHead
+                    className="text-right"
+                    onClick={() => cycleThroughFilter("status")}
+                  >
+                    {orderBy === "status" && orderDir === "asc" ? (
+                      <ChevronUp className="mr-1.5 inline-block w-4" />
+                    ) : (
+                      orderBy === "status" &&
+                      orderDir === "desc" && (
+                        <ChevronDown className="mr-1.5 inline-block w-4" />
+                      )
+                    )}
+                    Status
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

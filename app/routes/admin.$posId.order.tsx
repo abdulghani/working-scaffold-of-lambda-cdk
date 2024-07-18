@@ -58,6 +58,8 @@ import { getPOSTax } from "app/service/pos";
 import { s3UploadHandler } from "app/service/s3";
 import { capitalize } from "lodash-es";
 import {
+  ChevronDown,
+  ChevronUp,
   CircleCheck,
   CircleX,
   ClipboardCheck,
@@ -73,6 +75,7 @@ import { DateTime } from "luxon";
 import qrcode from "qrcode";
 import {
   Fragment,
+  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -161,6 +164,30 @@ export const action = wrapActionError(async function ({
   return {};
 });
 
+function sortOrder({ orders, orderBy, orderDir }: any) {
+  if (!orderBy) return orders;
+  return orders.sort((a, b) => {
+    switch (orderBy) {
+      case "created_at":
+        return (
+          (new Date(a.created_at).getTime() -
+            new Date(b.created_at).getTime()) *
+          (orderDir === "asc" ? 1 : -1)
+        );
+      case "updated_at":
+        return (
+          (new Date(a.updated_at).getTime() -
+            new Date(b.updated_at).getTime()) *
+          (orderDir === "asc" ? 1 : -1)
+        );
+      case "status":
+        return a.status.localeCompare(b.status) * (orderDir === "asc" ? 1 : -1);
+      default:
+        return 0;
+    }
+  });
+}
+
 export default function OrderAdmin() {
   const { pos } = useOutletContext<any>();
   const {
@@ -185,10 +212,13 @@ export default function OrderAdmin() {
   const [addMenu, setAddMenu] = useState(false);
   const [addMenuQuery, setAddMenuQuery] = useState("");
   const addMenuQueryDef = useDeferredValue(addMenuQuery);
+  const [orderBy, setOrderBy] = useState<string>("");
+  const [orderDir, setOrderDir] = useState<"asc" | "desc">("asc");
+  const [filterCycle, setFilterCycle] = useState(0);
 
   /** STATE STUFF */
-  const [filteredMenus] = useMemo(() => {
-    if (!addMenuQueryDef) return [menus];
+  const filteredMenus = useMemo(() => {
+    if (!addMenuQueryDef) return menus;
     const regexp = new RegExp(addMenuQueryDef, "i");
     const _filteredMenus = menus?.filter(
       (i) =>
@@ -198,7 +228,7 @@ export default function OrderAdmin() {
             regexp.test(j.title) || j.addons?.some((k) => regexp.test(k.title))
         )
     );
-    return [_filteredMenus];
+    return _filteredMenus;
   }, [menus, addMenuQueryDef]);
   const isSubmitting = useMemo(
     () => navigation.state === "submitting",
@@ -220,30 +250,38 @@ export default function OrderAdmin() {
   const deferredOrder = useDeferredValue(orderMap[selectedOrderId]);
   const deferredQuery = useDeferredValue(query);
   const [filteredOrders, filteredAccepted, filteredHistory] = useMemo(() => {
-    if (!deferredQuery) {
-      return [orders, accepted, history];
+    const filtered = (() => {
+      if (!deferredQuery) {
+        return [orders, accepted, history];
+      }
+      const regexp = new RegExp(deferredQuery.replace(/^0/i, ""), "i");
+      const _filteredOrders = orders?.filter(
+        (o) =>
+          regexp.test(o.name) ||
+          regexp.test(padNumber(o.temp_count)) ||
+          regexp.test(o.phone)
+      );
+      const _filteredAccepted = accepted?.filter(
+        (o) =>
+          regexp.test(o.name) ||
+          regexp.test(padNumber(o.temp_count)) ||
+          regexp.test(o.phone)
+      );
+      const _filteredHistory = history?.filter(
+        (o) =>
+          regexp.test(o.name) ||
+          regexp.test(padNumber(o.temp_count)) ||
+          regexp.test(o.phone)
+      );
+      return [_filteredOrders, _filteredAccepted, _filteredHistory];
+    })();
+
+    if (!orderBy) {
+      return filtered;
     }
-    const regexp = new RegExp(deferredQuery.replace(/^0/i, ""), "i");
-    const _filteredOrders = orders?.filter(
-      (o) =>
-        regexp.test(o.name) ||
-        regexp.test(padNumber(o.temp_count)) ||
-        regexp.test(o.phone)
-    );
-    const _filteredAccepted = accepted?.filter(
-      (o) =>
-        regexp.test(o.name) ||
-        regexp.test(padNumber(o.temp_count)) ||
-        regexp.test(o.phone)
-    );
-    const _filteredHistory = history?.filter(
-      (o) =>
-        regexp.test(o.name) ||
-        regexp.test(padNumber(o.temp_count)) ||
-        regexp.test(o.phone)
-    );
-    return [_filteredOrders, _filteredAccepted, _filteredHistory];
-  }, [orders, accepted, history, deferredQuery]);
+
+    return filtered.map((o) => sortOrder({ orders: o, orderBy, orderDir }));
+  }, [orders, accepted, history, deferredQuery, orderBy, orderDir]);
   const [addonGroupsMap, addonsMap, totalWTax] = useMemo(() => {
     if (!deferredOrder) return [];
     const { menu_snapshot, tax_snapshot } = deferredOrder || {};
@@ -394,6 +432,23 @@ export default function OrderAdmin() {
 
     return selection;
   }
+
+  const cycleThroughFilter = useCallback(
+    function (filter: string) {
+      if (orderBy === filter && filterCycle === 0) {
+        setOrderBy("");
+        setFilterCycle((filterCycle + 1) % 2);
+      } else if (orderBy === filter) {
+        setOrderDir(orderDir === "asc" ? "desc" : "asc");
+        setFilterCycle((filterCycle + 1) % 2);
+      } else {
+        setOrderBy(filter);
+        setOrderDir("asc");
+        setFilterCycle(1);
+      }
+    },
+    [orderBy, filterCycle, orderDir]
+  );
 
   return (
     <>
@@ -662,9 +717,32 @@ export default function OrderAdmin() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>#</TableHead>
+                  <TableHead onClick={() => cycleThroughFilter("created_at")}>
+                    {orderBy === "created_at" && orderDir === "asc" ? (
+                      <ChevronUp className="mr-1.5 inline-block w-4" />
+                    ) : (
+                      orderBy === "created_at" &&
+                      orderDir === "desc" && (
+                        <ChevronDown className="mr-1.5 inline-block w-4" />
+                      )
+                    )}
+                    #
+                  </TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead className="text-right">Waktu pesanan</TableHead>
+                  <TableHead
+                    className="text-right"
+                    onClick={() => cycleThroughFilter("updated_at")}
+                  >
+                    {orderBy === "updated_at" && orderDir === "asc" ? (
+                      <ChevronUp className="mr-1.5 inline-block w-4" />
+                    ) : (
+                      orderBy === "updated_at" &&
+                      orderDir === "desc" && (
+                        <ChevronDown className="mr-1.5 inline-block w-4" />
+                      )
+                    )}
+                    Waktu pesanan
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -716,9 +794,32 @@ export default function OrderAdmin() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>#</TableHead>
+                  <TableHead onClick={() => cycleThroughFilter("created_at")}>
+                    {orderBy === "created_at" && orderDir === "asc" ? (
+                      <ChevronUp className="mr-1.5 inline-block w-4" />
+                    ) : (
+                      orderBy === "created_at" &&
+                      orderDir === "desc" && (
+                        <ChevronDown className="mr-1.5 inline-block w-4" />
+                      )
+                    )}
+                    #
+                  </TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead className="text-right">Waktu diterima</TableHead>
+                  <TableHead
+                    className="text-right"
+                    onClick={() => cycleThroughFilter("updated_at")}
+                  >
+                    {orderBy === "updated_at" && orderDir === "asc" ? (
+                      <ChevronUp className="mr-1.5 inline-block w-4" />
+                    ) : (
+                      orderBy === "updated_at" &&
+                      orderDir === "desc" && (
+                        <ChevronDown className="mr-1.5 inline-block w-4" />
+                      )
+                    )}
+                    Waktu diterima
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -734,7 +835,7 @@ export default function OrderAdmin() {
                       </TableCell>
                       <TableCell>{o.name}</TableCell>
                       <TableCell className="text-right">
-                        {DateTime.fromISO(o.created_at).toRelative()}
+                        {DateTime.fromISO(o.updated_at).toRelative()}
                       </TableCell>
                     </TableRow>
                   </Fragment>
@@ -770,9 +871,32 @@ export default function OrderAdmin() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>#</TableHead>
+                  <TableHead onClick={() => cycleThroughFilter("created_at")}>
+                    {orderBy === "created_at" && orderDir === "asc" ? (
+                      <ChevronUp className="mr-1.5 inline-block w-4" />
+                    ) : (
+                      orderBy === "created_at" &&
+                      orderDir === "desc" && (
+                        <ChevronDown className="mr-1.5 inline-block w-4" />
+                      )
+                    )}
+                    #
+                  </TableHead>
                   <TableHead>Name</TableHead>
-                  <TableHead className="text-right">Status</TableHead>
+                  <TableHead
+                    className="text-right"
+                    onClick={() => cycleThroughFilter("status")}
+                  >
+                    {orderBy === "status" && orderDir === "asc" ? (
+                      <ChevronUp className="mr-1.5 inline-block w-4" />
+                    ) : (
+                      orderBy === "status" &&
+                      orderDir === "desc" && (
+                        <ChevronDown className="mr-1.5 inline-block w-4" />
+                      )
+                    )}
+                    Status
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
