@@ -3,7 +3,6 @@ import { padNumber } from "@/lib/pad-number";
 import { serverOnly$ } from "vite-env-only/macros";
 import webpush from "web-push";
 import { dbconn } from "./db";
-import { invokeInternalAction } from "./internal-action";
 
 webpush.setVapidDetails(
   "mailto:info@pranaga.com",
@@ -94,17 +93,6 @@ export const sendNotification = serverOnly$(async function (options: {
   } catch (err) {
     console.log("FAILED SENDING NOTIFICATION", err, options);
   }
-});
-
-export const invokeNewOrderNotification = serverOnly$(async function (options: {
-  pos_id: string;
-  temp_count: number;
-  name: string;
-}) {
-  await invokeInternalAction?.({
-    _action: "NEW_ORDER",
-    ...options
-  });
 });
 
 export const sendNewOrderNotification = serverOnly$(async function (options: {

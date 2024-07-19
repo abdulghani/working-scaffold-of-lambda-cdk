@@ -12,9 +12,9 @@ import { ulid } from "ulid";
 import { serverOnly$ } from "vite-env-only/macros";
 import { z } from "zod";
 import { dbconn } from "./db";
+import { invokeInternalAction } from "./internal-action";
 import { orderGetMenu } from "./menu";
 import { getPOSTax } from "./pos";
-import { invokeNewOrderNotification } from "./push";
 import { generateQRData } from "./qrcode";
 
 const ORDER_INSTANCE_SCHEMA = z.object({
@@ -160,13 +160,33 @@ export const createOrder = serverOnly$(async function (orderDraft: {
   await transaction?.commit();
 
   /** INVOKE NOTIFICATION BY CALLING ANOTHER API */
-  invokeNewOrderNotification?.({
-    pos_id,
-    temp_count: orderCount,
-    name: parsed.data.name
-  });
+  invokeInternalAction?.([
+    {
+      _action: "NOTIFICATION_NEW_ORDER",
+      pos_id,
+      temp_count: orderCount,
+      name: parsed.data.name
+    },
+    {
+      _action: "MENU_INCREMENT_SOLD",
+      menu_ids: menuIds,
+      pos_id: pos_id
+    }
+  ]);
 
   return result?.find(Boolean);
+});
+
+export const incrementSold = serverOnly$(async function (options: {
+  menu_ids: string[];
+  pos_id: string;
+}) {
+  const { menu_ids, pos_id } = options;
+
+  await dbconn?.("menu")
+    .whereIn("id", menu_ids)
+    .andWhere({ pos_id })
+    .increment("sold_count", 1);
 });
 
 export const getOrder = serverOnly$(async function (orderId?: string) {

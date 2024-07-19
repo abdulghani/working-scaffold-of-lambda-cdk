@@ -1,10 +1,14 @@
 import { INTERNAL_API_HOST, INTERNAL_API_KEY } from "@/constants/internal-api";
 import { serverOnly$ } from "vite-env-only/macros";
 
-export const invokeInternalAction = serverOnly$(async function (options: {
+export type InvokeInternalActionOptions = {
   _action: string;
   [key: string]: any;
-}) {
+};
+
+export const invokeInternalAction = serverOnly$(async function (
+  options: InvokeInternalActionOptions | InvokeInternalActionOptions[]
+) {
   if (!INTERNAL_API_HOST || !INTERNAL_API_KEY) {
     return;
   }
