@@ -106,8 +106,9 @@
 [vaul-handle] {
   width: 100% !important;
   height: fit-content !important;
-  background-color: rgb(255, 255, 255) !important;
-  padding: 0 0 1.1rem !important;
+  background-color: rgba(255, 255, 255, 0) !important;
+  padding: 0 0 1.5rem !important;
+  border-radius: 0 !important;
 }
 
 [vaul-handle-hitarea] {
@@ -116,7 +117,7 @@
   background-color: #00000030;
   border-radius: 1rem;
   top: initial !important;
-  bottom: 0 !important;
+  bottom: 0.3rem !important;
 }
 
 [vaul-handle]:hover [vaul-handle-hitarea] {

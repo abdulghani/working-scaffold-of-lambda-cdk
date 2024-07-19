@@ -21,8 +21,10 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useFilterCycle } from "@/hooks/use-filter-cycle";
 import { openPhoneLink } from "@/lib/open-phone-link";
 import { padNumber } from "@/lib/pad-number";
+import { sortItems } from "@/lib/sort-items";
 import { cn } from "@/lib/utils";
 import { TabsContent } from "@radix-ui/react-tabs";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
@@ -45,13 +47,7 @@ import {
   Users
 } from "lucide-react";
 import { DateTime } from "luxon";
-import {
-  Fragment,
-  useCallback,
-  useDeferredValue,
-  useMemo,
-  useState
-} from "react";
+import { Fragment, useDeferredValue, useMemo, useState } from "react";
 import { useDebouncedMenu } from "./admin.$posId";
 
 const TEXT_TEMPLATE = `
@@ -91,41 +87,13 @@ export async function action({ request }: ActionFunctionArgs) {
   return null;
 }
 
-function sortQueue({ queues, orderBy, orderDir }: any) {
-  if (!orderBy) return queues;
-  return queues.sort((a, b) => {
-    switch (orderBy) {
-      case "created_at":
-        return (
-          (new Date(a.created_at).getTime() -
-            new Date(b.created_at).getTime()) *
-          (orderDir === "asc" ? 1 : -1)
-        );
-      case "updated_at":
-        return (
-          (new Date(a.updated_at).getTime() -
-            new Date(b.updated_at).getTime()) *
-          (orderDir === "asc" ? 1 : -1)
-        );
-      case "status":
-        return a.status.localeCompare(b.status) * (orderDir === "asc" ? 1 : -1);
-      case "pax":
-        return (a.pax - b.pax) * (orderDir === "asc" ? 1 : -1);
-      default:
-        return 0;
-    }
-  });
-}
-
 export default function QueueAdmin() {
   const { pos } = useOutletContext<any>();
   const { queues, history } = useLoaderData<typeof loader>();
   const [selectedQueueId, setSelectedQueueId] = useState<any>(null);
   const [query, setQuery] = useState<string>("");
   const [cancelQueueId, setCancelQueueId] = useState<string | null>(null);
-  const [orderBy, setOrderBy] = useState<string>("");
-  const [orderDir, setOrderDir] = useState<string>("asc");
-  const [filterCycle, setFilterCycle] = useState<number>(0);
+  const [orderBy, orderDir, cycleThroughFilter] = useFilterCycle();
 
   /** DEBOUNCED STUFF */
   const selectedQueue = useMemo(
@@ -161,25 +129,8 @@ export default function QueueAdmin() {
     })();
 
     if (!orderBy) return filtered;
-    return filtered.map((q) => sortQueue({ queues: q, orderBy, orderDir }));
+    return filtered.map((q) => sortItems({ items: q, orderBy, orderDir }));
   }, [queues, history, queryDeferred, orderBy, orderDir]);
-
-  const cycleThroughFilter = useCallback(
-    function (filter: string) {
-      if (orderBy === filter && filterCycle === 0) {
-        setOrderBy("");
-        setFilterCycle((filterCycle + 1) % 2);
-      } else if (orderBy === filter) {
-        setOrderDir(orderDir === "asc" ? "desc" : "asc");
-        setFilterCycle((filterCycle + 1) % 2);
-      } else {
-        setOrderBy(filter);
-        setOrderDir("asc");
-        setFilterCycle(1);
-      }
-    },
-    [orderBy, filterCycle, orderDir]
-  );
 
   return (
     <>

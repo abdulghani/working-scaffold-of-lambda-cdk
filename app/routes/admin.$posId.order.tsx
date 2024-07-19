@@ -1,5 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerHandle } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHandle,
+  DrawerTitle
+} from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -22,9 +27,11 @@ import { FileInput } from "@/components/ui/file-input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RecordItem } from "@/constants/element";
+import { useFilterCycle } from "@/hooks/use-filter-cycle";
+import { useLocalStorageState } from "@/hooks/use-localstorage-state";
 import { openPhoneLink } from "@/lib/open-phone-link";
 import { parsePhone } from "@/lib/parse-phone";
-import { useLocalStorageState } from "@/lib/use-localstorage-state";
+import { sortItems } from "@/lib/sort-items";
 import { cn } from "@/lib/utils";
 import {
   ActionFunctionArgs,
@@ -75,7 +82,6 @@ import { DateTime } from "luxon";
 import qrcode from "qrcode";
 import {
   Fragment,
-  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -164,30 +170,6 @@ export const action = wrapActionError(async function ({
   return {};
 });
 
-function sortOrder({ orders, orderBy, orderDir }: any) {
-  if (!orderBy) return orders;
-  return orders.sort((a, b) => {
-    switch (orderBy) {
-      case "created_at":
-        return (
-          (new Date(a.created_at).getTime() -
-            new Date(b.created_at).getTime()) *
-          (orderDir === "asc" ? 1 : -1)
-        );
-      case "updated_at":
-        return (
-          (new Date(a.updated_at).getTime() -
-            new Date(b.updated_at).getTime()) *
-          (orderDir === "asc" ? 1 : -1)
-        );
-      case "status":
-        return a.status.localeCompare(b.status) * (orderDir === "asc" ? 1 : -1);
-      default:
-        return 0;
-    }
-  });
-}
-
 export default function OrderAdmin() {
   const { pos } = useOutletContext<any>();
   const {
@@ -212,9 +194,7 @@ export default function OrderAdmin() {
   const [addMenu, setAddMenu] = useState(false);
   const [addMenuQuery, setAddMenuQuery] = useState("");
   const addMenuQueryDef = useDeferredValue(addMenuQuery);
-  const [orderBy, setOrderBy] = useState<string>("");
-  const [orderDir, setOrderDir] = useState<"asc" | "desc">("asc");
-  const [filterCycle, setFilterCycle] = useState(0);
+  const [orderBy, orderDir, cycleThroughFilter] = useFilterCycle();
 
   /** STATE STUFF */
   const filteredMenus = useMemo(() => {
@@ -280,7 +260,7 @@ export default function OrderAdmin() {
       return filtered;
     }
 
-    return filtered.map((o) => sortOrder({ orders: o, orderBy, orderDir }));
+    return filtered.map((o) => sortItems({ items: o, orderBy, orderDir }));
   }, [orders, accepted, history, deferredQuery, orderBy, orderDir]);
   const [addonGroupsMap, addonsMap, totalWTax] = useMemo(() => {
     if (!deferredOrder) return [];
@@ -432,23 +412,6 @@ export default function OrderAdmin() {
 
     return selection;
   }
-
-  const cycleThroughFilter = useCallback(
-    function (filter: string) {
-      if (orderBy === filter && filterCycle === 0) {
-        setOrderBy("");
-        setFilterCycle((filterCycle + 1) % 2);
-      } else if (orderBy === filter) {
-        setOrderDir(orderDir === "asc" ? "desc" : "asc");
-        setFilterCycle((filterCycle + 1) % 2);
-      } else {
-        setOrderBy(filter);
-        setOrderDir("asc");
-        setFilterCycle(1);
-      }
-    },
-    [orderBy, filterCycle, orderDir]
-  );
 
   return (
     <>
@@ -1447,11 +1410,9 @@ export default function OrderAdmin() {
             return (
               <div className="flex h-full flex-col overflow-y-scroll pb-9">
                 <div className="mt-1 flex w-full flex-col px-3">
-                  <div className="flex flex-row items-center text-xl">
-                    <span className="block font-semibold">
-                      Pesanan no {padNumber(deferredOrder?.temp_count)}
-                    </span>
-                  </div>
+                  <DrawerTitle className="text-xl">
+                    Pesanan no {padNumber(deferredOrder?.temp_count)}
+                  </DrawerTitle>
                   <div className="mb-1 text-sm text-muted-foreground">
                     Tinjau untuk menerima atau menolak pesanan
                   </div>
@@ -1563,7 +1524,10 @@ export default function OrderAdmin() {
                     );
 
                     return (
-                      <div className="flex shrink-0 flex-row items-center overflow-hidden px-3 py-2 transition-colors hover:bg-zinc-50">
+                      <div
+                        key={key}
+                        className="flex shrink-0 flex-row items-center overflow-hidden px-3 py-2 transition-colors hover:bg-zinc-50"
+                      >
                         <img
                           src={menu?.imgs?.[0]}
                           className="h-12 w-12 rounded-sm object-cover"

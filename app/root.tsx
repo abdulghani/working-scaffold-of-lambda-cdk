@@ -1,14 +1,16 @@
 import { CardDescription, CardTitle } from "@/components/ui/card";
+import { PullToRefreshLoader } from "@/components/ui/pull-to-refresh-loader";
 import { Toaster } from "@/components/ui/sonner";
-import { initializeLocale } from "@/lib/date";
-import { useSW } from "@/lib/use-sw";
+import { PullRefreshContext } from "@/hooks/use-pull-to-refresh";
+import { useServiceWorker } from "@/hooks/use-service-worker";
+import { useInitializeLocale } from "@/lib/date";
 import { LinksFunction } from "@remix-run/node";
 import { Links, Meta, Outlet, Scripts, useRouteError } from "@remix-run/react";
 import { CircleCheck, CircleX } from "lucide-react";
+import { useState } from "react";
 import logo from "./assets/pranaga-light-144.png?url";
 import stylesheet from "./style.css?url";
 
-initializeLocale();
 export const links: LinksFunction = () => [
   { rel: "manifest", href: "/manifest" },
   { rel: "stylesheet", href: stylesheet },
@@ -44,7 +46,9 @@ export function ErrorBoundary() {
 }
 
 export default function App() {
-  useSW();
+  useInitializeLocale();
+  useServiceWorker();
+  const [isRefreshing, setIsrefreshing] = useState(false);
 
   return (
     <html className="">
@@ -57,7 +61,10 @@ export default function App() {
         <Links />
       </head>
       <body className="bg-background font-sans antialiased">
-        <Outlet />
+        <PullRefreshContext.Provider value={[isRefreshing, setIsrefreshing]}>
+          <PullToRefreshLoader />
+          <Outlet />
+        </PullRefreshContext.Provider>
         <Toaster
           position="top-right"
           expand={false}

@@ -29,12 +29,13 @@ import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Element, RecordItem } from "@/constants/element";
+import { useLocalStorageState } from "@/hooks/use-localstorage-state";
+import { useRevalidation } from "@/hooks/use-revalidation";
 import { wrapActionError } from "@/lib/action-error";
 import { calculateTax } from "@/lib/calculate-tax";
 import { formatPrice } from "@/lib/format-price";
 import { padNumber } from "@/lib/pad-number";
 import { parsePhone } from "@/lib/parse-phone";
-import { useLocalStorageState } from "@/lib/use-localstorage-state";
 import { cn } from "@/lib/utils";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import {
@@ -149,6 +150,7 @@ export default function Menu() {
   } = useLoaderData<typeof loader>();
   const action = useActionData<any>();
   const navigation = useNavigation();
+  useRevalidation();
 
   /** STATE RELATED */
   const [draftOrder, setDraftOrder] = useLocalStorageState<OrderDraftShape>(

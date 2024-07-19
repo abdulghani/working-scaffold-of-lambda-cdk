@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { useRevalidation } from "@/hooks/use-revalidation";
 import { wrapActionError } from "@/lib/action-error";
 import { padNumber } from "@/lib/pad-number";
 import { parsePhone } from "@/lib/parse-phone";
@@ -119,6 +120,7 @@ export default function Queue() {
   const navigation = useNavigation();
   const { queue, queues, pos } = useLoaderData<any>();
   const [cancelDialog, setCancelDialog] = useState(false);
+  useRevalidation();
 
   const isLoading = useMemo(() => {
     return navigation.state === "submitting";

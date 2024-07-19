@@ -5,7 +5,7 @@ export function useLocalStorageState<T = any>(
   defaultValue: T
 ): [T, (value: T) => void] {
   const [state, setState] = useState(defaultValue);
-  const shouldUpdate = useDeferredValue(state);
+  const deferredState = useDeferredValue(state);
   const storeKey = useMemo(
     () => `@${key}-${import.meta.env.VITE_BUILD_ID || "default"}`,
     [key]
@@ -16,13 +16,13 @@ export function useLocalStorageState<T = any>(
     if (value) {
       setState(JSON.parse(value));
     }
-  }, []);
+  }, [storeKey]);
 
   useEffect(() => {
-    if (defaultValue !== state) {
-      window.localStorage.setItem(storeKey, JSON.stringify(state));
+    if (defaultValue !== deferredState) {
+      window.localStorage.setItem(storeKey, JSON.stringify(deferredState));
     }
-  }, [key, shouldUpdate]);
+  }, [key, storeKey, defaultValue, deferredState]);
 
   return [state, setState];
 }

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { CardDescription, CardTitle } from "@/components/ui/card";
 import { Nav } from "@/components/ui/nav";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { usePullToRefresh } from "@/hooks/use-pull-to-refresh";
 import { cn } from "@/lib/utils";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import {
@@ -10,8 +11,7 @@ import {
   useLoaderData,
   useLocation,
   useNavigation,
-  useParams,
-  useRevalidator
+  useParams
 } from "@remix-run/react";
 import { verifySessionPOSAccess } from "app/service/auth";
 import { validatePOSId } from "app/service/pos";
@@ -23,13 +23,7 @@ import {
   Settings2,
   Users
 } from "lucide-react";
-import {
-  useCallback,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useState
-} from "react";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
@@ -74,59 +68,11 @@ export default function MenuAdmin() {
   const [isLoading, isSubmitting] = useMemo(() => {
     return [navigation.state === "loading", navigation.state === "submitting"];
   }, [navigation.state]);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [shouldRefresh, setShouldRefresh] = useState(false);
-  const revalidator = useRevalidator();
 
-  const handleScroll = useCallback(
-    function (e: TouchEvent) {
-      if (0 - window.scrollY > 120 && !isRefreshing && !shouldRefresh) {
-        setShouldRefresh(true);
-      }
-    },
-    [isRefreshing, shouldRefresh]
-  );
-
-  const handleEnd = useCallback(
-    function (e: TouchEvent) {
-      if (
-        shouldRefresh &&
-        revalidator.state !== "loading" &&
-        !isLoading &&
-        !isRefreshing
-      ) {
-        setShouldRefresh(false);
-        setIsRefreshing(true);
-        revalidator.revalidate();
-        setTimeout(() => {
-          setIsRefreshing(false);
-        }, 1500);
-      }
-    },
-    [shouldRefresh, revalidator, isLoading, isRefreshing]
-  );
-
-  useEffect(() => {
-    document.addEventListener("touchmove", handleScroll);
-    document.addEventListener("touchend", handleEnd);
-    return () => {
-      document.removeEventListener("touchmove", handleScroll);
-      document.removeEventListener("touchend", handleEnd);
-    };
-  }, [handleScroll, handleEnd]);
+  usePullToRefresh();
 
   return (
     <>
-      <div
-        className={cn(
-          "z-50 flex w-full flex-col items-center justify-center text-muted-foreground transition-all duration-200 ease-linear",
-          !isRefreshing
-            ? "max-h-0 opacity-0"
-            : "max-h-[20svh] pb-6 pt-5 opacity-100"
-        )}
-      >
-        <LoaderCircle className={"h-9 w-9 animate-spin opacity-60"} />
-      </div>
       <Sheet
         open={isMenuOpen && isHeaderTop}
         onOpenChange={(e) => setIsMenuOpen(e)}
