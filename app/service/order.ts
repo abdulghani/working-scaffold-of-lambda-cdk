@@ -128,9 +128,10 @@ export const createOrder = serverOnly$(async function (orderDraft: {
   })();
 
   const transaction = await dbconn?.transaction();
+  const orderId = ulid();
   const result = await transaction?.("order")
     .insert({
-      id: ulid(),
+      id: orderId,
       pos_id: parsed.data.pos_id,
       name: parsed.data.name,
       phone: parsed.data.phone,
@@ -165,7 +166,8 @@ export const createOrder = serverOnly$(async function (orderDraft: {
       _action: "NOTIFICATION_NEW_ORDER",
       pos_id,
       temp_count: orderCount,
-      name: parsed.data.name
+      name: parsed.data.name,
+      order_id: orderId
     },
     {
       _action: "MENU_INCREMENT_SOLD",
@@ -279,6 +281,19 @@ export const adminGetHistoryOrders = serverOnly$(async function (
     )
     .orderBy("created_at", "desc");
 
+  return result;
+});
+
+export const adminGetSelectedOrder = serverOnly$(async function (
+  orderId: string,
+  posId: string
+) {
+  if (!orderId) {
+    return null;
+  }
+  const result = await dbconn?.("order")
+    .where({ id: orderId, pos_id: posId })
+    .first();
   return result;
 });
 

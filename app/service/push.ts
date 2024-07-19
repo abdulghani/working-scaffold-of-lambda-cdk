@@ -99,8 +99,9 @@ export const sendNewOrderNotification = serverOnly$(async function (options: {
   pos_id: string;
   temp_count: number;
   name: string;
+  order_id: string;
 }) {
-  const { pos_id, temp_count, name } = options;
+  const { pos_id, temp_count, name, order_id } = options;
   const entries = await dbconn?.("user_pos").where({ pos_id });
   if (!entries?.length) {
     return;
@@ -136,7 +137,7 @@ export const sendNewOrderNotification = serverOnly$(async function (options: {
             JSON.stringify({
               title: "Pesanan baru",
               description: `Pesanan #${padNumber(temp_count)} dari ${name}`,
-              path: "/admin"
+              path: `/admin/${pos_id}/order?orderId=${order_id}`
             })
           );
         } catch (err) {

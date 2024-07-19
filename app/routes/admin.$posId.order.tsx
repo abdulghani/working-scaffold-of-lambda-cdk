@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { RecordItem } from "@/constants/element";
 import { useFilterCycle } from "@/hooks/use-filter-cycle";
 import { useLocalStorageState } from "@/hooks/use-localstorage-state";
+import { getRequestSearchParams } from "@/lib/get-request-search-params";
 import { openPhoneLink } from "@/lib/open-phone-link";
 import { parsePhone } from "@/lib/parse-phone";
 import { sortItems } from "@/lib/sort-items";
@@ -54,6 +55,7 @@ import {
   adminGetAcceptedOrders,
   adminGetHistoryOrders,
   adminGetPendingOrders,
+  adminGetSelectedOrder,
   adminUpdatePaymentProof,
   createOrder,
   generateOrderQrCode,
@@ -62,6 +64,7 @@ import {
   ORDER_STATUS_LABEL_ID
 } from "app/service/order";
 import { getPOSTax } from "app/service/pos";
+import { sendNewOrderNotification } from "app/service/push";
 import { s3UploadHandler } from "app/service/s3";
 import { capitalize } from "lodash-es";
 import {
@@ -102,14 +105,38 @@ Terima kasih.
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
-  const [orders, accepted, history, menus, tax] = await Promise.all([
-    adminGetPendingOrders?.(params.posId!),
-    adminGetAcceptedOrders?.(params.posId!),
-    adminGetHistoryOrders?.(params.posId!),
-    getMenuByPOS?.(params.posId!),
-    getPOSTax?.(params.posId!)
-  ]);
 
+  await sendNewOrderNotification?.({
+    pos_id: params.posId!,
+    order_id: "01J2HD313V1A8HGWM8BPNDA0KB",
+    name: "Ghani",
+    temp_count: 11
+  });
+
+  const searchParams = getRequestSearchParams(request);
+  const [orders, accepted, history, menus, tax, selectedOrder] =
+    await Promise.all([
+      adminGetPendingOrders?.(params.posId!),
+      adminGetAcceptedOrders?.(params.posId!),
+      adminGetHistoryOrders?.(params.posId!),
+      getMenuByPOS?.(params.posId!),
+      getPOSTax?.(params.posId!),
+      adminGetSelectedOrder?.(searchParams.orderId, params.posId!)
+    ]);
+
+  const orderMap = {} as any;
+  orders?.forEach((o) => {
+    orderMap[o.id] = o;
+  });
+  accepted?.forEach((o) => {
+    orderMap[o.id] = o;
+  });
+  history?.forEach((o) => {
+    orderMap[o.id] = o;
+  });
+  if (selectedOrder) {
+    orderMap[selectedOrder.id] = selectedOrder;
+  }
   const menuMap = Object.fromEntries(menus?.map((i) => [i.id, i]) || []);
   const addonGroupMap = Object.fromEntries(
     menus?.flatMap((i) => i.addon_groups)?.map((i) => [i?.id, i]) || []
@@ -128,7 +155,9 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     menuMap,
     addonGroupMap,
     addonMap,
-    tax
+    tax,
+    orderMap,
+    selectedOrderId: selectedOrder?.id || null
   };
 }
 
@@ -180,10 +209,14 @@ export default function OrderAdmin() {
     menuMap,
     addonGroupMap,
     addonMap,
-    tax
+    tax,
+    orderMap,
+    selectedOrderId: serverSelectedOrderId
   } = useLoaderData<typeof loader>();
   const action = useActionData<any>();
-  const [selectedOrderId, setSelectedOrderId] = useState<any>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(
+    serverSelectedOrderId
+  );
   const [query, setQuery] = useState<string>("");
   const [qrPayment, setQrPayment] = useState<string>("");
   const [cancelOrder, setCancelOrder] = useState<any>(null);
@@ -214,20 +247,8 @@ export default function OrderAdmin() {
     () => navigation.state === "submitting",
     [navigation.state]
   );
-  const orderMap = useMemo(() => {
-    const map = {} as any;
-    orders?.forEach((o) => {
-      map[o.id] = o;
-    });
-    accepted?.forEach((o) => {
-      map[o.id] = o;
-    });
-    history?.forEach((o) => {
-      map[o.id] = o;
-    });
-    return map;
-  }, [orders, accepted, history]);
-  const deferredOrder = useDeferredValue(orderMap[selectedOrderId]);
+
+  const deferredOrder = useDeferredValue(orderMap[selectedOrderId!]);
   const deferredQuery = useDeferredValue(query);
   const [filteredOrders, filteredAccepted, filteredHistory] = useMemo(() => {
     const filtered = (() => {
@@ -255,48 +276,47 @@ export default function OrderAdmin() {
       );
       return [_filteredOrders, _filteredAccepted, _filteredHistory];
     })();
-
     if (!orderBy) {
       return filtered;
     }
-
     return filtered.map((o) => sortItems({ items: o, orderBy, orderDir }));
   }, [orders, accepted, history, deferredQuery, orderBy, orderDir]);
-  const [addonGroupsMap, addonsMap, totalWTax] = useMemo(() => {
-    if (!deferredOrder) return [];
-    const { menu_snapshot, tax_snapshot } = deferredOrder || {};
-    const addonGroups = Object.values(
-      deferredOrder?.menu_snapshot || {}
-    )?.flatMap((i) => i.addon_groups || []);
-    const addons = addonGroups?.flatMap((i) => i.addons || []);
-    const addonGroupsMap = Object.fromEntries(
-      addonGroups?.map((i) => [i.id, i]) || []
-    );
-    const addonsMap = Object.fromEntries(addons?.map((i) => [i.id, i]) || []);
-    const _currentTotal = Object.values(
-      deferredOrder?.instance_record_json || {}
-    ).reduce((t, instance: any) => {
-      const basePrice = Number(menu_snapshot?.[instance.menu_id]?.price) || 0;
-      const addonPrice =
-        instance.addon_ids?.reduce((t2, addonId: any) => {
-          const addon = addonsMap[addonId];
-          if (addon) {
-            return t2 + Number(addon.price);
-          }
-          return t2;
-        }, 0) || 0;
+  const [orderTotalWTax, orderTotal, orderAddonGroupMap, orderAddonMap] =
+    useMemo(() => {
+      if (!deferredOrder) return [];
+      const { menu_snapshot, tax_snapshot } = deferredOrder || {};
+      const addonGroups = Object.values(
+        deferredOrder?.menu_snapshot || {}
+      )?.flatMap((i) => i.addon_groups || []);
+      const addons = addonGroups?.flatMap((i) => i.addons || []);
+      const orderAddonGroups = Object.fromEntries(
+        addonGroups?.map((i) => [i.id, i]) || []
+      );
+      const orderAddons = Object.fromEntries(
+        addons?.map((i) => [i.id, i]) || []
+      );
+      const _currentTotal = Object.values(
+        deferredOrder?.instance_record_json || {}
+      ).reduce((t, instance: any) => {
+        const basePrice = Number(menu_snapshot?.[instance.menu_id]?.price) || 0;
+        const addonPrice =
+          instance.addon_ids?.reduce((t2, addonId: any) => {
+            const addon = orderAddons[addonId];
+            if (addon) {
+              return t2 + Number(addon.price);
+            }
+            return t2;
+          }, 0) || 0;
 
-      const instancePrice = (basePrice + addonPrice) * instance.qty;
+        const instancePrice = (basePrice + addonPrice) * instance.qty;
 
-      return t + instancePrice;
-    }, 0) as number;
-
-    const _totalWTax = tax_snapshot?.value
-      ? _currentTotal + calculateTax(_currentTotal, tax_snapshot.value)
-      : _currentTotal;
-
-    return [addonGroupsMap, addonsMap, _totalWTax];
-  }, [deferredOrder]);
+        return t + instancePrice;
+      }, 0) as number;
+      const _totalWTax = tax_snapshot?.value
+        ? _currentTotal + calculateTax(_currentTotal, tax_snapshot.value)
+        : _currentTotal;
+      return [_totalWTax, _currentTotal, orderAddonGroups, orderAddons];
+    }, [deferredOrder]);
 
   useEffect(() => {
     if (action?.error?.code === ORDER_ERROR_CODE.INVALID_ORDER_STATUS) {
@@ -906,7 +926,7 @@ export default function OrderAdmin() {
           />
           <div className="flex flex-row justify-center font-mono">
             <span className="text-xl font-semibold">
-              {formatPrice(totalWTax)}
+              {formatPrice(orderTotalWTax)}
             </span>
           </div>
         </AlertDialogContent>
@@ -1517,7 +1537,7 @@ export default function OrderAdmin() {
 
                     const currentPrice = (addon_ids || []).reduce(
                       (t, i) => {
-                        const addon = addonsMap[i];
+                        const addon = orderAddonMap[i];
                         return t + (addon?.price || 0);
                       },
                       Number(menu?.price) || 0
@@ -1540,9 +1560,9 @@ export default function OrderAdmin() {
                             <span className="block text-sm text-muted-foreground">
                               {addon_ids
                                 .map((i) => {
-                                  const addon = addonsMap[i];
+                                  const addon = orderAddonMap[i];
                                   const group =
-                                    addonGroupsMap[addon?.addon_group_id];
+                                    orderAddonGroupMap[addon?.addon_group_id];
 
                                   if (group) {
                                     return capitalize(
@@ -1578,7 +1598,7 @@ export default function OrderAdmin() {
                     <TableRow>
                       <TableCell>Total</TableCell>
                       <TableCell className="text-right">
-                        {formatPrice(totalWTax)}
+                        {formatPrice(orderTotalWTax)}
                       </TableCell>
                     </TableRow>
                   </TableBody>

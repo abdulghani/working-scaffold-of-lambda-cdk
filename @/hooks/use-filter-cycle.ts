@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 
-export function useFilterCycle() {
+export function useFilterCycle(): [string, string, (filter: string) => void] {
   const [orderBy, setOrderBy] = useState("");
   const [orderDir, setOrderDir] = useState("asc");
   const filterCycle = useRef(0);
