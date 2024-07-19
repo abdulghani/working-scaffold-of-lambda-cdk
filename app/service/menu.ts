@@ -87,7 +87,8 @@ export const getMenuByPOS = serverOnly$(
         "addon_group.menu_id"
       )
       .groupBy("menu.id")
-      .where({ "menu.pos_id": posId, "menu.active": true });
+      .where({ "menu.pos_id": posId, "menu.active": true })
+      .orderBy("menu.sold_count", "desc");
 
     return list || [];
   }
