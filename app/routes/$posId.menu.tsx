@@ -321,11 +321,11 @@ export default function Menu() {
               </div>
             </CardHeader>
             <CardContent className="m-0 p-0">
-              <div className="flex w-screen snap-x snap-mandatory flex-row overflow-x-scroll px-4 pb-2">
+              <div className="flex w-full snap-x snap-mandatory flex-row overflow-x-scroll px-4 pb-2">
                 {menus?.map((menu) => (
                   <Link
                     to="#"
-                    className="mr-3 w-[42.5svh] shrink-0 snap-center lg:w-[320px]"
+                    className="mr-3 w-[80svw] shrink-0 snap-center sm:w-[60svw] md:w-[50svw] lg:w-[40svw] xl:w-[30svw]"
                     target="_self"
                     onClick={() => {
                       setSelectedMenuId(menu?.id);
@@ -349,7 +349,7 @@ export default function Menu() {
                   </Link>
                 ))}
               </div>
-              <div className="flex w-screen snap-x snap-mandatory flex-row gap-3 overflow-x-scroll px-4 py-3">
+              <div className="flex w-full snap-x snap-mandatory flex-row gap-3 overflow-x-scroll px-4 py-3">
                 {[
                   { id: "all", title: "Semua" },
                   ...(menuCategories || [])
@@ -367,7 +367,7 @@ export default function Menu() {
                   </Button>
                 ))}
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-4 px-4">
+              <div className="mt-2 grid grid-cols-2 gap-4 px-4 sm:grid-cols-3">
                 {(() => {
                   if (filter && filter !== "all") {
                     return menus?.filter((menu) =>

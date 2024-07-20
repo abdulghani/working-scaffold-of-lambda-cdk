@@ -30,7 +30,7 @@ export function ErrorBoundary() {
         <Meta />
         <Links />
       </head>
-      <body className="bg-background font-sans antialiased">
+      <body className="max-w-screen-lg bg-background font-sans antialiased">
         <div className="flex min-h-svh w-full flex-col items-center justify-center px-6">
           <CardTitle className="-mt-14 text-lg">
             {error.data?.error?.message || "Terjadi kesalahan"}
@@ -51,7 +51,7 @@ export default function App() {
   const [isRefreshing, setIsrefreshing] = useState(false);
 
   return (
-    <html className="">
+    <html className="mx-auto max-w-screen-lg">
       <head>
         <meta
           name="viewport"
@@ -62,8 +62,10 @@ export default function App() {
       </head>
       <body className="bg-background font-sans antialiased">
         <PullRefreshContext.Provider value={[isRefreshing, setIsrefreshing]}>
-          <PullToRefreshLoader />
-          <Outlet />
+          <div className="mx-auto max-w-screen-lg">
+            <PullToRefreshLoader />
+            <Outlet />
+          </div>
         </PullRefreshContext.Provider>
         <Toaster
           position="top-right"

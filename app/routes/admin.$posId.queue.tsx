@@ -134,7 +134,7 @@ export default function QueueAdmin() {
 
   return (
     <>
-      <div className="flex w-screen justify-center">
+      <div className="flex w-full justify-center">
         <Tabs defaultValue="list" className="mt-0 w-full">
           <TabsList className="mx-3 mb-2 grid h-fit grid-cols-2">
             <TabsTrigger value="list">

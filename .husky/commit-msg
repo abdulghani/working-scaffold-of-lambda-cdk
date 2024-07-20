@@ -19,11 +19,3 @@ print_grey() {
 print_cyan() {
     echo "\033[1;36m$1\033[0m"
 }
-
-lint_commit_message() {
-    print_blue "CHECKING COMMIT MESSAGE"
-    print_grey "$(cat $1)"
-    npx --no -- commitlint --edit $1
-}
-
-lint_commit_message $1
