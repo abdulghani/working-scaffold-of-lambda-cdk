@@ -32,6 +32,9 @@ export default defineConfig(({ command, mode }) => {
         "@": path.resolve(__dirname, "./@"),
         app: path.resolve(__dirname, "./app")
       }
+    },
+    build: {
+      minify: isBuild
     }
   };
 });

@@ -16,6 +16,7 @@ import {
 } from "app/service/push";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import packageJSON from "../../package.json";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
@@ -151,6 +152,12 @@ export default function Settings() {
                   onCheckedChange={(e) => subscribeNotification(e)}
                   suppressHydrationWarning
                 />
+              </TableCell>
+            </TableRow>
+            <TableRow className="text-muted-foreground">
+              <TableCell className="whitespace-nowrap">Version</TableCell>
+              <TableCell className="text-right">
+                {packageJSON.version}
               </TableCell>
             </TableRow>
           </TableBody>

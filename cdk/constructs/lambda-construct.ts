@@ -76,9 +76,12 @@ export class LambdaConstruct extends Construct {
       __dirname + "/../../build/server/index.js",
       "utf-8"
     );
-    const split = file.split("\n");
-    const imports = split
-      .filter((line) => line.includes("import") && line.includes("from"))
+    const imports = Array.from(
+      file.matchAll(
+        /import((\s)?)+([{|}|\s|A-Za-z0-9|,|_|\*])+((\s)?)+from((\s)?)+"([^\s])+"((\s)?)+/gi
+      )
+    )
+      .map((match) => match[0])
       .map((line) =>
         line.replace(/.+from(\s)?(")?/i, "").replace(/(")?(;)?$/i, "")
       )
