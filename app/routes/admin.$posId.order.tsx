@@ -426,7 +426,7 @@ export default function OrderAdmin() {
 
   return (
     <>
-      <div className={cn("flex w-screen justify-center")}>
+      <div className={cn("flex w-full justify-center")}>
         <Tabs defaultValue="list" className="mt-0 w-full overflow-x-hidden">
           <TabsList className="mx-3 mb-2 grid h-fit grid-cols-3 sm:flex sm:flex-row sm:gap-1">
             <TabsTrigger

@@ -79,7 +79,7 @@ export default function MenuAdmin() {
       >
         <SheetContent
           side={"top"}
-          className="z-40 mt-12 rounded-b-sm px-3 pb-2 sm:mt-[5.7rem]"
+          className="z-40 mx-auto mt-12 max-w-screen-lg rounded-b-sm px-3 pb-2 sm:mt-[5.7rem]"
           onOpenAutoFocus={(e) => {
             e.preventDefault();
           }}
@@ -124,7 +124,7 @@ export default function MenuAdmin() {
       <div className="flex w-full flex-col bg-background">
         <div
           className={cn(
-            "sticky top-0 border-zinc-50 bg-background px-3 pb-3 sm:pb-3 sm:pt-2",
+            "sticky top-0 w-full border-zinc-50 bg-background px-3 pb-3 sm:pb-3 sm:pt-2",
             isHeaderTop ? "z-50" : "z-40 border-b"
           )}
           onClick={(e) => {
