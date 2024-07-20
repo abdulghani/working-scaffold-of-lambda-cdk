@@ -63,7 +63,6 @@ import {
   ORDER_STATUS_LABEL_ID
 } from "app/service/order";
 import { getPOSTax } from "app/service/pos";
-import { sendNewOrderNotification } from "app/service/push";
 import { s3UploadHandler } from "app/service/s3";
 import { capitalize } from "lodash-es";
 import {
@@ -104,13 +103,6 @@ Terima kasih.
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
-
-  await sendNewOrderNotification?.({
-    pos_id: params.posId!,
-    order_id: "01J2HD313V1A8HGWM8BPNDA0KB",
-    name: "Ghani",
-    temp_count: 11
-  });
 
   const searchParams = getRequestSearchParams(request);
   const [orders, accepted, history, menus, tax, selectedOrder] =
@@ -156,7 +148,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
     addonMap,
     tax,
     orderMap,
-    selectedOrderId: selectedOrder?.orderId || null
+    selectedOrderId: selectedOrder?.id || null
   };
 }
 
