@@ -1,10 +1,12 @@
 import { ActionError } from "@/lib/action-error";
 import { createCookie } from "@remix-run/node";
+import { INTERNAL_EVENT } from "app/routes/api.internal-action";
 import { startCase } from "lodash-es";
 import { DateTime } from "luxon";
 import { ulid } from "ulid";
 import { serverOnly$ } from "vite-env-only/macros";
 import { dbconn } from "./db";
+import { invokeInternalAction } from "./internal-action";
 
 const COOKIE_NAME = "queue";
 const COOKIE_SECRET = process.env.COOKIE_SECRET || "default";
@@ -14,6 +16,13 @@ export const QUEUE_ENUM = {
   ACKNOWLEDGED: "ACKNOWLEDGED",
   CANCELLED: "CANCELLED",
   USER_CANCELLED: "USER_CANCELLED"
+};
+
+export const QUEUE_ENUM_LABEL: any = {
+  PENDING: "Menunggu",
+  ACKNOWLEDGED: "Diterima",
+  CANCELLED: "Ditolak",
+  USER_CANCELLED: "Dibatalkan pelanggan"
 };
 
 export const queueCookie = createCookie(COOKIE_NAME, {
@@ -50,10 +59,14 @@ export const getQueueListHistory = serverOnly$(async (posId: string) => {
   return list;
 });
 
-export const getQueue = serverOnly$(async (queueId: string | undefined) => {
-  if (!queueId) return null;
-  return await dbconn?.("queue").where({ id: queueId }).first();
-});
+export const getQueue = serverOnly$(
+  async (queueId: string | undefined, posId: string | undefined) => {
+    if (!queueId || !posId) return null;
+    return await dbconn?.("queue")
+      .where({ id: queueId, pos_id: posId })
+      .first();
+  }
+);
 
 export const addQueue = serverOnly$(
   async ({ posId, name, pax, phone }: any) => {
@@ -108,10 +121,11 @@ export const addQueue = serverOnly$(
     })();
 
     /** INITIATE TRANSACTION */
+    const queueId = ulid();
     const trx = await dbconn?.transaction();
     const queue = await trx?.("queue")
       .insert({
-        id: ulid(),
+        id: queueId,
         pos_id: posId,
         name: startCase(name),
         pax: pax,
@@ -139,6 +153,16 @@ export const addQueue = serverOnly$(
     /** COMMIT TRANSACTION */
     await trx?.commit();
 
+    /** INVOKE NOTIFICATION */
+    invokeInternalAction?.({
+      _action: INTERNAL_EVENT.NOTIFICATION_QUEUE_NEW,
+      pos_id: posId,
+      queue_id: queueId,
+      temp_count: currentCount,
+      name: startCase(name),
+      pax: pax
+    });
+
     return queue?.find(Boolean);
   }
 );
@@ -160,7 +184,7 @@ export const cancelQueue = serverOnly$(
 
 export const userCancelQueue = serverOnly$(
   async (queueId: string, notes?: string) => {
-    const queue = await dbconn?.("queue")
+    const queues = await dbconn?.("queue")
       .whereNotIn("status", [QUEUE_ENUM.CANCELLED, QUEUE_ENUM.ACKNOWLEDGED])
       .andWhere({ id: queueId })
       .update({
@@ -170,7 +194,20 @@ export const userCancelQueue = serverOnly$(
       })
       .returning("*");
 
-    return queue?.find(Boolean);
+    const queue = queues?.find(Boolean);
+
+    if (!queue) {
+      return;
+    }
+
+    invokeInternalAction?.({
+      _action: INTERNAL_EVENT.NOTIFICATION_QUEUE_CANCELLED,
+      queue_id: queueId,
+      pos_id: queue.pos_id,
+      temp_count: queue.temp_count
+    });
+
+    return queue;
   }
 );
 

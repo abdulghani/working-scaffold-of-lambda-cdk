@@ -22,6 +22,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { useFilterCycle } from "@/hooks/use-filter-cycle";
+import { getRequestSearchParams } from "@/lib/get-request-search-params";
 import { openPhoneLink } from "@/lib/open-phone-link";
 import { padNumber } from "@/lib/pad-number";
 import { sortItems } from "@/lib/sort-items";
@@ -32,9 +33,11 @@ import { Form, useLoaderData, useOutletContext } from "@remix-run/react";
 import {
   acknowledgeQueue,
   cancelQueue,
+  getQueue,
   getQueueList,
   getQueueListHistory,
-  QUEUE_ENUM
+  QUEUE_ENUM,
+  QUEUE_ENUM_LABEL
 } from "app/service/queue";
 import {
   ChevronDown,
@@ -56,22 +59,24 @@ Halo {name}, antrian {pos} sudah siap untuk {pax}.
 Terima kasih.
 `.trim();
 
-const QUEUE_ENUM_LABEL: any = {
-  PENDING: "Menunggu",
-  ACKNOWLEDGED: "Diterima",
-  CANCELLED: "Ditolak",
-  USER_CANCELLED: "Dibatalkan pelanggan"
-};
-
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  const [list, history] = await Promise.all([
+  const searchParams = getRequestSearchParams(request);
+  const [list, history, selectedQueue] = await Promise.all([
     getQueueList?.(params.posId!),
-    getQueueListHistory?.(params.posId!)
+    getQueueListHistory?.(params.posId!),
+    getQueue?.(searchParams.queueId, params.posId!)
   ]);
+
+  const queueMap = {} as any;
+  list?.forEach((q) => (queueMap[q.id] = q));
+  history?.forEach((q) => (queueMap[q.id] = q));
+  if (selectedQueue) queueMap[selectedQueue.id] = selectedQueue;
 
   return {
     queues: list,
-    history
+    history,
+    queueMap,
+    selectedQueueId: selectedQueue?.id
   };
 }
 
@@ -89,18 +94,21 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function QueueAdmin() {
   const { pos } = useOutletContext<any>();
-  const { queues, history } = useLoaderData<typeof loader>();
-  const [selectedQueueId, setSelectedQueueId] = useState<any>(null);
+  const {
+    queues,
+    history,
+    queueMap,
+    selectedQueueId: serverSelectedId
+  } = useLoaderData<typeof loader>();
+  const [selectedQueueId, setSelectedQueueId] = useState<any>(serverSelectedId);
   const [query, setQuery] = useState<string>("");
   const [cancelQueueId, setCancelQueueId] = useState<string | null>(null);
   const [orderBy, orderDir, cycleThroughFilter] = useFilterCycle();
 
   /** DEBOUNCED STUFF */
   const selectedQueue = useMemo(
-    () =>
-      queues?.find((q) => q.id === selectedQueueId) ||
-      history?.find((q) => q.id === selectedQueueId),
-    [queues, history, selectedQueueId]
+    () => queueMap[selectedQueueId],
+    [queueMap, selectedQueueId]
   );
   const selectedQueueDebounced = useDebouncedMenu(selectedQueue, 500);
 

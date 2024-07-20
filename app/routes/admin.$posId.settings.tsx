@@ -1,8 +1,13 @@
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { isNotificationSupported } from "@/lib/is-notification-supported";
+import { cn } from "@/lib/utils";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
-import { useLoaderData, useRevalidator, useSubmit } from "@remix-run/react";
+import {
+  ShouldRevalidateFunctionArgs,
+  useLoaderData,
+  useSubmit
+} from "@remix-run/react";
 import {
   sessionCookie,
   verifySession,
@@ -12,7 +17,9 @@ import {
   getSubscription,
   getVAPIDKey,
   removeSubscription,
-  saveSubscription
+  saveSubscription,
+  subscribeTopic,
+  SUBSCRIPTION_TOPIC_LABEL
 } from "app/service/push";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -21,10 +28,11 @@ import packageJSON from "../../package.json";
 export async function loader({ request, params }: LoaderFunctionArgs) {
   await verifySessionPOSAccess?.(request, params.posId!);
   const sessionToken = await sessionCookie.parse(request.headers.get("Cookie"));
-  const isSubscribed = await getSubscription?.(sessionToken);
+  const { subscriptionKey, notificationSettings } =
+    (await getSubscription?.(sessionToken)) || {};
   const applicationServerKey = getVAPIDKey?.();
 
-  return { isSubscribed, applicationServerKey };
+  return { subscriptionKey, notificationSettings, applicationServerKey };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -40,14 +48,36 @@ export async function action({ request }: ActionFunctionArgs) {
     });
   } else if (body?._action === "unsubscribe_push") {
     await removeSubscription?.(sessionToken);
+  } else if (body?._action === "subscribe_topic") {
+    await subscribeTopic?.({
+      userId,
+      topic: body.topic,
+      value: true
+    });
+  } else if (body?._action === "unsubscribe_topic") {
+    await subscribeTopic?.({
+      userId,
+      topic: body.topic,
+      value: false
+    });
   }
 
-  return {};
+  return { ok: true };
+}
+
+export function shouldRevalidate({
+  actionResult,
+  defaultShouldRevalidate
+}: ShouldRevalidateFunctionArgs) {
+  if (actionResult?.ok) {
+    return true;
+  }
+  return defaultShouldRevalidate;
 }
 
 export default function Settings() {
-  const loaderData = useLoaderData<any>();
-  const revalidator = useRevalidator();
+  const { subscriptionKey, notificationSettings, applicationServerKey } =
+    useLoaderData<any>();
   const [subP256dh, setSubP256dh] = useState<string | null | undefined>(null);
   const submit = useSubmit();
 
@@ -64,16 +94,37 @@ export default function Settings() {
     }
   }, [subP256dh, getSubscription]);
 
-  const [isSubscribed, applicationServerKey] = useMemo(() => {
-    return [
+  const isSubscribed = useMemo(() => {
+    return (
       isNotificationSupported?.() &&
-        Notification?.permission === "granted" &&
-        loaderData.isSubscribed &&
-        subP256dh &&
-        loaderData.isSubscribed === subP256dh,
-      loaderData.applicationServerKey
-    ];
-  }, [loaderData, subP256dh]);
+      Notification?.permission === "granted" &&
+      !!subP256dh &&
+      !!subscriptionKey &&
+      subscriptionKey === subP256dh
+    );
+  }, [subscriptionKey, subP256dh]);
+
+  const subscribeTopic = useCallback(
+    async function (topic: string, e: boolean) {
+      if (!isSubscribed) {
+        toast.error("Notifikasi tidak diaktifkan", {
+          description: "Harap aktifkan notifikasi terlebih dahulu"
+        });
+        return;
+      }
+      submit(
+        JSON.stringify({
+          _action: e ? "subscribe_topic" : "unsubscribe_topic",
+          topic
+        }),
+        {
+          method: "POST",
+          encType: "application/json"
+        }
+      );
+    },
+    [isSubscribed, submit]
+  );
 
   const subscribeNotification = useCallback(
     async function (e: boolean) {
@@ -123,10 +174,9 @@ export default function Settings() {
             encType: "application/json"
           }
         );
-        revalidator.revalidate();
       }
     },
-    [isSubscribed, revalidator, applicationServerKey, getSubscription, submit]
+    [isSubscribed, applicationServerKey, getSubscription, submit]
   );
 
   return (
@@ -144,7 +194,11 @@ export default function Settings() {
               <TableCell className="whitespace-nowrap">#</TableCell>
               <TableCell className="text-right">Status</TableCell>
             </TableRow>
-            <TableRow>
+            <TableRow
+              className={cn(
+                !isSubscribed ? "bg-blue-50 hover:bg-indigo-50" : ""
+              )}
+            >
               <TableCell className="whitespace-nowrap">Notifikasi</TableCell>
               <TableCell className="text-right">
                 <Switch
@@ -154,6 +208,21 @@ export default function Settings() {
                 />
               </TableCell>
             </TableRow>
+            {Object.entries(SUBSCRIPTION_TOPIC_LABEL).map(([key, value]) => {
+              return (
+                <TableRow key={key}>
+                  <TableCell className="whitespace-nowrap">{value}</TableCell>
+                  <TableCell className="text-right">
+                    <Switch
+                      checked={isSubscribed && notificationSettings?.[key]}
+                      onCheckedChange={(e) => subscribeTopic(key, e)}
+                      suppressHydrationWarning
+                      disabled={!isSubscribed}
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
             <TableRow className="text-muted-foreground">
               <TableCell className="whitespace-nowrap">Version</TableCell>
               <TableCell className="text-right">

@@ -67,7 +67,7 @@ export const loader = wrapActionError(async function ({
   const [pos, list, queue] = await Promise.all([
     validatePOSId?.(params.posId!),
     getQueueList?.(params.posId!),
-    getQueue?.(cookie?.id)
+    getQueue?.(cookie?.id, params.posId!)
   ]);
 
   return {

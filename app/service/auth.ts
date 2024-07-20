@@ -1,5 +1,6 @@
 import { ActionError } from "@/lib/action-error";
 import { createCookie, redirect } from "@remix-run/node";
+import { INTERNAL_EVENT } from "app/routes/api.internal-action";
 import { LRUCache } from "lru-cache";
 import { DateTime } from "luxon";
 import { ulid } from "ulid";
@@ -168,7 +169,7 @@ export async function verifyOTP(options: {
 
   /** CLEANUP SESSION BY INVOKING ANOTHER API */
   invokeInternalAction?.({
-    _action: "CLEANUP_SESSION"
+    _action: INTERNAL_EVENT.CLEANUP_SESSION
   });
 
   const destination = await destinationCookie.parse(

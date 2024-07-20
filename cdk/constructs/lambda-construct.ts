@@ -31,7 +31,8 @@ export class LambdaConstruct extends Construct {
         })
       },
       environment: {
-        COOKIE_SECRET: process.env.COOKIE_SECRET || "",
+        COOKIE_SECRET:
+          process.env.COOKIE_SECRET || crypto.randomBytes(64).toString("hex"),
         DB_HOST: process.env.DB_HOST || "",
         DB_PORT: process.env.DB_PORT || "",
         DB_USER: process.env.DB_USER || "",

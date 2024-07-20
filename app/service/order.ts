@@ -4,6 +4,7 @@ import { padNumber } from "@/lib/pad-number";
 import { parseZodIssue } from "@/lib/parse-zod-issue";
 import { ZOD_PHONE_TYPE } from "@/lib/zod-phone-type";
 import { createCookie } from "@remix-run/node";
+import { INTERNAL_EVENT } from "app/routes/api.internal-action";
 import { OrderDraftShape } from "app/routes/menu.$posId/order-draft-reducer";
 import { parseInstanceId } from "app/routes/menu.$posId/order-helper";
 import { startCase } from "lodash-es";
@@ -163,14 +164,14 @@ export const createOrder = serverOnly$(async function (orderDraft: {
   /** INVOKE NOTIFICATION BY CALLING ANOTHER API */
   invokeInternalAction?.([
     {
-      _action: "NOTIFICATION_NEW_ORDER",
+      _action: INTERNAL_EVENT.NOTIFICATION_ORDER_NEW,
       pos_id,
       temp_count: orderCount,
       name: parsed.data.name,
       order_id: orderId
     },
     {
-      _action: "MENU_INCREMENT_SOLD",
+      _action: INTERNAL_EVENT.MENU_INCREMENT_SOLD,
       menu_ids: menuIds,
       pos_id: pos_id
     }
@@ -243,6 +244,13 @@ export const userCancelOrder = serverOnly$(async function (
       updated_at: new Date().toISOString()
     })
     .returning("*");
+
+  invokeInternalAction?.({
+    _action: INTERNAL_EVENT.NOTIFICATION_ORDER_CANCELLED,
+    order_id: orderId,
+    pos_id: order.pos_id,
+    temp_count: order.temp_count
+  });
 
   return result?.find(Boolean);
 });

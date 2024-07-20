@@ -34,6 +34,8 @@ export default defineConfig(({ command, mode }) => {
       }
     },
     build: {
+      manifest: false,
+      ssrManifest: false,
       minify: isBuild
     }
   };
