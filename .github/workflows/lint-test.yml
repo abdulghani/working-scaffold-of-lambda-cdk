@@ -27,6 +27,15 @@ jobs:
   run_unit_test:
     name: Unit test
     runs-on: ubuntu-latest
+    service:
+      pg:
+        image: postgres:alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -41,4 +50,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Unit test
+        env:
+          TEST_DB_PASSWORD: postgres
+          TEST_DB_HOST: pg
+          TEST_DB_PORT: 5432
+          TEST_DB_USER: postgres
+          TEST_DB_NAME: postgres
         run: npm run test
