@@ -27,7 +27,7 @@ jobs:
   run_unit_test:
     name: Unit test
     runs-on: ubuntu-latest
-    service:
+    services:
       pg:
         image: postgres:alpine
         ports:
