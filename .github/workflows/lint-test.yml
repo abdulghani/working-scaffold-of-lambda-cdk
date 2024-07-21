@@ -1,5 +1,5 @@
 name: Lint and Unit test
-run-name: ${{ github.ref_name }} run lint and unit test, by ${{ github.actor }}
+run-name: ${{ github.ref_name }}, run lint and unit test, by ${{ github.actor }}
 on:
   push:
     branches:

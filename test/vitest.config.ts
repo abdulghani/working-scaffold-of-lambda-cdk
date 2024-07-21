@@ -6,7 +6,10 @@ import { defineConfig } from "vitest/config";
 const CURRENT_DIR = path.resolve(__filename.split("/").slice(0, -1).join("/"));
 
 function getConfirmedTestEnv() {
-  dotenv.config();
+  // read env file on local env
+  if (process.env.CI?.toLowerCase() !== "true") {
+    dotenv.config();
+  }
 
   const isConfirmed =
     process.env.DB_PASSWORD !== process.env.TEST_DB_PASSWORD ||

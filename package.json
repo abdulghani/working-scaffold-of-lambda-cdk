@@ -8,7 +8,7 @@
     "build": "npx remix vite:build",
     "lint": "./node_modules/.bin/eslint . --ext js,ts,tsx --no-inline-config --report-unused-disable-directives",
     "preview": "vite preview --port 3000 --host",
-    "prepare": "husky || npm run env",
+    "prepare": "[ \"$CI\" = \"true\" ] && echo \"not run in CI\" || (husky && npm run env)",
     "format": "prettier --config ./.prettierrc.json --write --ignore-unknown",
     "env": "[ -f .env ] || cp .env.example .env",
     "test": "vitest run --config ./test/vitest.config.ts",
