@@ -1,4 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import packageJSON from "../../package.json";
 
 export function useLocalStorageState<T = any>(
   key: string,
@@ -7,7 +8,7 @@ export function useLocalStorageState<T = any>(
   const [state, setState] = useState(defaultValue);
   const deferredState = useDeferredValue(state);
   const storeKey = useMemo(
-    () => `@${key}-${import.meta.env.VITE_BUILD_ID || "default"}`,
+    () => `@${key}-${packageJSON.version || "default"}`,
     [key]
   );
 
