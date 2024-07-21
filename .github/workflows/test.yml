@@ -4,7 +4,6 @@ on:
   pull_request:
     types:
       - ready_for_review
-      - synchronize
       - enqueued
       - reopened
       - review_requested
