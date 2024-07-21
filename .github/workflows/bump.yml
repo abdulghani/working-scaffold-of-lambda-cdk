@@ -1,5 +1,5 @@
 name: Bump
-run-name: Bump ${{ github.ref_name }}, by ${{ github.actor }}
+run-name: Bump ${{ github.event.pull_request.head.ref }}, by ${{ github.actor }}
 on:
   pull_request:
     branches:
