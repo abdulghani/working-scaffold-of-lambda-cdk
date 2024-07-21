@@ -1,18 +1,16 @@
 name: Push
 run-name: Push ${{ github.ref_name }}, by ${{ github.actor }}
 on:
-  pull_request:
+  push:
     branches:
       - stable
-    types:
-      - enqueued
+      - beta
 jobs:
   run_lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        ref: github.event.pull_request.base.ref
       - uses: actions/setup-node@v4
         with:
           node-version: lts/iron
@@ -42,7 +40,6 @@ jobs:
           POSTGRES_DB: postgres
     steps:
       - uses: actions/checkout@v4
-        ref: github.event.pull_request.base.ref
       - uses: actions/setup-node@v4
         with:
           node-version: lts/iron
@@ -75,7 +72,7 @@ jobs:
       - run_unit_test
     steps:
       - uses: actions/checkout@v4
-        ref: github.event.pull_request.base.ref
+      - uses: dcarbone/install-jq-action@v2.1.0
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::126294557793:role/github-action-kiosk-dev
@@ -100,9 +97,39 @@ jobs:
         run: |
           npm version prerelease -m "[skip ci] Release %s"
           git push
+      - name: Bump release
+        if: github.ref_name == 'stable'
+        run: |
+          NEW_VERSION="$(jq -r '.version' package.json | sed 's/^v//' | sed 's/-.*//')"
+          echo "New version: $NEW_VERSION"
+          npm version $NEW_VERSION -m "[skip ci] Release %s"
+          git push
       - name: Install dependencies
         run: npm ci
       - name: Deploy to dev
+        if: github.ref_name == 'beta'
+        env:
+          COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER }}
+          NODE_ENV: production
+          S3_CORS_ALLOWED_ORIGIN: https://queue-dev.pranaga.com
+          S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET}}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          TZ: Asia/Jakarta
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VITE_S3_BASE_URL: ${{ secrets.VITE_S3_BASE_URL }}
+        run: |
+          ./node_modules/.bin/cdk deploy
+      - name: Deploy to prod
+        if: github.ref_name == 'stable'
         env:
           COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
           DB_HOST: ${{ secrets.DB_HOST }}
