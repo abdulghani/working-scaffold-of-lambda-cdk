@@ -5,9 +5,6 @@ on:
     branches:
       - beta
       - stable
-permissions:
-  id-token: write
-  contents: read
 jobs:
   run_lint:
     name: Lint
@@ -68,6 +65,7 @@ jobs:
     name: Deploy to dev
     runs-on: ubuntu-latest
     permissions:
+      id-token: write
       contents: write
     needs:
       - run_lint
