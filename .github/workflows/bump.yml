@@ -22,6 +22,7 @@ jobs:
           echo "Branch ${{ github.event.pull_request.head.ref }}"
           git fetch origin ${{ github.event.pull_request.head.ref }}
           git checkout ${{ github.event.pull_request.head.ref }}
+          git pull origin ${{ github.event.pull_request.head.ref }}
       - name: Bump patch
         if: contains(github.event.label.name, 'fix')
         run: npm version prepatch --preid=beta -m "[skip ci] Release %s" --no-git-tag-version
@@ -31,5 +32,7 @@ jobs:
       - name: Bump major
         if: contains(github.event.label.name, 'major')
         run: npm version premajor --preid=beta -m "[skip ci] Release %s" --no-git-tag-version
+      - name: Verify version
+        run: cat ./package.json
       - name: Push changes
         run: git push origin ${{ github.event.pull_request.head.ref }}
