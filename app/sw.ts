@@ -14,12 +14,12 @@ self.addEventListener("activate", function (event) {
   event.waitUntil(
     Promise.all([
       self.clients.claim(),
-      self.registration.showNotification("Versi terbaru", {
-        body: "Anda mendapatkan versi terbaru dari aplikasi",
+      self.registration.showNotification("Versi baru", {
+        body: "Anda mendapatkan versi terbaru dari aplikasi (" + VERSION + ")",
         icon: LOGO,
         badge: LOGO,
         data: {
-          url: "/admin"
+          url: "/admin/settings"
         }
       })
     ])
