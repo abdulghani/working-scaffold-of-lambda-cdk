@@ -72,7 +72,6 @@ jobs:
     needs:
       - run_lint
       - run_unit_test
-      - bump_prerelease
     steps:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
