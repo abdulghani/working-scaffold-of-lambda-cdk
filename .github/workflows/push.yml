@@ -62,7 +62,7 @@ jobs:
           TEST_DB_NAME: postgres
         run: npm run test
   deploy:
-    name: Deploy to dev
+    name: Deploy
     runs-on: ubuntu-latest
     permissions:
       id-token: write
