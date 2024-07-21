@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - beta
+      - stable
 permissions:
   id-token: write
   contents: read
