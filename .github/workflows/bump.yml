@@ -19,9 +19,9 @@ jobs:
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
-          echo "Branch ${{ github.event.pull_request.base.ref }}"
-          git checkout ${{ github.event.pull_request.base.ref }}
-          git pull
+          echo "Branch ${{ github.event.pull_request.head.ref }}"
+          git fetch origin ${{ github.event.pull_request.head.ref }}
+          git checkout ${{ github.event.pull_request.head.ref }}
       - name: Bump patch
         if: contains(github.event.label.name, 'fix')
         run: npm version prepatch --preid=beta -m "[skip ci] Release %s" --no-git-tag-version
