@@ -62,7 +62,7 @@ jobs:
           TEST_DB_NAME: postgres
         run: npm run test
   deploy:
-    name: Deploy to dev
+    name: Deploy
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -153,7 +153,6 @@ jobs:
       - name: Reset beta
         if: github.ref_name == 'stable'
         run: |
-          git branch -D beta
+          git branch -D beta || echo "No beta branch"
           git checkout -b beta
-          npm version prerelease --preid beta -m "[skip ci] Release %s"
           git push origin beta --force
