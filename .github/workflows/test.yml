@@ -1,10 +1,10 @@
 name: Test
-run-name: ${{ github.ref_name }} test, by ${{ github.actor }}
+run-name: Test ${{ github.ref_name }}, by ${{ github.actor }}
 on:
-  push:
-    branches-ignore:
-      - stable
-      - beta
+  pull_request:
+    types:
+      - ready_for_review
+      - review_requested
 jobs:
   run_lint:
     name: Lint

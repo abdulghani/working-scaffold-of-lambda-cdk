@@ -1,0 +1,40 @@
+name: Bump
+run-name: Bump ${{ github.ref_name }}, by ${{ github.actor }}
+on:
+  pull_request:
+    branches:
+      - stable
+    types:
+      - labeled
+jobs:
+  bump:
+    name: Bump
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/iron
+      - name: Setup git
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          echo "Branch ${{ github.event.pull_request.head.ref }}"
+          git fetch origin ${{ github.event.pull_request.head.ref }}
+          git checkout ${{ github.event.pull_request.head.ref }}
+          git pull origin ${{ github.event.pull_request.head.ref }}
+      - name: Bump patch
+        if: contains(github.event.label.name, 'fix')
+        run: npm version prepatch --preid=beta -m "[skip ci] Release %s"
+      - name: Bump minor
+        if: contains(github.event.label.name, 'feature')
+        run: npm version preminor --preid=beta -m "[skip ci] Release %s"
+      - name: Bump major
+        if: contains(github.event.label.name, 'major')
+        run: npm version premajor --preid=beta -m "[skip ci] Release %s"
+      - name: Verify version
+        run: cat ./package.json
+      - name: Push changes
+        run: git push origin ${{ github.event.pull_request.head.ref }}
