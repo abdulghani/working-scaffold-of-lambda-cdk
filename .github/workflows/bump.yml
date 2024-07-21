@@ -32,4 +32,4 @@ jobs:
         if: contains(github.event.label.name, 'major')
         run: npm version premajor --preid=beta -m "[skip ci] Release %s" --no-git-tag-version
       - name: Push changes
-        run: git push
+        run: git push origin ${{ github.event.pull_request.head.ref }}
