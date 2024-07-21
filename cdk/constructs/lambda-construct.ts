@@ -79,7 +79,7 @@ export class LambdaConstruct extends Construct {
     );
     const imports = Array.from(
       file.matchAll(
-        /import((\s)?)+([{|}|\s|A-Za-z0-9|,|_|\*])+((\s)?)+from((\s)?)+"([^\s])+"((\s)?)+/gi
+        /import((\s)?)+([{|}|\s|A-Za-z0-9|,|_|*])+((\s)?)+from((\s)?)+"([^\s])+"((\s)?)+/gi
       )
     )
       .map((match) => match[0])
