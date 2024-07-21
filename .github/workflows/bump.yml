@@ -25,13 +25,13 @@ jobs:
           git pull origin ${{ github.event.pull_request.head.ref }}
       - name: Bump patch
         if: contains(github.event.label.name, 'fix')
-        run: npm version prepatch --preid=beta -m "[skip ci] Release %s" --no-git-tag-version
+        run: npm version prepatch --preid=beta -m "[skip ci] Release %s"
       - name: Bump minor
         if: contains(github.event.label.name, 'feature')
-        run: npm version preminor --preid=beta -m "[skip ci] Release %s" --no-git-tag-version
+        run: npm version preminor --preid=beta -m "[skip ci] Release %s"
       - name: Bump major
         if: contains(github.event.label.name, 'major')
-        run: npm version premajor --preid=beta -m "[skip ci] Release %s" --no-git-tag-version
+        run: npm version premajor --preid=beta -m "[skip ci] Release %s"
       - name: Verify version
         run: cat ./package.json
       - name: Push changes
