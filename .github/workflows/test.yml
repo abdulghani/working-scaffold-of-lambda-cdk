@@ -1,10 +1,14 @@
 name: Test
 run-name: Test ${{ github.ref_name }}, by ${{ github.actor }}
 on:
-  push:
-    branches-ignore:
-      - stable
-      - beta
+  pull_request:
+    types:
+      - ready_for_review
+      - synchronize
+      - enqueued
+      - reopened
+      - review_requested
+      - unlocked
 jobs:
   run_lint:
     name: Lint
