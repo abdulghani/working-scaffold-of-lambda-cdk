@@ -2,6 +2,8 @@ name: Bump
 run-name: Bump ${{ github.ref_name }}, by ${{ github.actor }}
 on:
   pull_request:
+    branches:
+      - stable
     types:
       - labeled
 jobs:

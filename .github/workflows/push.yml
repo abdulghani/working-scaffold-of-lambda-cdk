@@ -1,16 +1,18 @@
 name: Push
 run-name: Push ${{ github.ref_name }}, by ${{ github.actor }}
 on:
-  push:
+  pull_request:
     branches:
-      - beta
       - stable
+    types:
+      - enqueued
 jobs:
   run_lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        ref: github.event.pull_request.base.ref
       - uses: actions/setup-node@v4
         with:
           node-version: lts/iron
@@ -40,6 +42,7 @@ jobs:
           POSTGRES_DB: postgres
     steps:
       - uses: actions/checkout@v4
+        ref: github.event.pull_request.base.ref
       - uses: actions/setup-node@v4
         with:
           node-version: lts/iron
@@ -72,6 +75,7 @@ jobs:
       - run_unit_test
     steps:
       - uses: actions/checkout@v4
+        ref: github.event.pull_request.base.ref
       - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::126294557793:role/github-action-kiosk-dev
@@ -95,11 +99,6 @@ jobs:
         if: github.ref_name == 'beta'
         run: |
           npm version prerelease -m "[skip ci] Release %s"
-          git push
-      - name: Bump release
-        if: github.ref_name == 'stable'
-        run: |
-          npm version release -m "[skip ci] Release %s"
           git push
       - name: Install dependencies
         run: npm ci

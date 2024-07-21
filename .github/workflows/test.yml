@@ -4,10 +4,7 @@ on:
   pull_request:
     types:
       - ready_for_review
-      - enqueued
-      - reopened
       - review_requested
-      - unlocked
 jobs:
   run_lint:
     name: Lint
