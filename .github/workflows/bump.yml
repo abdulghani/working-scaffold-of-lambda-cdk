@@ -1,0 +1,32 @@
+name: Bump
+run-name: Bump ${{ github.ref_name }}, by ${{ github.actor }}
+on:
+  pull_request:
+    types:
+      - labeled
+jobs:
+  bump:
+    name: Bump
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/iron
+      - name: Setup git
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+      - name: Bump patch
+        if: contains(github.event.label.name, 'fix')
+        run: npm version prepatch --preid=beta -m "[skip ci] Release %s" --no-git-tag-version
+      - name: Bump minor
+        if: contains(github.event.label.name, 'feature')
+        run: npm version preminor --preid=beta -m "[skip ci] Release %s" --no-git-tag-version
+      - name: Bump major
+        if: contains(github.event.label.name, 'major')
+        run: npm version premajor --preid=beta -m "[skip ci] Release %s" --no-git-tag-version
+      - name: Push changes
+        run: git push
