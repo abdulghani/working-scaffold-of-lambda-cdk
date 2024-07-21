@@ -4,10 +4,11 @@ import { envOnlyMacros } from "vite-env-only";
 import { defineConfig } from "vitest/config";
 
 const CURRENT_DIR = path.resolve(__filename.split("/").slice(0, -1).join("/"));
+const IS_CI = process.env.CI?.toLowerCase() === "true";
 
 function getConfirmedTestEnv() {
   // read env file on local env
-  if (process.env.CI?.toLowerCase() !== "true") {
+  if (!IS_CI) {
     dotenv.config();
   }
 
@@ -42,6 +43,7 @@ export default defineConfig(({ command, mode }) => {
         NODE_ENV: "test",
         ...getConfirmedTestEnv()
       },
+      silent: IS_CI ? true : false,
       testTimeout: 10_000, // 10 seconds
       teardownTimeout: 50_000, // 50 seconds
       globalSetup: [path.resolve(CURRENT_DIR, "./setup.ts")],

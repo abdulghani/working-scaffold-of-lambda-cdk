@@ -1,12 +1,8 @@
-import { afterAll, describe, expect, it } from "vitest";
+import { expect, it } from "vitest";
 import { dbconn } from "./db";
 
-describe("test basic db activity", () => {
-  afterAll(async () => {
-    await dbconn?.("user").delete();
-  });
-
-  it("creates a user", async () => {
+const ACCEPTANCE_CRITERIA = {
+  "create a user": async () => {
     const user = (
       await dbconn?.("user")
         .insert({
@@ -19,12 +15,15 @@ describe("test basic db activity", () => {
 
     expect(user?.id).toBe("one");
     expect(user?.name).toBe("Ghani");
-  });
-
-  it("stored a user", async () => {
+  },
+  "stored a user": async () => {
     const user = await dbconn?.("user").where({ id: "one" }).first();
 
     expect(user?.id).toBe("one");
     expect(user?.name).toBe("Ghani");
-  });
+  }
+};
+
+Object.entries(ACCEPTANCE_CRITERIA).forEach(([desc, test]) => {
+  it(desc, test);
 });
