@@ -78,6 +78,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/iron
+      - name: Setup git
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
       - name: Bump prerelease
         run: npm version prerelease -m "[skip ci] Bump version to %s"
       - name: Push changes
