@@ -95,7 +95,7 @@ jobs:
       - name: Bump prerelease
         if: github.ref_name == 'beta'
         run: |
-          npm version prerelease -m "[skip ci] Release %s" || npm version patch -m "[skip ci] Release %s"
+          npm version prerelease -m "[skip ci] Release %s"
           git push
       - name: Bump release
         if: github.ref_name == 'stable'
