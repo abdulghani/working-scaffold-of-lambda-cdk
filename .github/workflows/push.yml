@@ -119,3 +119,10 @@ jobs:
           VITE_S3_BASE_URL: ${{ secrets.VITE_S3_BASE_URL }}
         run: |
           ./node_modules/.bin/cdk deploy
+      - name: Reset beta
+        if: github.ref_name == 'stable'
+        run: |
+          git branch -D beta
+          git checkout -b beta
+          npm version prerelease -m "[skip ci] Release %s" --no-git-tag-version
+          git push origin beta --force
