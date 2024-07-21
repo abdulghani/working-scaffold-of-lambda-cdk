@@ -10,7 +10,9 @@
     "preview": "vite preview --port 3000 --host",
     "prepare": "husky || npm run env",
     "format": "prettier --config ./.prettierrc.json --write --ignore-unknown",
-    "env": "[ -f .env ] || cp .env.example .env"
+    "env": "[ -f .env ] || cp .env.example .env",
+    "test": "vitest run --config ./test/vitest.config.ts",
+    "migration-create": "./node_modules/.bin/tsx ./node_modules/.bin/knex --knexfile ./knexfile.ts migrate:make $1 -x ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.614.0",
@@ -89,8 +91,10 @@
     "prettier-plugin-organize-imports": "^3.2.4",
     "prettier-plugin-tailwindcss": "^0.6.5",
     "tailwindcss": "^3.4.4",
+    "tsx": "^4.16.2",
     "typescript": "^5.2.2",
     "vite": "^5.3.1",
-    "vite-env-only": "^3.0.3"
+    "vite-env-only": "^3.0.3",
+    "vitest": "^2.0.3"
   }
 }
