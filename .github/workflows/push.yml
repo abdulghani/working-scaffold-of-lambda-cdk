@@ -96,6 +96,11 @@ jobs:
         run: |
           npm version prerelease -m "[skip ci] Release %s"
           git push
+      - name: Bump release
+        if: github.ref_name == 'stable'
+        run: |
+          npm version release -m "[skip ci] Release %s"
+          git push
       - name: Install dependencies
         run: npm ci
       - name: Deploy to dev
