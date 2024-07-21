@@ -6,10 +6,12 @@ on:
       - stable
     types:
       - labeled
+      # still prefer label than branch name, it's intended, branch is often prematurely determined, but it is earlier
 jobs:
   bump:
     name: Bump
     runs-on: ubuntu-latest
+    if: contains(github.event.label.name, 'fix') || contains(github.event.label.name, 'feature') || contains(github.event.label.name, 'major')
     permissions:
       contents: write
     steps:
