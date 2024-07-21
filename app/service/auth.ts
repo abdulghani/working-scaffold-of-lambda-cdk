@@ -247,11 +247,7 @@ export const getSessionPOS = serverOnly$(async (request: Request) => {
     .first();
 
   if (!connections) {
-    throw new ActionError({
-      message: "Tidak ada POS terhubung",
-      description: "Anda tidak memiliki admin akses ke POS manapun",
-      status: 403
-    });
+    throw redirect("/login");
   }
 
   return connections;
