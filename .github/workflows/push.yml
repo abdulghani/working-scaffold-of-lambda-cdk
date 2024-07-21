@@ -104,6 +104,12 @@ jobs:
           echo "New version: $NEW_VERSION"
           npm version $NEW_VERSION -m "[skip ci] Release %s" || npm version patch -m "[skip ci] Release %s"
           git push
+      - name: Reset beta
+        if: github.ref_name == 'stable'
+        run: |
+          git branch -D beta || echo "No beta branch"
+          git checkout -b beta
+          git push origin beta --force
       - name: Install dependencies
         run: npm ci
       - name: Deploy to dev
@@ -150,9 +156,3 @@ jobs:
           VITE_S3_BASE_URL: ${{ secrets.VITE_S3_BASE_URL }}
         run: |
           ./node_modules/.bin/cdk deploy
-      - name: Reset beta
-        if: github.ref_name == 'stable'
-        run: |
-          git branch -D beta || echo "No beta branch"
-          git checkout -b beta
-          git push origin beta --force
