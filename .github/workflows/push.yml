@@ -153,7 +153,6 @@ jobs:
       - name: Reset beta
         if: github.ref_name == 'stable'
         run: |
-          git branch -D beta
+          git branch -D beta || echo "No beta branch"
           git checkout -b beta
-          npm version prerelease --preid beta -m "[skip ci] Release %s"
           git push origin beta --force
