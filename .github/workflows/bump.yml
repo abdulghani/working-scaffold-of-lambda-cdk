@@ -14,6 +14,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+      - uses: dcarbone/install-jq-action@v2.1.0
       - uses: actions/setup-node@v4
         with:
           node-version: lts/iron
@@ -35,6 +36,6 @@ jobs:
         if: contains(github.event.label.name, 'major')
         run: npm version premajor --preid=beta -m "[skip ci] Release %s"
       - name: Verify version
-        run: cat ./package.json
+        run: jq -r '.version' package.json
       - name: Push changes
         run: git push origin ${{ github.event.pull_request.head.ref }}
