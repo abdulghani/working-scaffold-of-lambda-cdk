@@ -172,9 +172,10 @@ export const toggleMenu = serverOnly$(
   async ({ menuId, value }: { menuId: string; value: boolean }) => {
     const update = await dbconn?.("menu")
       .where({ id: menuId })
-      .update({ active: value });
+      .update({ active: value })
+      .returning("*");
 
-    return update;
+    return update?.find(Boolean);
   }
 );
 
