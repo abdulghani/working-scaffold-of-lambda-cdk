@@ -124,5 +124,5 @@ jobs:
         run: |
           git branch -D beta
           git checkout -b beta
-          npm version prerelease -m "[skip ci] Release %s" --no-git-tag-version
+          npm version prerelease --preid beta -m "[skip ci] Release %s" --no-git-tag-version
           git push origin beta --force
