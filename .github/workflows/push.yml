@@ -94,7 +94,7 @@ jobs:
       - name: Bump prerelease
         if: github.ref_name == 'beta'
         run: |
-          npm version prerelease -m "[skip ci] Bump version to %s"
+          npm version prerelease -m "[skip ci] Release %s" --no-git-tag-version
           git push
       - name: Install dependencies
         run: npm ci
