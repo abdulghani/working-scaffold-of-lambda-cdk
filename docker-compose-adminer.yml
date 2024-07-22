@@ -1,0 +1,6 @@
+services:
+  adminer:
+    image: adminer:latest
+    restart: "no"
+    ports:
+      - ${ADMINER_PORT}:8080
