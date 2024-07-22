@@ -27,4 +27,4 @@ config:
 scenarios:
   - flow:
       - get:
-          url: "{{ $env.PATH }}"
+          url: "{{ $env.TARGET_PATH }}"

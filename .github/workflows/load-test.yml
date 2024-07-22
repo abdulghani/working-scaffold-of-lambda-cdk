@@ -22,26 +22,34 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/iron
+      - name: Cache
+        id: cache-npm
+        uses: actions/cache@v4
+        env:
+          cache-name: cache-artillery
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-cache-${{ env.cache-name }}
       - name: Install artillery
         run: npm install -g artillery
       - name: Load test stable
         if: ${{ inputs.environment == 'stable' }}
         env:
           TARGET: "https://queue-dev.pranaga.com"
-          PATH: "/gokana-lippo/menu"
+          TARGET_PATH: "/gokana-lippo/menu"
         run: |
           artillery run ./test/load-test.yml --record --key ${{ secrets.ARTILLERY_KEY }} --insecure
       - name: Load test beta
         if: ${{ inputs.environment == 'beta' }}
         env:
           TARGET: "https://queue-dev.pranaga.com"
-          PATH: "/gokana-lippo/menu"
+          TARGET_PATH: "/gokana-lippo/menu"
         run: |
           artillery run ./test/load-test.yml --record --key ${{ secrets.ARTILLERY_KEY }} --insecure
       - name: Load test alpha
         if: ${{ inputs.environment == 'alpha' }}
         env:
           TARGET: "https://queue-dev.pranaga.com"
-          PATH: "/gokana-lippo/menu"
+          TARGET_PATH: "/gokana-lippo/menu"
         run: |
           artillery run ./test/load-test.yml --record --key ${{ secrets.ARTILLERY_KEY }} --insecure
