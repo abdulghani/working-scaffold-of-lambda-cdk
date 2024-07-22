@@ -7,7 +7,7 @@ on:
         description: "Environment"
         type: choice
         required: true
-        default: "stable"
+        default: "beta"
         options:
           - stable
           - beta

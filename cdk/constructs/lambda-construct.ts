@@ -15,7 +15,7 @@ export class LambdaConstruct extends Construct {
       entry: __dirname + "/../../handler.ts",
       runtime: Runtime.NODEJS_20_X,
       architecture: Architecture.ARM_64,
-      memorySize: 768,
+      memorySize: Number(process.env.LAMBDA_SIZE) || 384,
       timeout: Duration.minutes(2),
       bundling: {
         minify: true,

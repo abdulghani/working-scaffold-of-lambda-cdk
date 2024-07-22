@@ -139,6 +139,7 @@ jobs:
       - name: Deploy to alpha
         if: github.ref_name == 'alpha'
         env:
+          LAMBDA_SIZE: "384"
           COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_NAME: ${{ secrets.DB_NAME }}
@@ -161,6 +162,7 @@ jobs:
       - name: Deploy to beta
         if: github.ref_name == 'beta'
         env:
+          LAMBDA_SIZE: "768"
           COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_NAME: ${{ secrets.DB_NAME }}
@@ -183,6 +185,7 @@ jobs:
       - name: Deploy to prod
         if: github.ref_name == 'stable'
         env:
+          LAMBDA_SIZE: "1024"
           COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_NAME: ${{ secrets.DB_NAME }}
