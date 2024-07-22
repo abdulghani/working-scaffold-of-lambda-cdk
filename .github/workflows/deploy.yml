@@ -1,5 +1,5 @@
-name: Push
-run-name: Push ${{ github.ref_name }}, by ${{ github.actor }}
+name: Deploy
+run-name: Deploy ${{ github.ref_name }}, by ${{ github.actor }}
 on:
   push:
     branches:
