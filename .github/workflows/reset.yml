@@ -1,0 +1,37 @@
+name: Reset
+run-name: Reset Alpha and Beta branch, by ${{ github.actor }}
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment"
+        type: choice
+        required: true
+        default: "both"
+        options:
+          - both
+          - beta
+          - alpha
+
+jobs:
+  reset:
+    name: Reset
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        ref: stable
+      - uses: dcarbone/install-jq-action@v2.1.0
+      - name: Reset alpha
+        if: inputs.environment == 'both' || inputs.environment == 'alpha'
+        run: |
+          git branch -D alpha || echo "No alpha branch"
+          git checkout -b alpha
+          git push origin alpha --force
+      - name: Reset beta
+        if: inputs.environment == 'both' || inputs.environment == 'beta'
+        run: |
+          git branch -D beta || echo "No beta branch"
+          git checkout -b beta
+          git push origin beta --force

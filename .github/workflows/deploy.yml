@@ -112,12 +112,6 @@ jobs:
           echo "New version: $NEW_VERSION"
           npm version $NEW_VERSION -m "[skip ci] Release %s" || npm version patch -m "[skip ci] Release %s"
           git push
-      - name: Reset beta
-        if: github.ref_name == 'stable'
-        run: |
-          git branch -D beta || echo "No beta branch"
-          git checkout -b beta
-          git push origin beta --force
       # has to be after the bump and versioning pushed, cache cleanup modifies files
       - name: Cleanup cache lock
         run: |
