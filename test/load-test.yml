@@ -1,5 +1,5 @@
 config:
-  target: "{{ $$processEnvironment.TARGET }}"
+  target: "{{ $env.TARGET }}"
   http:
     timeout: 120
   phases:
@@ -27,4 +27,4 @@ config:
 scenarios:
   - flow:
       - get:
-          url: "{{ $$processEnvironment.PATH }}"
+          url: "{{ $env.PATH }}"
