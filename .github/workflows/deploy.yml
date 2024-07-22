@@ -112,7 +112,7 @@ jobs:
           echo "New version: $NEW_VERSION"
           npm version $NEW_VERSION -m "[skip ci] Release %s" || npm version patch -m "[skip ci] Release %s"
           git push
-      # has to be after the bump and versioning pushed, cache cleanup modifies files
+      # has to be after the bump and versioning pushed, stash will be dirty
       - name: Cleanup cache lock
         run: |
           jq '.version = "0.0.0"' package-lock.json > temp.json && mv temp.json package-lock.json

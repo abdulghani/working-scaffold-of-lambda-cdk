@@ -2,13 +2,17 @@ name: Test
 run-name: Test ${{ github.ref_name }}, by ${{ github.actor }}
 on:
   pull_request:
+    branches:
+      - stable
     types:
       - ready_for_review
       - review_requested
+      - synchronize
 jobs:
   run_lint:
     name: Lint
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false && github.event.pull_request.state == 'open'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,6 +40,7 @@ jobs:
   run_unit_test:
     name: Unit test
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false && github.event.pull_request.state == 'open'
     services:
       pg:
         image: postgres:alpine
