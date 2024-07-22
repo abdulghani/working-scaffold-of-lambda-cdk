@@ -1,0 +1,30 @@
+config:
+  target: "{{ $TARGET }}"
+  http:
+    timeout: 120
+  phases:
+    - name: warm up
+      duration: 10
+      arrivalRate: 1
+    - pause: 10
+    - name: spike 1-500
+      duration: 90
+      arrivalRate: 1
+      rampTo: 500
+    - pause: 10
+    - name: spike 200-1000
+      duration: 90
+      arrivalRate: 200
+      rampTo: 1000
+    - pause: 10
+    - name: sustained 200
+      duration: 90
+      arrivalRate: 200
+    - pause: 10
+    - name: sustained 400
+      duration: 90
+      arrivalRate: 400
+scenarios:
+  - flow:
+      - get:
+          url: "{{ $PATH }}"

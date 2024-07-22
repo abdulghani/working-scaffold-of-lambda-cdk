@@ -118,6 +118,7 @@ jobs:
           git branch -D beta || echo "No beta branch"
           git checkout -b beta
           git push origin beta --force
+      # has to be after the bump and versioning pushed, cache cleanup modifies files
       - name: Cleanup cache lock
         run: |
           jq '.version = "0.0.0"' package-lock.json > temp.json && mv temp.json package-lock.json

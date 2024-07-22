@@ -1,0 +1,47 @@
+name: Load test
+run-name: Load test ${{ github.ref_name }}, by ${{ github.actor }}
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment"
+        type: choice
+        required: true
+        default: "stable"
+        options:
+          - stable
+          - beta
+          - alpha
+
+jobs:
+  run_load_test:
+    name: Load test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/iron
+      - name: Install artillery
+        run: npm install -g artillery
+      - name: Load test stable
+        if: ${{ github.event.inputs.environment == 'stable' }}
+        env:
+          TARGET: "https://queue-dev.pranaga.com"
+          PATH: "/gokana-lippo/menu"
+        run: |
+          artillery run ./test/load-test.yml --record --key ${{ secrets.ARTILLERY_KEY }} --insecure
+      - name: Load test beta
+        if: ${{ github.event.inputs.environment == 'beta' }}
+        env:
+          TARGET: "https://queue-dev.pranaga.com"
+          PATH: "/gokana-lippo/menu"
+        run: |
+          artillery run ./test/load-test.yml --record --key ${{ secrets.ARTILLERY_KEY }} --insecure
+      - name: Load test alpha
+        if: ${{ github.event.inputs.environment == 'alpha' }}
+        env:
+          TARGET: "https://queue-dev.pranaga.com"
+          PATH: "/gokana-lippo/menu"
+        run: |
+          artillery run ./test/load-test.yml --record --key ${{ secrets.ARTILLERY_KEY }} --insecure
