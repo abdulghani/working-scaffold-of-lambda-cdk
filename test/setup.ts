@@ -16,6 +16,7 @@ function runScript(script: string) {
 }
 
 export function setup() {
+  runScript("npm run test:prepare");
   runScript(
     "./node_modules/.bin/tsx ./node_modules/.bin/knex --knexfile ./knexfile.ts migrate:latest --env test"
   );
@@ -25,4 +26,5 @@ export function teardown() {
   runScript(
     "./node_modules/.bin/tsx ./node_modules/.bin/knex --knexfile ./knexfile.ts migrate:rollback --all --env test"
   );
+  runScript("npm run test:stop");
 }

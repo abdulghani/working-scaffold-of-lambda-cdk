@@ -2,33 +2,45 @@ name: Test
 run-name: Test ${{ github.ref_name }}, by ${{ github.actor }}
 on:
   pull_request:
+    branches:
+      - stable
     types:
       - ready_for_review
       - review_requested
+      - synchronize
 jobs:
   run_lint:
     name: Lint
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false && github.event.pull_request.state == 'open'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: lts/iron
+      - name: Cleanup cache lock
+        run: |
+          jq '.version = "0.0.0"' package-lock.json > temp.json && mv temp.json package-lock.json
+          jq '.packages."".version = "0.0.0"' package-lock.json > temp.json && mv temp.json package-lock.json
       - name: Cache
         id: cache-npm
         uses: actions/cache@v4
         env:
           cache-name: cache-node-modules
         with:
-          path: ~/.npm
+          path: |
+            ~/.npm
+            ./node_modules
           key: ${{ runner.os }}-cache-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
       - name: Install dependencies
-        run: npm ci
+        run: |
+          [ -d ./node_modules ] && echo "cached" || npm ci
       - name: Lint
         run: npm run lint
   run_unit_test:
     name: Unit test
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false && github.event.pull_request.state == 'open'
     services:
       pg:
         image: postgres:alpine
@@ -43,16 +55,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/iron
+      - name: Cleanup cache lock
+        run: |
+          jq '.version = "0.0.0"' package-lock.json > temp.json && mv temp.json package-lock.json
+          jq '.packages."".version = "0.0.0"' package-lock.json > temp.json && mv temp.json package-lock.json
       - name: Cache
         id: cache-npm
         uses: actions/cache@v4
         env:
           cache-name: cache-node-modules
         with:
-          path: ~/.npm
+          path: |
+            ~/.npm
+            ./node_modules
           key: ${{ runner.os }}-cache-${{ env.cache-name }}-${{ hashFiles('**/package-lock.json') }}
       - name: Install dependencies
-        run: npm ci
+        run: |
+          [ -d ./node_modules ] && echo "cached" || npm ci
       - name: Unit test
         env:
           TEST_DB_PASSWORD: postgres
