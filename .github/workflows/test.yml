@@ -5,6 +5,7 @@ on:
     branches:
       - stable
     types:
+      - opened
       - ready_for_review
       - review_requested
       - synchronize
