@@ -1,5 +1,5 @@
 name: Reset
-run-name: Reset Alpha and Beta branch, by ${{ github.actor }}
+run-name: Reset branch, by ${{ github.actor }}
 on:
   workflow_dispatch:
     inputs:
