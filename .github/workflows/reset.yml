@@ -21,7 +21,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-        ref: stable
+        with:
+          ref: stable
       - uses: dcarbone/install-jq-action@v2.1.0
       - name: Reset alpha
         if: inputs.environment == 'both' || inputs.environment == 'alpha'
