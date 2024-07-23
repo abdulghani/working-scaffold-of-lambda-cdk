@@ -105,7 +105,7 @@ export default function AdminMenu() {
           {menuFilter.map((menu) => (
             <Button
               className={cn(
-                "shrink-0 border-zinc-100 shadow-none hover:bg-background hover:shadow-sm sm:flex-grow sm:px-6",
+                "h-fit shrink-0 whitespace-nowrap border-zinc-100 px-6 py-1.5 text-sm font-medium leading-normal shadow-none hover:bg-background hover:shadow-sm sm:flex-grow sm:px-6",
                 filter === menu.id && "bg-background shadow-sm",
                 filter !== menu.id && "text-muted-foreground"
               )}
