@@ -6,8 +6,8 @@ on:
       - stable
     types:
       - opened
+      - reopened
       - ready_for_review
-      - review_requested
       - synchronize
 jobs:
   run_lint:
