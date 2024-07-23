@@ -1,12 +1,13 @@
 name: Test
-run-name: Test ${{ github.ref_name }}, by ${{ github.actor }}
+run-name: "Test #${{ github.event.pull_request.number }} ${{ github.event.pull_request.head.ref }}, by ${{ github.actor }}"
 on:
   pull_request:
     branches:
       - stable
     types:
+      - opened
+      - reopened
       - ready_for_review
-      - review_requested
       - synchronize
 jobs:
   run_lint:
