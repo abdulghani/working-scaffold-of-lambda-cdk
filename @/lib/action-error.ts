@@ -17,7 +17,7 @@ export class ActionError extends Response {
     description?: string;
   }) {
     super(
-      /** PASS JSON TO BE PARSED IN RESPONSE ERROR-BOUNDARY */
+      /** PASS JSON IN RESPONSE ERROR-BOUNDARY */
       JSON.stringify({
         error: {
           message: options.message,
