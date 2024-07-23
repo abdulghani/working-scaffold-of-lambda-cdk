@@ -321,7 +321,7 @@ export default function Menu() {
               </div>
             </CardHeader>
             <CardContent className="m-0 p-0">
-              <div className="flex w-full snap-x snap-mandatory flex-row overflow-x-scroll px-4 pb-2">
+              <div className="flex w-full snap-x snap-mandatory flex-row overflow-x-scroll px-4 pb-1.5">
                 {menus?.map((menu) => (
                   <Link
                     to="#"
@@ -357,8 +357,8 @@ export default function Menu() {
                   <Button
                     variant={"secondary"}
                     className={cn(
-                      "h-fit bg-zinc-100 px-6 leading-normal hover:bg-background hover:shadow-inner",
-                      filter === menu.id && "bg-background shadow-inner"
+                      "h-fit px-6 leading-normal hover:bg-background hover:shadow-inner",
+                      filter === menu.id && "bg-zinc-100 shadow-inner"
                     )}
                     onClick={() => setFilter(menu.id)}
                     key={`menu-${menu.id}`}
