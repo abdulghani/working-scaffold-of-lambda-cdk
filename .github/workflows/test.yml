@@ -1,5 +1,5 @@
 name: Test
-run-name: Test ${{ github.ref_name }}, by ${{ github.actor }}
+run-name: "Test #${{ github.pull_request.number }} ${{ github.pull_request.head.ref }}, by ${{ github.actor }}"
 on:
   pull_request:
     branches:
