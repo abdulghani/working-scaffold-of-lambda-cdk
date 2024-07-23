@@ -349,7 +349,7 @@ export default function Menu() {
                   </Link>
                 ))}
               </div>
-              <div className="flex w-full snap-x snap-mandatory flex-row gap-3 overflow-x-scroll px-4 py-3">
+              <div className="flex w-full snap-x snap-mandatory flex-row gap-2 overflow-x-scroll px-4 py-3">
                 {[
                   { id: "all", title: "Semua" },
                   ...(menuCategories || [])
@@ -357,7 +357,7 @@ export default function Menu() {
                   <Button
                     variant={"secondary"}
                     className={cn(
-                      "hover:bg-background hover:shadow-inner",
+                      "h-fit bg-zinc-100 px-6 leading-normal hover:bg-background hover:shadow-inner",
                       filter === menu.id && "bg-background shadow-inner"
                     )}
                     onClick={() => setFilter(menu.id)}
@@ -367,7 +367,7 @@ export default function Menu() {
                   </Button>
                 ))}
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-4 px-4 sm:grid-cols-3">
+              <div className="mt-1.5 grid grid-cols-2 gap-4 px-4 sm:grid-cols-3">
                 {(() => {
                   if (filter && filter !== "all") {
                     return menus?.filter((menu) =>
