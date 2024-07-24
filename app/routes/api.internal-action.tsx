@@ -5,6 +5,7 @@ import {
   sendAdhocNotification,
   sendNewOrderNotification,
   sendNewQueueNotification,
+  sendNewVersionNotification,
   sendOrderCancelledNotification,
   sendQueueCancelledNotification
 } from "app/service/push";
@@ -22,6 +23,7 @@ export const INTERNAL_EVENT = {
   NOTIFICATION_QUEUE_NEW: "NOTIFICATION_QUEUE_NEW",
   NOTIFICATION_QUEUE_CANCELLED: "NOTIFICATION_QUEUE_CANCELLED",
   NOTIFICATION_ADHOC: "NOTIFICATION_ADHOC",
+  NOTIFICATION_NEW_VERSION: "NOTIFICATION_NEW_VERSION",
   MENU_INCREMENT_SOLD: "MENU_INCREMENT_SOLD",
   CLEANUP_SESSION: "CLEANUP_SESSION"
 } as const;
@@ -35,6 +37,10 @@ export async function action({ request }: ActionFunctionArgs) {
     instances.map(async (instance) => {
       try {
         switch (instance._action) {
+          case INTERNAL_EVENT.NOTIFICATION_NEW_VERSION: {
+            await sendNewVersionNotification?.(instance);
+            break;
+          }
           case INTERNAL_EVENT.NOTIFICATION_QUEUE_CANCELLED: {
             await sendQueueCancelledNotification?.(instance);
             break;
