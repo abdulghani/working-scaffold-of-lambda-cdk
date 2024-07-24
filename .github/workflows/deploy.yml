@@ -205,9 +205,11 @@ jobs:
         run: |
           ./node_modules/.bin/cdk deploy
       - name: Notify deployment
+        env:
+          S3_CORS_ALLOWED_ORIGIN: https://queue-dev.pranaga.com
         run: |
           NEW_VERSION="$(jq -r '.version' package.json)"
-          curl -X POST "$S3_CORS_ALLOWED_ORIGIN/api/internal-action" \
+          curl -X POST "${{ env.S3_CORS_ALLOWED_ORIGIN }}/api/internal-action" \
             -H "x-api-key: ${{ env.INTERNAL_API_KEY }}" \
             -H "Content-Type: application/json" \
             --data '{"action": "notify-deployment", "version": "'"$NEW_VERSION"'", "environment": "'"${{ github.ref_name }}"'"}'
