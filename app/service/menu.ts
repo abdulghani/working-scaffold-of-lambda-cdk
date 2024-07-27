@@ -69,14 +69,13 @@ export const getMenuByPOS = serverOnly$(
             dbconn?.("addon")
               .select("*")
               .where({ "addon.pos_id": posId })
-              .orderBy("addon.title")
+              .orderBy("addon.price", "desc")
               .as("addon"),
             "addon_group.id",
             "addon.addon_group_id"
           )
           .groupBy("addon_group.id")
-          .orderBy("addon_group.required", "desc")
-          .orderBy("addon_group.title", "asc")
+          .orderBy("addon_group.required", "asc")
           .as("addon_group")
           .where({
             "addon_group.pos_id": posId,
@@ -124,14 +123,13 @@ export const getAdminMenuByPOS = serverOnly$(
             dbconn?.("addon")
               .select("*")
               .where({ "addon.pos_id": posId })
-              .orderBy("addon.title")
+              .orderBy("addon.price", "desc")
               .as("addon"),
             "addon_group.id",
             "addon.addon_group_id"
           )
           .groupBy("addon_group.id")
-          .orderBy("addon_group.required", "desc")
-          .orderBy("addon_group.title", "asc")
+          .orderBy("addon_group.required", "asc")
           .as("addon_group")
           .where({ "addon_group.pos_id": posId }),
         "menu.id",
@@ -200,14 +198,13 @@ export const orderGetMenu = serverOnly$(async (menuIds: string[]) => {
           dbconn?.("addon")
             .select("*")
 
-            .orderBy("addon.title")
+            .orderBy("addon.price", "desc")
             .as("addon"),
           "addon_group.id",
           "addon.addon_group_id"
         )
         .groupBy("addon_group.id")
-        .orderBy("addon_group.required", "desc")
-        .orderBy("addon_group.title", "asc")
+        .orderBy("addon_group.required", "asc")
         .as("addon_group")
         .whereIn("addon_group.menu_id", menuIds),
       "menu.id",

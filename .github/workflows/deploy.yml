@@ -90,8 +90,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dcarbone/install-jq-action@v2.1.0
       - uses: aws-actions/configure-aws-credentials@v4
+        if: github.ref_name == 'alpha' || github.ref_name == 'beta'
         with:
           role-to-assume: arn:aws:iam::126294557793:role/github-action-kiosk-dev
+          aws-region: ap-southeast-1
+      - uses: aws-actions/configure-aws-credentials@v4
+        if: github.ref_name == 'stable'
+        with:
+          role-to-assume: arn:aws:iam::795498269391:role/github-action-kiosk-prod
           aws-region: ap-southeast-1
       - name: Setup git
         run: |
@@ -100,17 +106,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: lts/iron
-      - name: Bump prerelease
+      - name: Bump prerelease alpha
+        if: github.ref_name == 'alpha'
+        run: |
+          BARE_VERSION="$(jq -r .version package.json | grep -E '\d+\.\d+\.\d+-(alpha|beta)\.\d+' | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')"
+          jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-alpha\.\d+' && npm version prerelease -m "[skip ci] Release %s" || npm version "$BARE_VERSION-alpha.0" -m "[skip ci] Release %s" --allow-same-version
+          git push
+      - name: Bump prerelease beta
         if: github.ref_name == 'beta'
         run: |
-          npm version prerelease -m "[skip ci] Release %s" || npm version prepatch --preid beta -m "[skip ci] Release %s"
+          BARE_VERSION="$(jq -r .version package.json | grep -E '\d+\.\d+\.\d+-(alpha|beta)\.\d+' | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')"
+          jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-beta\.\d+' && npm version prerelease -m "[skip ci] Release %s" || npm version "$BARE_VERSION-alpha.0" -m "[skip ci] Release %s" --allow-same-version
           git push
       - name: Bump release
         if: github.ref_name == 'stable'
         run: |
-          NEW_VERSION="$(jq -r '.version' package.json | sed 's/^v//' | sed 's/-.*//')"
-          echo "New version: $NEW_VERSION"
-          npm version $NEW_VERSION -m "[skip ci] Release %s" || npm version patch -m "[skip ci] Release %s"
+          npm version patch -m "[skip ci] Release %s"
           git push
       # has to be after the bump and versioning pushed, stash will be dirty
       - name: Cleanup cache lock
@@ -130,6 +141,10 @@ jobs:
       - name: Install dependencies
         run: |
           [ -d ./node_modules ] && echo "cached" || npm ci
+      - name: Generate internal api key
+        run: |
+          INTERNAL_API_KEY="$(node -p "require('crypto').randomBytes(64).toString('hex')")"
+          echo "INTERNAL_API_KEY=$INTERNAL_API_KEY" >> $GITHUB_ENV
       - name: Deploy to alpha
         if: github.ref_name == 'alpha'
         env:
@@ -142,7 +157,7 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           NODE_ENV: production
           S3_CORS_ALLOWED_ORIGIN: https://queue-dev.pranaga.com
-          S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET}}
+          S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
@@ -151,6 +166,7 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VITE_S3_BASE_URL: ${{ secrets.VITE_S3_BASE_URL }}
+          INTERNAL_API_KEY: ${{ env.INTERNAL_API_KEY }}
         run: |
           ./node_modules/.bin/cdk deploy
       - name: Deploy to beta
@@ -187,7 +203,7 @@ jobs:
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_USER: ${{ secrets.DB_USER }}
           NODE_ENV: production
-          S3_CORS_ALLOWED_ORIGIN: https://queue-dev.pranaga.com
+          S3_CORS_ALLOWED_ORIGIN: https://kiosk.pranaga.com
           S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET}}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
@@ -199,3 +215,23 @@ jobs:
           VITE_S3_BASE_URL: ${{ secrets.VITE_S3_BASE_URL }}
         run: |
           ./node_modules/.bin/cdk deploy
+      - name: Notify deployment dev
+        if: github.ref_name == 'alpha' || github.ref_name == 'beta'
+        env:
+          HOST: https://queue-dev.pranaga.com
+        run: |
+          NEW_VERSION="$(jq -r '.version' package.json)"
+          curl -X POST "${{ env.HOST }}/api/internal-action" \
+            -H "x-api-key: ${{ env.INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            --data '{"_action": "NOTIFICATION_NEW_VERSION", "version": "'"$NEW_VERSION"'", "environment": "${{ github.ref_name }}"}'
+      - name: Notify deployment prod
+        if: github.ref_name == 'stable'
+        env:
+          HOST: https://kiosk.pranaga.com
+        run: |
+          NEW_VERSION="$(jq -r '.version' package.json)"
+          curl -X POST "${{ env.HOST }}/api/internal-action" \
+            -H "x-api-key: ${{ env.INTERNAL_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            --data '{"_action": "NOTIFICATION_NEW_VERSION", "version": "'"$NEW_VERSION"'", "environment": "${{ github.ref_name }}"}'

@@ -47,7 +47,8 @@ export class LambdaConstruct extends Construct {
         S3_IMAGE_BUCKET: process.env.S3_IMAGE_BUCKET || "",
         VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || "",
         VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || "",
-        INTERNAL_API_KEY: crypto.randomBytes(64).toString("hex") // use different key for each deployment
+        INTERNAL_API_KEY:
+          process.env.INTERNAL_API_KEY || crypto.randomBytes(64).toString("hex") // use different key for each deployment
       }
     });
   }

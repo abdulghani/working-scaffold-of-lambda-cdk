@@ -13,7 +13,8 @@ export const SUBSCRIPTION_TOPIC = {
   ORDER_NEW: "ORDER_NEW",
   ORDER_CANCELLED: "ORDER_CANCELLED",
   QUEUE_NEW: "QUEUE_NEW",
-  QUEUE_CANCELLED: "QUEUE_CANCELLED"
+  QUEUE_CANCELLED: "QUEUE_CANCELLED",
+  NEW_VERSION: "NEW_VERSION"
 } as const;
 
 export const SUBSCRIPTION_TOPIC_LABEL = {
@@ -134,7 +135,11 @@ export const getSessionNotification = serverOnly$(async function (options: {
   topic: keyof typeof SUBSCRIPTION_TOPIC;
 }): Promise<any[] | undefined> {
   const { pos_id, topic } = options;
-  const entries = await dbconn?.("user_pos").where({ pos_id });
+  const _entries = dbconn?.("user_pos");
+  if (pos_id !== "_all") {
+    _entries?.where({ pos_id });
+  }
+  const entries = await _entries;
   if (!entries?.length) {
     return;
   }
@@ -165,6 +170,33 @@ export const getSessionNotification = serverOnly$(async function (options: {
   }
 
   return sessions;
+});
+
+export const sendNewVersionNotification = serverOnly$(async function (options: {
+  version: string;
+  environment: string;
+}) {
+  const { version, environment } = options;
+  const sessions = await getSessionNotification?.({
+    pos_id: "_all",
+    topic: SUBSCRIPTION_TOPIC.NEW_VERSION
+  });
+  if (!sessions?.length) {
+    return;
+  }
+
+  await Promise.all(
+    sessions.map(async (entry) => {
+      const subscription = entry.notification_subscription;
+      if (subscription) {
+        await sendNotification?.({
+          title: `Versi baru (${environment})`,
+          description: `Versi baru telah tersedia (${version})`,
+          subscription
+        });
+      }
+    })
+  );
 });
 
 export const sendOrderCancelledNotification = serverOnly$(

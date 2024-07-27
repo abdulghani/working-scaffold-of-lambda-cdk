@@ -12,19 +12,7 @@ self.addEventListener("install", function (event) {
 
 self.addEventListener("activate", function (event) {
   console.log("Service worker activated (" + VERSION + ")");
-  event.waitUntil(
-    Promise.all([
-      self.clients.claim(),
-      self.registration.showNotification("Versi baru", {
-        body: "Anda mendapatkan versi terbaru dari aplikasi (" + VERSION + ")",
-        icon: LOGO,
-        badge: LOGO,
-        data: {
-          url: "/admin/settings"
-        }
-      })
-    ])
-  );
+  event.waitUntil(Promise.all([self.clients.claim()]));
 });
 
 self.addEventListener("push", function (event) {
