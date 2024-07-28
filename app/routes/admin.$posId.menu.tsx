@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 import { LoaderFunctionArgs } from "@remix-run/node";
-import { useFetcher, useLoaderData } from "@remix-run/react";
+import { useFetcher, useLoaderData, useNavigation } from "@remix-run/react";
 import { verifySessionPOSAccess } from "app/service/auth";
 import {
   Menu,
@@ -87,7 +87,16 @@ export default function AdminMenu() {
     currentSelectedMenu,
     500
   );
+  const navigation = useNavigation();
   const fetcher = useFetcher();
+  const isLoading = useMemo(() => {
+    return (
+      navigation.state === "loading" ||
+      navigation.state === "submitting" ||
+      fetcher.state === "submitting" ||
+      fetcher.state === "loading"
+    );
+  }, [navigation.state, fetcher.state]);
 
   function toggleMenu(menu: any) {
     const form = new FormData();
@@ -148,7 +157,7 @@ export default function AdminMenu() {
         return (
           <div
             key={i.id}
-            className="flex flex-row items-center px-3 py-2 transition-colors hover:bg-zinc-50"
+            className="flex flex-row items-center border-b border-zinc-100 px-3 py-2 transition-colors hover:bg-zinc-50"
             onClick={() => {
               setSelectedMenu(i.id);
             }}
@@ -214,7 +223,7 @@ export default function AdminMenu() {
                 className="mr-1 data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-700"
                 checked={debouncedSelectedMenu?.active}
                 onCheckedChange={() => toggleMenu(currentSelectedMenu)}
-                disabled={fetcher.state === "submitting"}
+                disabled={isLoading}
               />
             </div>
             {debouncedSelectedMenu?.addon_groups?.map((i) => (
@@ -231,7 +240,7 @@ export default function AdminMenu() {
                     addon={j}
                     menu={debouncedSelectedMenu}
                     className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-700"
-                    disabled={fetcher.state === "submitting"}
+                    disabled={isLoading}
                   />
                 ))}
               </Fragment>

@@ -121,7 +121,8 @@ jobs:
       - name: Bump release
         if: github.ref_name == 'stable'
         run: |
-          npm version patch -m "[skip ci] Release %s"
+          BARE_VERSION="$(jq -r .version package.json | grep -E '\d+\.\d+\.\d+-(alpha|beta)\.\d+' | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')"
+          npm version "$BARE_VERSION" -m "[skip ci] Release %s" --allow-same-version
           git push
       # has to be after the bump and versioning pushed, stash will be dirty
       - name: Cleanup cache lock
