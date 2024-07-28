@@ -34,6 +34,33 @@ export const queueCookie = createCookie(COOKIE_NAME, {
   maxAge: 60 * 60 * 24 * 7 // 7 days
 });
 
+export const waiterCookie = createCookie("CALL_WAITER", {
+  httpOnly: true,
+  path: "/",
+  sameSite: "lax",
+  secrets: [COOKIE_SECRET],
+  secure: process.env.NODE_ENV === "production",
+  maxAge: 60 * 60 * 24 * 7 // 7 days
+});
+
+export const callWaiter = serverOnly$(
+  async (request: Request, payload: any) => {
+    const cookie = await waiterCookie.parse(request.headers.get("cookie"));
+    if (cookie?.timeout && DateTime.fromISO(cookie.timeout) > DateTime.now()) {
+      return;
+    }
+
+    invokeInternalAction?.({
+      _action: INTERNAL_EVENT.NOTIFICATION_ORDER_CALL_WAITER,
+      pos_id: payload.pos_id,
+      table_number: payload.table_number
+    });
+    const timeout = DateTime.now().plus({ minutes: 2 }).toISO();
+
+    return waiterCookie.serialize({ timeout });
+  }
+);
+
 export const getQueueList = serverOnly$(async (posId: string) => {
   const list = await dbconn?.("queue")
     .where({

@@ -14,14 +14,16 @@ export const SUBSCRIPTION_TOPIC = {
   ORDER_CANCELLED: "ORDER_CANCELLED",
   QUEUE_NEW: "QUEUE_NEW",
   QUEUE_CANCELLED: "QUEUE_CANCELLED",
-  NEW_VERSION: "NEW_VERSION"
+  NEW_VERSION: "NEW_VERSION",
+  ORDER_CALL_WAITER: "ORDER_CALL_WAITER"
 } as const;
 
 export const SUBSCRIPTION_TOPIC_LABEL = {
   [SUBSCRIPTION_TOPIC.ORDER_NEW]: "Pesanan baru",
-  [SUBSCRIPTION_TOPIC.ORDER_CANCELLED]: "Pesanan dibatalkan pelanggan",
+  [SUBSCRIPTION_TOPIC.ORDER_CANCELLED]: "Pesanan dibatalkan",
   [SUBSCRIPTION_TOPIC.QUEUE_NEW]: "Antrian baru",
-  [SUBSCRIPTION_TOPIC.QUEUE_CANCELLED]: "Antrian dibatalkan pelanggan"
+  [SUBSCRIPTION_TOPIC.QUEUE_CANCELLED]: "Antrian dibatalkan",
+  [SUBSCRIPTION_TOPIC.ORDER_CALL_WAITER]: "Panggil pelayan"
 };
 
 export const removeSubscription = serverOnly$(async function (
@@ -132,7 +134,7 @@ export const sendNotification = serverOnly$(async function (options: {
 
 export const getSessionNotification = serverOnly$(async function (options: {
   pos_id: string;
-  topic: keyof typeof SUBSCRIPTION_TOPIC;
+  topic?: keyof typeof SUBSCRIPTION_TOPIC;
 }): Promise<any[] | undefined> {
   const { pos_id, topic } = options;
   const _entries = dbconn?.("user_pos");
@@ -152,9 +154,9 @@ export const getSessionNotification = serverOnly$(async function (options: {
   if (!users?.length) {
     return;
   }
-  const filteredUsers = users.filter(
-    (entry) => entry.notification_settings[topic]
-  );
+  const filteredUsers = !topic
+    ? users
+    : users.filter((entry) => entry.notification_settings[topic]);
   if (!filteredUsers?.length) {
     return;
   }
@@ -170,6 +172,34 @@ export const getSessionNotification = serverOnly$(async function (options: {
   }
 
   return sessions;
+});
+
+export const sendWaiterNotification = serverOnly$(async function (options: {
+  pos_id: string;
+  table_number: string;
+}) {
+  const { pos_id, table_number } = options;
+  const sessions = await getSessionNotification?.({
+    pos_id
+    // notify all user without topic subscription
+  });
+
+  if (!sessions?.length) {
+    return;
+  }
+
+  await Promise.all(
+    sessions.map(async (entry) => {
+      const subscription = entry.notification_subscription;
+      if (subscription) {
+        await sendNotification?.({
+          title: "Panggil pelayan",
+          description: `Meja #${table_number} memanggil pelayan`,
+          subscription
+        });
+      }
+    })
+  );
 });
 
 export const sendNewVersionNotification = serverOnly$(async function (options: {

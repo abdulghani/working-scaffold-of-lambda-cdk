@@ -7,7 +7,8 @@ import {
   sendNewQueueNotification,
   sendNewVersionNotification,
   sendOrderCancelledNotification,
-  sendQueueCancelledNotification
+  sendQueueCancelledNotification,
+  sendWaiterNotification
 } from "app/service/push";
 
 function validateRequestAPIKey(request: Request) {
@@ -20,6 +21,7 @@ function validateRequestAPIKey(request: Request) {
 export const INTERNAL_EVENT = {
   NOTIFICATION_ORDER_NEW: "NOTIFICATION_ORDER_NEW",
   NOTIFICATION_ORDER_CANCELLED: "NOTIFICATION_ORDER_CANCELLED",
+  NOTIFICATION_ORDER_CALL_WAITER: "NOTIFICATION_ORDER_CALL_WAITER",
   NOTIFICATION_QUEUE_NEW: "NOTIFICATION_QUEUE_NEW",
   NOTIFICATION_QUEUE_CANCELLED: "NOTIFICATION_QUEUE_CANCELLED",
   NOTIFICATION_ADHOC: "NOTIFICATION_ADHOC",
@@ -37,6 +39,10 @@ export async function action({ request }: ActionFunctionArgs) {
     instances.map(async (instance) => {
       try {
         switch (instance._action) {
+          case INTERNAL_EVENT.NOTIFICATION_ORDER_CALL_WAITER: {
+            await sendWaiterNotification?.(instance);
+            break;
+          }
           case INTERNAL_EVENT.NOTIFICATION_NEW_VERSION: {
             await sendNewVersionNotification?.(instance);
             break;

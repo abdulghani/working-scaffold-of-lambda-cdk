@@ -194,15 +194,11 @@ export default function Settings() {
         <div className="px-2">
           <Table>
             <TableBody>
-              <TableRow>
-                <TableCell className="whitespace-nowrap">#</TableCell>
+              <TableRow className="text-xs text-muted-foreground">
+                <TableCell>#</TableCell>
                 <TableCell className="text-right">Status</TableCell>
               </TableRow>
-              <TableRow
-                className={cn(
-                  !isSubscribed ? "bg-blue-50 hover:bg-indigo-50" : ""
-                )}
-              >
+              <TableRow>
                 <TableCell className="whitespace-nowrap">Notifikasi</TableCell>
                 <TableCell className="text-right">
                   <Switch
@@ -214,7 +210,10 @@ export default function Settings() {
               </TableRow>
               {Object.entries(SUBSCRIPTION_TOPIC_LABEL).map(([key, value]) => {
                 return (
-                  <TableRow key={key}>
+                  <TableRow
+                    key={key}
+                    className={cn(!isSubscribed && "text-muted-foreground")}
+                  >
                     <TableCell className="whitespace-nowrap">{value}</TableCell>
                     <TableCell className="text-right">
                       <Switch

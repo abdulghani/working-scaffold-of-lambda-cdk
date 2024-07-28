@@ -401,7 +401,7 @@ export default function OrderAdmin() {
         }
       });
     }
-  }, [action, deferredOrder, setDraftNamePhone, setDraftOrder]);
+  }, [action]); // keep only do things on action change
 
   /** STATE UTIL OPTIMIZATION, DEBOUNCED */
   const draftTotal = useMemo(() => {

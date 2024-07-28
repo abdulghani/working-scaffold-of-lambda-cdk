@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import {
   Form,
+  json,
   Link,
   redirect,
   useActionData,
@@ -60,10 +61,11 @@ import {
   userCancelOrder
 } from "app/service/order";
 import { getPOSTax, validatePOSId } from "app/service/pos";
+import { callWaiter, waiterCookie } from "app/service/queue";
 import { startCase } from "lodash-es";
 import { Ban, CircleCheck, ShoppingCart, Timer, Utensils } from "lucide-react";
 import { DateTime } from "luxon";
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useDebouncedMenu } from "./admin.$posId";
 import {
@@ -75,6 +77,7 @@ import { createInstanceId, parseInstanceId } from "./menu.$posId/order-helper";
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const { posId } = params;
   const cookie = await orderCookie.parse(request.headers.get("Cookie"));
+  const waiter = await waiterCookie.parse(request.headers.get("Cookie"));
 
   const [pos, menus, menuCategories, order, posTax] = await Promise.all([
     validatePOSId?.(posId!),
@@ -102,7 +105,8 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     menuMap,
     addonGroupMap,
     addonMap,
-    posTax
+    posTax,
+    waiter: waiter
   };
 }
 
@@ -131,6 +135,16 @@ export const action = wrapActionError(async function ({
         "Set-Cookie": await orderCookie.serialize("", { maxAge: 0 })
       }
     });
+  } else if (payload._action === "_callWaiter") {
+    const result = await callWaiter?.(request, payload);
+    if (result) {
+      return json(
+        { _action: "_callWaiter" },
+        {
+          headers: { "Set-Cookie": result }
+        }
+      );
+    }
   }
 
   return {};
@@ -146,7 +160,8 @@ export default function Menu() {
     menuMap,
     addonMap,
     addonGroupMap,
-    posTax
+    posTax,
+    waiter
   } = useLoaderData<typeof loader>();
   const action = useActionData<any>();
   const navigation = useNavigation();
@@ -170,6 +185,7 @@ export default function Menu() {
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(
     null
   );
+  const [callWaiter, setCallWaiter] = useState<boolean>(false);
 
   const isLoading = useMemo(
     () => navigation.state === "submitting",
@@ -267,7 +283,30 @@ export default function Menu() {
         duration: 5000
       });
     }
+    if (action?._action === "_callWaiter") {
+      toast.success("Pelayan dipanggil", {
+        description: "Pelayan akan segera datang",
+        duration: 5000
+      });
+    }
   }, [action]);
+
+  const toggleWaiter = useCallback(
+    (e: boolean) => {
+      if (
+        waiter?.timeout &&
+        DateTime.fromISO(waiter.timeout) > DateTime.now()
+      ) {
+        toast.error("Anda sudah memanggil pelayan", {
+          description: `Pelayan akan segera datang (${DateTime.fromISO(waiter.timeout).toRelative()})`,
+          duration: 5000
+        });
+      } else {
+        setCallWaiter(e);
+      }
+    },
+    [waiter, setCallWaiter]
+  );
 
   return (
     <div className="flex w-full flex-col justify-center">
@@ -597,10 +636,20 @@ export default function Menu() {
                       }
                     )}
                   </div>
-                  <div className="mb-4 flex w-full flex-col">
+                  <div className="mb-4 mt-2 flex w-full flex-col gap-3">
                     <Button
                       variant={"secondary"}
-                      className="mt-2 w-full"
+                      className="w-full"
+                      type="button"
+                      onClick={(e) => {
+                        toggleWaiter(true);
+                      }}
+                    >
+                      Panggil pelayan
+                    </Button>
+                    <Button
+                      variant={"secondary"}
+                      className="w-full"
                       onClick={() => setCancelDialog(true)}
                       disabled={
                         !ORDER_CANCELLABLE_STATUS.includes(order.status)
@@ -682,9 +731,19 @@ export default function Menu() {
                 );
               })}
               {!Object.keys(draftOrder || {}).length && (
-                <Button className="mt-4" variant="ghost" disabled>
-                  Pesanan Anda masih kosong
-                </Button>
+                <div className="flex w-full flex-col gap-3">
+                  <Button className="mt-4" variant="ghost" disabled>
+                    Pesanan Anda masih kosong
+                  </Button>
+                  <Button
+                    variant={"secondary"}
+                    onClick={(e) => {
+                      toggleWaiter(true);
+                    }}
+                  >
+                    Panggil pelayan
+                  </Button>
+                </div>
               )}
               {Object.keys(draftOrder || {}).length > 0 && (
                 <>
@@ -778,6 +837,16 @@ export default function Menu() {
                     >
                       Buat pesanan
                     </Button>
+                    <Button
+                      variant={"secondary"}
+                      className="mt-3 w-full"
+                      type="button"
+                      onClick={(e) => {
+                        toggleWaiter(true);
+                      }}
+                    >
+                      Panggil pelayan
+                    </Button>
                   </Form>
                 </>
               )}
@@ -785,6 +854,46 @@ export default function Menu() {
           )}
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={callWaiter} onOpenChange={setCallWaiter}>
+        <AlertDialogContent className="flex w-full flex-col py-7 sm:rounded-sm">
+          <div className="flex flex-col items-center gap-1">
+            <div className="font-semibold">Panggil pelayan</div>
+            <div className="text-sm text-muted-foreground">
+              Panggil pelayan untuk membantu anda
+            </div>
+          </div>
+          <Form
+            method="post"
+            className="flex w-full flex-col gap-3"
+            onSubmit={() => setCallWaiter(false)}
+          >
+            <Input type="hidden" name="_action" value="_callWaiter" />
+            <Input type="hidden" name="pos_id" value={posId} />
+            <Input
+              type="text"
+              name="table_number"
+              inputMode="numeric"
+              placeholder="Nomor meja"
+              maxLength={2}
+              required
+            />
+            <div className="flex w-full flex-row gap-2">
+              <Button variant="default" className="grow" type="submit">
+                Panggil
+              </Button>
+              <Button
+                variant="secondary"
+                className="grow"
+                type="button"
+                onClick={() => setCallWaiter(false)}
+              >
+                Batal
+              </Button>
+            </div>
+          </Form>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={cancelDialog} onOpenChange={setCancelDialog}>
         <AlertDialogContent className="py-8 sm:rounded-sm">
