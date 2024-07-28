@@ -181,7 +181,7 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           NODE_ENV: production
           S3_CORS_ALLOWED_ORIGIN: https://queue-dev.pranaga.com
-          S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET}}
+          S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
@@ -204,7 +204,7 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           NODE_ENV: production
           S3_CORS_ALLOWED_ORIGIN: https://kiosk.pranaga.com
-          S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET}}
+          S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET_PROD }}
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
@@ -212,7 +212,7 @@ jobs:
           TZ: Asia/Jakarta
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
-          VITE_S3_BASE_URL: ${{ secrets.VITE_S3_BASE_URL }}
+          VITE_S3_BASE_URL: ${{ secrets.VITE_S3_BASE_URL_PROD }}
         run: |
           ./node_modules/.bin/cdk deploy
       - name: Notify deployment dev
