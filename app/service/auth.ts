@@ -184,6 +184,18 @@ export async function verifyOTP(options: {
   });
 }
 
+export const redirectLoggedIn = serverOnly$(async (request: Request) => {
+  const sessionToken = await sessionCookie.parse(request.headers.get("Cookie"));
+  if (sessionToken) {
+    const session = await dbconn?.("session")
+      .where({ session_id: sessionToken })
+      .first();
+    if (session && DateTime.fromISO(session.expires_at) > DateTime.now()) {
+      throw redirect("/admin");
+    }
+  }
+});
+
 export const verifySession = serverOnly$(async (request: Request) => {
   const sessionToken = await sessionCookie.parse(request.headers.get("Cookie"));
   const destination = request.url;

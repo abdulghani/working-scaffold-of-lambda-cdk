@@ -9,7 +9,12 @@ import {
   redirect
 } from "@remix-run/node";
 import { Form, Link, useActionData, useLoaderData } from "@remix-run/react";
-import { otpFlowCookie, sendOTP, verifyOTP } from "app/service/auth";
+import {
+  otpFlowCookie,
+  redirectLoggedIn,
+  sendOTP,
+  verifyOTP
+} from "app/service/auth";
 import { getVAPIDKey } from "app/service/push";
 import { Mail } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
@@ -21,6 +26,7 @@ export function meta() {
 export const loader = wrapActionError(async function ({
   request
 }: LoaderFunctionArgs) {
+  await redirectLoggedIn?.(request);
   const searchParams = Object.fromEntries(
     new URLSearchParams(request.url.split("?")[1]).entries()
   );
