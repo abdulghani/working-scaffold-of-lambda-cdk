@@ -157,16 +157,16 @@ export default function AdminMenu() {
         return (
           <div
             key={i.id}
-            className="flex flex-row items-center border-b border-zinc-100 px-3 py-2 transition-colors hover:bg-zinc-50"
+            className="flex flex-row items-center px-3 py-2 transition-colors hover:bg-zinc-50"
             onClick={() => {
               setSelectedMenu(i.id);
             }}
           >
             <img
               src={i.imgs?.[0]}
-              className="h-14 w-14 rounded-sm object-cover"
+              className="h-12 w-12 rounded-md object-cover"
             />
-            <div className="ml-3 flex flex-grow flex-col justify-between overflow-hidden pr-4">
+            <div className="ml-3 flex flex-grow flex-col justify-between overflow-hidden pr-5">
               <div className="flex flex-col">
                 <span className="block truncate font-semibold">{i.title}</span>
                 {i.addon_groups ? (
@@ -184,8 +184,9 @@ export default function AdminMenu() {
               </span>
             </div>
             <div className="mr-2 flex flex-col items-center">
+              {/* <Checkbox checked={i.active} disabled/> */}
               {i.active ? (
-                <CircleCheck className="h-5 w-5 text-zinc-400" />
+                <CircleCheck className="h-5 w-5 text-green-600" />
               ) : (
                 <CircleX className="h-5 w-5 text-red-500" />
               )}
@@ -206,9 +207,9 @@ export default function AdminMenu() {
             <div className="flex w-full flex-row items-center px-3 py-2 transition-colors hover:bg-zinc-50">
               <img
                 src={debouncedSelectedMenu?.imgs?.[0]}
-                className="h-16 w-16 rounded-sm object-cover"
+                className="h-12 w-12 rounded-sm object-cover"
               />
-              <div className="ml-3 flex flex-col overflow-hidden pr-5">
+              <div className="ml-3 flex flex-col overflow-hidden pr-6">
                 <span className="truncate whitespace-nowrap text-sm font-semibold">
                   {debouncedSelectedMenu?.title}
                 </span>
@@ -228,11 +229,11 @@ export default function AdminMenu() {
             </div>
             {debouncedSelectedMenu?.addon_groups?.map((i) => (
               <Fragment key={i.id}>
-                <span className="mt-1 px-3 text-sm font-normal text-muted-foreground">
+                <span className="mt-1 px-3 text-xs font-normal text-muted-foreground">
                   {i.title}
                 </span>
                 <div className="w-full px-3">
-                  <div className="mb-1 w-full border-t border-zinc-100"></div>
+                  <div className="mb-1 mt-1 w-full border-t border-zinc-100"></div>
                 </div>
                 {i.addons?.map((j) => (
                   <Addon
