@@ -8,7 +8,13 @@ import {
   LoaderFunctionArgs,
   redirect
 } from "@remix-run/node";
-import { Form, Link, useActionData, useLoaderData } from "@remix-run/react";
+import {
+  Form,
+  Link,
+  useActionData,
+  useLoaderData,
+  useSubmit
+} from "@remix-run/react";
 import {
   otpFlowCookie,
   redirectLoggedIn,
@@ -18,7 +24,7 @@ import {
 } from "app/service/auth";
 import { getVAPIDKey } from "app/service/push";
 import { Mail } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 export function meta() {
   return [{ title: "Login" }];
@@ -81,15 +87,18 @@ export default function Login() {
   const action = useActionData<any>();
   const { isOTP, email, notification, applicationServerKey } =
     useLoaderData<any>();
-  const [pushSubscription, setPushSubscription] =
-    useState<PushSubscription | null>(null);
+  const [otpInput, setOTPInput] = useState("");
+  const submit = useSubmit();
 
   const subscribeNotification = useCallback(
     async function () {
       if (isNotificationSupported?.() && notification && applicationServerKey) {
         const permission = Notification.permission;
         if (permission !== "granted") {
-          return null;
+          const request = await Notification.requestPermission();
+          if (request !== "granted") {
+            return null;
+          }
         }
         const sw = await navigator.serviceWorker.ready;
         const existingSub = await sw.pushManager.getSubscription();
@@ -107,12 +116,6 @@ export default function Login() {
     [notification, applicationServerKey]
   );
 
-  useEffect(() => {
-    if (isOTP && !pushSubscription) {
-      subscribeNotification().then(setPushSubscription);
-    }
-  }, [isOTP, pushSubscription, subscribeNotification]);
-
   return (
     <div className="w-full">
       <div className="flex items-center justify-center py-12">
@@ -124,12 +127,26 @@ export default function Login() {
             </p>
           </div>
           {isOTP ? (
-            <Form className="grid gap-4" method="post">
-              <Input
-                type="hidden"
-                name="push_subscription"
-                value={pushSubscription ? JSON.stringify(pushSubscription) : ""}
-              />
+            <Form
+              className="grid gap-4"
+              method="post"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const subscription = await subscribeNotification();
+                const form = new FormData();
+                form.append("_action", "verify_otp");
+                form.append("email", email);
+                form.append("otp", otpInput);
+                if (subscription) {
+                  form.append(
+                    "push_subscription",
+                    JSON.stringify(subscription)
+                  );
+                }
+
+                return submit(form, { method: "POST" });
+              }}
+            >
               <div className="grid gap-2">
                 <Label htmlFor="email">
                   Email{" "}
@@ -167,6 +184,8 @@ export default function Login() {
                   className={
                     action?.error?.details.otp ? "border-red-400" : undefined
                   }
+                  value={otpInput}
+                  onChange={(e) => setOTPInput(e.target.value)}
                   required
                 />
               </div>

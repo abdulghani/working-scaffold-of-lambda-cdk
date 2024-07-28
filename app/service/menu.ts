@@ -123,7 +123,7 @@ export const getAdminMenuByPOS = serverOnly$(
             dbconn?.("addon")
               .select("*")
               .where({ "addon.pos_id": posId })
-              .orderBy("addon.price", "desc")
+              .orderBy("addon.title", "asc") // prevent jumps when toggling
               .as("addon"),
             "addon_group.id",
             "addon.addon_group_id"
