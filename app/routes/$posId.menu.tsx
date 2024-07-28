@@ -188,7 +188,7 @@ export default function Menu() {
   const [callWaiter, setCallWaiter] = useState<boolean>(false);
 
   const isLoading = useMemo(
-    () => navigation.state === "submitting",
+    () => navigation.state === "submitting" || navigation.state === "loading",
     [navigation.state]
   );
 
@@ -650,6 +650,7 @@ export default function Menu() {
                     <Button
                       variant={"secondary"}
                       className="w-full"
+                      type="button"
                       onClick={() => setCancelDialog(true)}
                       disabled={
                         !ORDER_CANCELLABLE_STATUS.includes(order.status)
