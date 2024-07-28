@@ -13,6 +13,7 @@ import {
   Link,
   useActionData,
   useLoaderData,
+  useNavigation,
   useSubmit
 } from "@remix-run/react";
 import {
@@ -24,7 +25,7 @@ import {
 } from "app/service/auth";
 import { getVAPIDKey } from "app/service/push";
 import { Mail } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 export function meta() {
   return [{ title: "Login" }];
@@ -89,6 +90,10 @@ export default function Login() {
     useLoaderData<any>();
   const [otpInput, setOTPInput] = useState("");
   const submit = useSubmit();
+  const navigation = useNavigation();
+  const isLoading = useMemo(() => {
+    return navigation.state === "loading" || navigation.state === "submitting";
+  }, [navigation.state]);
 
   const subscribeNotification = useCallback(
     async function () {
@@ -187,6 +192,7 @@ export default function Login() {
                   value={otpInput}
                   onChange={(e) => setOTPInput(e.target.value)}
                   required
+                  disabled={isLoading}
                 />
               </div>
               <Button
@@ -195,6 +201,7 @@ export default function Login() {
                 value="verify_otp"
                 variant={"default"}
                 className="w-full"
+                disabled={isLoading}
               >
                 Login
               </Button>
@@ -221,6 +228,7 @@ export default function Login() {
                   className={
                     action?.error?.details.email ? "border-red-400" : undefined
                   }
+                  disabled={isLoading}
                 />
               </div>
               <Button
@@ -228,6 +236,7 @@ export default function Login() {
                 className="w-full"
                 name="_action"
                 value="send_otp"
+                disabled={isLoading}
               >
                 <Mail className="mr-2.5 w-4" />
                 Kirim kode OTP
