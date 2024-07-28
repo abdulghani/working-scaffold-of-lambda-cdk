@@ -64,6 +64,10 @@ export async function sendOTP(email: string) {
     });
   }
 
+  const userNotification = Object.values(user.notification_settings || {}).find(
+    Boolean
+  );
+
   const otpCode = String(Math.random()).slice(-6);
   const transaction = await dbconn?.transaction();
   const otpEntry = await transaction?.("otp_code")
@@ -99,7 +103,7 @@ export async function sendOTP(email: string) {
         await otpFlowCookie.serialize({
           id: user.id,
           email: user.email,
-          notification: user.notification
+          notification: userNotification
         })
       ]
     ]
@@ -186,11 +190,14 @@ export async function verifyOTP(options: {
 
 export const redirectLoggedIn = serverOnly$(async (request: Request) => {
   const sessionToken = await sessionCookie.parse(request.headers.get("Cookie"));
+
   if (sessionToken) {
     const session = await dbconn?.("session")
       .where({ session_id: sessionToken })
       .first();
-    if (session && DateTime.fromISO(session.expires_at) > DateTime.now()) {
+
+    // expres_at already in DateTime type (weird)
+    if (session && session.expires_at > DateTime.now()) {
       throw redirect("/admin");
     }
   }
@@ -221,7 +228,8 @@ export const verifySession = serverOnly$(async (request: Request) => {
     return _session;
   })();
 
-  if (!session || DateTime.fromISO(session.expires_at) < DateTime.now()) {
+  // expres_at already in DateTime type (weird)
+  if (!session || session.expires_at < DateTime.now()) {
     SESSION_CACHE.delete(sessionToken);
     throw redirect("/login", {
       headers: [

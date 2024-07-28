@@ -86,17 +86,11 @@ export default function Login() {
 
   const subscribeNotification = useCallback(
     async function () {
-      if (
-        isOTP &&
-        isNotificationSupported?.() &&
-        notification &&
-        applicationServerKey
-      ) {
+      if (isNotificationSupported?.() && notification && applicationServerKey) {
         const permission = Notification.permission;
         if (permission !== "granted") {
-          return;
+          return null;
         }
-
         const sw = await navigator.serviceWorker.ready;
         const existingSub = await sw.pushManager.getSubscription();
         if (existingSub) {
@@ -106,15 +100,18 @@ export default function Login() {
           applicationServerKey,
           userVisibleOnly: true
         });
-        setPushSubscription(newSub);
+        return newSub;
       }
+      return null;
     },
-    [isOTP, notification, applicationServerKey]
+    [notification, applicationServerKey]
   );
 
   useEffect(() => {
-    subscribeNotification();
-  }, [subscribeNotification]);
+    if (isOTP && !pushSubscription) {
+      subscribeNotification().then(setPushSubscription);
+    }
+  }, [isOTP, pushSubscription, subscribeNotification]);
 
   return (
     <div className="w-full">
