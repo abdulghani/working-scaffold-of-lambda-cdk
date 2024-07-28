@@ -165,13 +165,13 @@ export const action = wrapActionError(async function ({
 
   if (payload._action === "accept") {
     const order = await adminAcceptOrder?.(payload.order_id!);
-    return { order };
+    return { order, _action: payload._action };
   } else if (payload._action === "cancel") {
     const order = await adminCancelOrder?.(payload.order_id!, payload.notes);
-    return { order };
+    return { order, _action: payload._action };
   } else if (payload._action === "complete") {
     const order = await adminCompleteOrder?.(payload);
-    return { order };
+    return { order, _action: payload._action };
   } else if (payload._action === "generate_payment_qr") {
     const qrcode = await generateOrderQrCode?.(payload.order_id!);
     return { qrcode, order_id: payload.order_id! };
@@ -239,7 +239,11 @@ export default function OrderAdmin() {
     [navigation.state]
   );
 
-  const deferredOrder = useDeferredValue(orderMap[selectedOrderId!]);
+  const deferredSelectedOrderId = useDeferredValue(selectedOrderId);
+  const deferredOrder = useMemo(
+    () => orderMap[deferredSelectedOrderId!],
+    [orderMap, deferredSelectedOrderId]
+  );
   const deferredQuery = useDeferredValue(query);
   const [filteredOrders, filteredAccepted, filteredHistory] = useMemo(() => {
     const filtered = (() => {
@@ -309,6 +313,18 @@ export default function OrderAdmin() {
       return [_totalWTax, _currentTotal, orderAddonGroups, orderAddons];
     }, [deferredOrder]);
 
+  const [[draftName, draftPhone], setDraftNamePhone] = useLocalStorageState(
+    "admin-draft-name-phone",
+    ["", ""]
+  );
+  const [draftOrder, setDraftOrder] = useLocalStorageState<OrderDraftShape>(
+    "admin-draft-order",
+    {}
+  );
+  const draftOrderDef = useDeferredValue(draftOrder);
+  const [instanceTemp, setInstanceTemp] =
+    useState<RecordItem<OrderDraftShape> | null>(null);
+
   useEffect(() => {
     if (action?.error?.code === ORDER_ERROR_CODE.INVALID_ORDER_STATUS) {
       toast.error("Pesanan gagal diperbarui", {
@@ -352,19 +368,40 @@ export default function OrderAdmin() {
         }
       });
     }
-  }, [action]);
-
-  const [[draftName, draftPhone], setDraftNamePhone] = useLocalStorageState(
-    "admin-draft-name-phone",
-    ["", ""]
-  );
-  const [draftOrder, setDraftOrder] = useLocalStorageState<OrderDraftShape>(
-    "admin-draft-order",
-    {}
-  );
-  const draftOrderDef = useDeferredValue(draftOrder);
-  const [instanceTemp, setInstanceTemp] =
-    useState<RecordItem<OrderDraftShape> | null>(null);
+    if (action?._action === "complete" && action?.order) {
+      toast.success("Pesanan berhasil diselesaikan", {
+        description: `Pesanan #${padNumber(action.order.temp_count)} berhasil diselesaikan`,
+        action: {
+          label: "Lihat",
+          onClick: () => {
+            setSelectedOrderId(action.order.id);
+          }
+        }
+      });
+    }
+    if (action?._action === "accept" && action?.order) {
+      toast.success("Pesanan diterima", {
+        description: `Pesanan #${padNumber(action.order.temp_count)} telah diterima`,
+        action: {
+          label: "Lihat",
+          onClick: () => {
+            setSelectedOrderId(action.order.id);
+          }
+        }
+      });
+    }
+    if (action?._action === "cancel" && action?.order) {
+      toast.success("Pesanan berhasil dibatalkan", {
+        description: `Pesanan #${padNumber(action.order.temp_count)} telah dibatalkan`,
+        action: {
+          label: "Lihat",
+          onClick: () => {
+            setSelectedOrderId(action.order.id);
+          }
+        }
+      });
+    }
+  }, [action, deferredOrder, setDraftNamePhone, setDraftOrder]);
 
   /** STATE UTIL OPTIMIZATION, DEBOUNCED */
   const draftTotal = useMemo(() => {
