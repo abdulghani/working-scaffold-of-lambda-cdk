@@ -13,6 +13,7 @@ import {
   otpFlowCookie,
   redirectLoggedIn,
   sendOTP,
+  sessionCookie,
   verifyOTP
 } from "app/service/auth";
 import { getVAPIDKey } from "app/service/push";
@@ -26,12 +27,17 @@ export function meta() {
 export const loader = wrapActionError(async function ({
   request
 }: LoaderFunctionArgs) {
-  await redirectLoggedIn?.(request);
   const searchParams = Object.fromEntries(
     new URLSearchParams(request.url.split("?")[1]).entries()
   );
-
-  if (searchParams.clear_otp === "true") {
+  if (searchParams.logout === "true") {
+    throw redirect("/login", {
+      headers: [
+        ["Set-Cookie", await sessionCookie.serialize("", { maxAge: 0 })],
+        ["Set-Cookie", await otpFlowCookie.serialize("", { maxAge: 0 })]
+      ]
+    });
+  } else if (searchParams.clear_otp === "true") {
     throw redirect("/login", {
       headers: [
         ["Set-Cookie", await otpFlowCookie.serialize("", { maxAge: 0 })]
@@ -39,6 +45,7 @@ export const loader = wrapActionError(async function ({
     });
   }
 
+  await redirectLoggedIn?.(request);
   const applicationServerKey = getVAPIDKey?.();
   const otpFlow = await otpFlowCookie.parse(request.headers.get("Cookie"));
 
