@@ -48,7 +48,9 @@ export class LambdaConstruct extends Construct {
         VAPID_PRIVATE_KEY: process.env.VAPID_PRIVATE_KEY || "",
         VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || "",
         INTERNAL_API_KEY:
-          process.env.INTERNAL_API_KEY || crypto.randomBytes(64).toString("hex") // use different key for each deployment
+          process.env.INTERNAL_API_KEY ||
+          crypto.randomBytes(64).toString("hex"), // use different key for each deployment
+        PRANAGA_ENV: process.env.PRANAGA_ENV || "stable"
       }
     });
   }
