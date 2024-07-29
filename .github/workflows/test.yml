@@ -105,7 +105,7 @@ jobs:
           git pull origin ${{ github.event.pull_request.head.ref }}
       - name: Audit dependencies
         run: |
-          npm audit fix
+          npm audit fix || true
           PACKAGE_FILES=$(git status -s | grep -E 'package(-lock)?.json$' | sed s/^...//)
           echo "PACKAGE_FILES=$PACKAGE_FILES" >> $GITHUB_ENV
       - name: Push updates
