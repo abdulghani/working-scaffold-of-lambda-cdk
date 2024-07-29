@@ -109,21 +109,21 @@ jobs:
       - name: Bump prerelease alpha
         if: github.ref_name == 'alpha'
         run: |
-          BARE_VERSION="$(jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-(alpha|beta)\.\d+' | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')"
+          BARE_VERSION=$(jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-(alpha|beta)\.\d+' | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')
           echo "BARE_VERSION: $BARE_VERSION"
           (jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-alpha\.\d+' && npm version prerelease -m "[skip ci] Release %s") || npm version "$BARE_VERSION-alpha.0" -m "[skip ci] Release %s" --allow-same-version
           git push
       - name: Bump prerelease beta
         if: github.ref_name == 'beta'
         run: |
-          BARE_VERSION="$(jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-(alpha|beta)\.\d+' | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')"
+          BARE_VERSION=$(jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-(alpha|beta)\.\d+' | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')
           echo "BARE_VERSION: $BARE_VERSION"
           (jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-beta\.\d+' && npm version prerelease -m "[skip ci] Release %s") || npm version "$BARE_VERSION-alpha.0" -m "[skip ci] Release %s" --allow-same-version
           git push
       - name: Bump release
         if: github.ref_name == 'stable'
         run: |
-          BARE_VERSION="$(jq -r '.version' package.json | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')"
+          BARE_VERSION=$(jq -r '.version' package.json | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')
           npm version "$BARE_VERSION" -m "[skip ci] Release %s" --allow-same-version
           git push
       # has to be after the bump and versioning pushed, stash will be dirty
