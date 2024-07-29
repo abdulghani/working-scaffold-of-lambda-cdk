@@ -83,7 +83,7 @@ jobs:
         run: npm run test
   run_npm_audit:
     name: NPM audit
-    requires:
+    needs:
       - run_lint
       - run_unit_test
     runs-on: ubuntu-latest
