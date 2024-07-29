@@ -11,7 +11,7 @@ jobs:
   bump:
     name: Bump
     runs-on: ubuntu-latest
-    if: contains(github.event.label.name, 'fix') || contains(github.event.label.name, 'feature') || contains(github.event.label.name, 'major')
+    if: (contains(github.event.label.name, 'fix') || contains(github.event.label.name, 'feature') || contains(github.event.label.name, 'major')) && github.event.pull_request.draft == false && github.event.pull_request.state == 'open'
     permissions:
       contents: write
     steps:
