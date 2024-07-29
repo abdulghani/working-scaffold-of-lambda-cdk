@@ -186,7 +186,7 @@ export default function AdminMenu() {
             <div className="mr-2 flex flex-col items-center">
               {/* <Checkbox checked={i.active} disabled/> */}
               {i.active ? (
-                <CircleCheck className="h-5 w-5 text-green-600" />
+                <CircleCheck className="h-5 w-5 text-muted-foreground opacity-50" />
               ) : (
                 <CircleX className="h-5 w-5 text-red-500" />
               )}
@@ -221,7 +221,7 @@ export default function AdminMenu() {
                 </span>
               </div>
               <Switch
-                className="mr-1 data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-700"
+                className="mr-1"
                 checked={debouncedSelectedMenu?.active}
                 onCheckedChange={() => toggleMenu(currentSelectedMenu)}
                 disabled={isLoading}
@@ -240,7 +240,7 @@ export default function AdminMenu() {
                     key={j.id}
                     addon={j}
                     menu={debouncedSelectedMenu}
-                    className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-700"
+                    className=""
                     disabled={isLoading}
                   />
                 ))}
