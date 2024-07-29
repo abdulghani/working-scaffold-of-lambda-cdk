@@ -92,8 +92,8 @@ import { toast } from "sonner";
 import {
   orderDraftReducer,
   OrderDraftShape
-} from "./menu.$posId/order-draft-reducer";
-import { createInstanceId } from "./menu.$posId/order-helper";
+} from "./$posId.menu/order-draft-reducer";
+import { createInstanceId } from "./$posId.menu/order-helper";
 
 const TEXT_TEMPLATE = `
 Halo {name}, pesanan #{order_number} {pos} sudah siap.
