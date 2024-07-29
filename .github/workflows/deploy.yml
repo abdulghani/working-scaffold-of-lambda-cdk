@@ -116,7 +116,7 @@ jobs:
         if: github.ref_name == 'beta'
         run: |
           BARE_VERSION=$(jq -r '.version' package.json | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')
-          (jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-beta\.\d+' && npm version prerelease -m "[skip ci] Release %s") || npm version "$BARE_VERSION-alpha.0" -m "[skip ci] Release %s" --allow-same-version
+          (jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-beta\.\d+' && npm version prerelease -m "[skip ci] Release %s") || npm version "$BARE_VERSION-beta.0" -m "[skip ci] Release %s" --allow-same-version
           git push
       - name: Bump release
         if: github.ref_name == 'stable'
