@@ -130,26 +130,16 @@ export default function AdminPOSHistory() {
             })
           )}
           {notifications?.length > 0 && (
-            <>
-              <TableRow>
-                <TableCell
-                  colSpan={2}
-                  className="text-right text-muted-foreground"
-                  onClick={() => setShouldClearRead(true)}
-                >
-                  Hapus terbaca
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell
-                  colSpan={2}
-                  className="text-right text-muted-foreground"
-                  onClick={() => setShouldClear(true)}
-                >
-                  Hapus semua
-                </TableCell>
-              </TableRow>
-            </>
+            <TableRow>
+              <TableCell colSpan={2} className="text-muted-foreground">
+                <div className="flex w-full flex-row justify-between">
+                  <div onClick={() => setShouldClear(true)}>Hapus semua</div>
+                  <div onClick={() => setShouldClearRead(true)}>
+                    Hapus terbaca
+                  </div>
+                </div>
+              </TableCell>
+            </TableRow>
           )}
         </TableBody>
       </Table>
