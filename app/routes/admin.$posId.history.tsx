@@ -28,20 +28,24 @@ export default function AdminPOSHistory() {
   const [shouldClear, setShouldClear] = useState(false);
 
   async function handleClick(notification: any) {
-    try {
-      const id = notifications.findIndex((n: any) => n.id === notification.id);
-      if (id !== -1) {
-        notifications[id].read_at = DateTime.now().toISO();
+    if (!notification.read_at) {
+      try {
+        const id = notifications.findIndex(
+          (n: any) => n.id === notification.id
+        );
+        if (id !== -1) {
+          notifications[id].read_at = DateTime.now().toISO();
+        }
+        const unread = notifications.filter((n: any) => !n.read_at);
+        localforage.setItem("notifications", notifications);
+        if (unread.length && navigator.setAppBadge) {
+          navigator.setAppBadge(unread.length);
+        } else if (!unread.length && navigator.clearAppBadge) {
+          navigator.clearAppBadge();
+        }
+      } catch (err) {
+        // not doing anything
       }
-      const unread = notifications.filter((n: any) => !n.read_at);
-      localforage.setItem("notifications", notifications);
-      if (unread.length && navigator.setAppBadge) {
-        navigator.setAppBadge(unread.length);
-      } else if (!unread.length && navigator.clearAppBadge) {
-        navigator.clearAppBadge();
-      }
-    } catch (err) {
-      // not doing anything
     }
     window.location.href = notification.path || "/admin";
   }
