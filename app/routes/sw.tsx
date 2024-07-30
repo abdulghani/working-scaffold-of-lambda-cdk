@@ -35,9 +35,11 @@ async function showNotification(data) {
 
   const notifications = (await self.localforage.getItem("notifications")) || [];
   notifications.push(data);
-
-  if (navigator?.setAppBadge) {
-    await navigator.setAppBadge(notifications.length);
+  const unread = notifications.filter((n) => !n.read_at);
+  if (unread.length && navigator?.setAppBadge) {
+    await navigator.setAppBadge(unread.length);
+  } else if (!unread.length && navigator?.clearAppBadge) {
+    await navigator.clearAppBadge();
   }
 
   await self.localforage.setItem(
