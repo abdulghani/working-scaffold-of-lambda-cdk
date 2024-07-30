@@ -1,9 +1,11 @@
+import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useRevalidation } from "@/hooks/use-revalidation";
 import { useLoaderData } from "@remix-run/react";
 import localforage from "localforage";
 import { DateTime } from "luxon";
+import { useState } from "react";
 
 export async function clientLoader() {
   const notifications: any[] =
@@ -20,6 +22,7 @@ export async function clientLoader() {
 export default function AdminPOSHistory() {
   const { notifications } = useLoaderData<typeof clientLoader>();
   const [revalidator] = useRevalidation();
+  const [shouldClear, setShouldClear] = useState(false);
 
   async function handleClick(notification: any) {
     try {
@@ -51,7 +54,7 @@ export default function AdminPOSHistory() {
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-2">
+    <div className="flex w-full flex-col items-center gap-4">
       <Table>
         <TableBody>
           <TableRow className="text-xs">
@@ -103,12 +106,40 @@ export default function AdminPOSHistory() {
           <Button
             variant={"secondary"}
             className="w-full"
-            onClick={() => clear()}
+            onClick={() => setShouldClear(true)}
           >
             Hapus semua notifikasi
           </Button>
         </div>
       )}
+      <AlertDialog open={shouldClear}>
+        <AlertDialogContent className="flex w-full flex-col">
+          <div className="flex flex-col items-center">
+            <span className="text-base font-semibold">Anda yakin?</span>
+            <span className="text-sm text-muted-foreground">
+              Semua notifikasi akan dihapus
+            </span>
+          </div>
+          <div className="flex w-full flex-row gap-2">
+            <Button
+              className="grow"
+              onClick={() => {
+                clear();
+                setShouldClear(false);
+              }}
+            >
+              Ya
+            </Button>
+            <Button
+              className="grow"
+              variant={"secondary"}
+              onClick={() => setShouldClear(false)}
+            >
+              Tidak
+            </Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
