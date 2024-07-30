@@ -83,7 +83,7 @@ export default function AdminPOSHistory() {
         <TableBody>
           <TableRow className="text-xs">
             <TableCell className="text-muted-foreground">
-              <div className="pl-3">#</div>
+              <div className="pl-3">Notifikasi</div>
             </TableCell>
             <TableCell className="text-right text-muted-foreground">
               Waktu
