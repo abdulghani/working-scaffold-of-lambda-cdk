@@ -7,7 +7,7 @@
     "dev": "vite --port 3000 --host",
     "build": "npx remix vite:build",
     "lint": "./node_modules/.bin/eslint . --ext js,ts,tsx --no-inline-config --report-unused-disable-directives",
-    "preview": "npx remix-serve build/server/index.js",
+    "preview": "vite preview --port 3000 --host",
     "prepare": "npm run prepare:husky && npm run env && npm run prepare:adminer",
     "format": "prettier --config ./.prettierrc.json --write --ignore-unknown",
     "env": "[ -f .env ] || [ \"$CI\" != \"true\" ] && cp .env.example .env || true",
@@ -67,7 +67,6 @@
   "devDependencies": {
     "@remix-pwa/dev": "^3.0.5",
     "@remix-run/dev": "^2.9.2",
-    "@remix-run/serve": "^2.10.3",
     "@types/aws-lambda": "^8.10.140",
     "@types/glob": "^8.1.0",
     "@types/lodash-es": "^4.17.12",

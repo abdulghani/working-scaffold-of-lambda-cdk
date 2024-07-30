@@ -62,8 +62,7 @@ export default defineConfig(({ command, mode }) => {
         buildDirectory: "build",
         serverBuildFile: "index.js",
         ssr: true
-      }),
-      injectManifest({ isBuild })
+      })
     ],
     base: isBuild ? process.env.VITE_S3_BASE_URL || "/" : "/",
     resolve: {
