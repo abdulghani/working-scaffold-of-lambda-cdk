@@ -33,10 +33,11 @@ export default function AdminPOSHistory() {
       if (id !== -1) {
         notifications[id].read_at = DateTime.now().toISO();
       }
+      const unread = notifications.filter((n: any) => !n.read_at);
       localforage.setItem("notifications", notifications);
-      if (notifications.length && navigator.setAppBadge) {
-        navigator.setAppBadge(notifications.length);
-      } else if (!notifications.length && navigator.clearAppBadge) {
+      if (unread.length && navigator.setAppBadge) {
+        navigator.setAppBadge(unread.length);
+      } else if (!unread.length && navigator.clearAppBadge) {
         navigator.clearAppBadge();
       }
     } catch (err) {
@@ -61,6 +62,11 @@ export default function AdminPOSHistory() {
     try {
       const filtered = notifications.filter((n: any) => !n.read_at);
       await localforage.setItem("notifications", filtered);
+      if (filtered.length && navigator.setAppBadge) {
+        await navigator.setAppBadge(filtered.length);
+      } else if (!filtered.length && navigator.clearAppBadge) {
+        await navigator.clearAppBadge();
+      }
       revalidator.revalidate();
     } catch (err) {
       // not doing anything
