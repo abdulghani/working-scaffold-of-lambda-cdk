@@ -2,6 +2,7 @@ import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { useRevalidation } from "@/hooks/use-revalidation";
+import { cn } from "@/lib/utils";
 import { useLoaderData } from "@remix-run/react";
 import localforage from "localforage";
 import { DateTime } from "luxon";
@@ -13,26 +14,29 @@ export async function clientLoader() {
   const sorted = notifications.sort((a, b) => {
     return b.timestamp?.localeCompare?.(a.timestamp) || 0;
   });
+  const read = sorted.filter((n) => n.read_at);
 
   return {
-    notifications: sorted
+    notifications: sorted,
+    read
   };
 }
 
 export default function AdminPOSHistory() {
-  const { notifications } = useLoaderData<typeof clientLoader>();
+  const { notifications, read } = useLoaderData<typeof clientLoader>();
   const [revalidator] = useRevalidation();
   const [shouldClear, setShouldClear] = useState(false);
 
   async function handleClick(notification: any) {
     try {
-      const filtered = notifications.filter(
-        (n: any) => n.id !== notification.id
-      );
-      localforage.setItem("notifications", filtered);
-      if (filtered.length && navigator.setAppBadge) {
-        navigator.setAppBadge(filtered.length);
-      } else if (!filtered.length && navigator.clearAppBadge) {
+      const id = notifications.findIndex((n: any) => n.id === notification.id);
+      if (id !== -1) {
+        notifications[id].read_at = DateTime.now().toISO();
+      }
+      localforage.setItem("notifications", notifications);
+      if (notifications.length && navigator.setAppBadge) {
+        navigator.setAppBadge(notifications.length);
+      } else if (!notifications.length && navigator.clearAppBadge) {
         navigator.clearAppBadge();
       }
     } catch (err) {
@@ -47,6 +51,16 @@ export default function AdminPOSHistory() {
       if (navigator.clearAppBadge) {
         await navigator.clearAppBadge();
       }
+      revalidator.revalidate();
+    } catch (err) {
+      // not doing anything
+    }
+  }
+
+  async function clearRead() {
+    try {
+      const filtered = notifications.filter((n: any) => !n.read_at);
+      await localforage.setItem("notifications", filtered);
       revalidator.revalidate();
     } catch (err) {
       // not doing anything
@@ -82,7 +96,14 @@ export default function AdminPOSHistory() {
                   onClick={() => handleClick(notification)}
                 >
                   <TableCell className="flex flex-row items-center gap-4">
-                    <div className="h-3 w-3 animate-pulse rounded-full bg-blue-200"></div>
+                    <div
+                      className={cn(
+                        "h-3 w-3 rounded-full",
+                        !notification.read_at
+                          ? "animate-pulse bg-blue-200"
+                          : "bg-zinc-300"
+                      )}
+                    ></div>
                     <div className="flex flex-col gap-0">
                       <span className="whitespace-nowrap text-sm">
                         {notification.title}
@@ -102,13 +123,21 @@ export default function AdminPOSHistory() {
         </TableBody>
       </Table>
       {notifications?.length > 0 && (
-        <div className="w-full px-3">
+        <div className="flex w-full flex-row gap-2 px-3">
           <Button
             variant={"secondary"}
-            className="w-full"
+            className="grow"
             onClick={() => setShouldClear(true)}
           >
-            Hapus semua notifikasi
+            Hapus semua
+          </Button>
+          <Button
+            variant={"secondary"}
+            className="grow"
+            disabled={!read?.length}
+            onClick={() => clearRead()}
+          >
+            Hapus terbaca
           </Button>
         </div>
       )}

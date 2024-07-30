@@ -56,13 +56,20 @@ async function openNotification(data) {
   await self.clients.openWindow(path);
 
   const notifications = (await self.localforage.getItem("notifications")) || [];
-  const filtered = notifications.filter((n) => n.id !== data.id);
-  if (navigator?.setAppBadge && filtered.length) {
-    await navigator.setAppBadge(filtered.length);
-  } else if (navigator?.clearAppBadge && !filtered.length) {
+  const id = notifications.findIndex((n) => n.id === data.id);
+  if (id !== -1) {
+    notifications[id].read_at = new Date().toISOString();
+  }
+  const unread = notifications.filter((n) => !n.read_at);
+  if (unread.length && navigator?.setAppBadge) {
+    await navigator.setAppBadge(unread.length);
+  } else if (!unread.length && navigator?.clearAppBadge) {
     await navigator.clearAppBadge();
   }
-  await self.localforage.setItem("notifications", sortNotifications(filtered));
+  await self.localforage.setItem(
+    "notifications",
+    sortNotifications(notifications)
+  );
 }
 
 self.addEventListener("notificationclick", function (event) {
