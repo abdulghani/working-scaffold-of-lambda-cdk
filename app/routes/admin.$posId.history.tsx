@@ -8,7 +8,7 @@ export async function clientLoader() {
   const notifications: any[] =
     (await localforage.getItem("notifications")) || [];
   const sorted = notifications.sort((a, b) => {
-    return b.timestamp.localeCompare(a.timestamp);
+    return b.timestamp?.localeCompare?.(a.timestamp);
   });
 
   return {

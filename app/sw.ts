@@ -30,9 +30,7 @@ async function showNotification(data: any) {
     body: data?.description,
     icon: LOGO,
     badge: LOGO,
-    data: {
-      url: data?.path
-    }
+    data
   });
 
   const notifications = (await self.localforage.getItem("notifications")) || [];
@@ -54,7 +52,7 @@ self.addEventListener("push", function (event) {
 });
 
 async function openNotification(data: any) {
-  const path = data?.url || "/admin";
+  const path = data?.path || "/admin";
   await self.clients.openWindow(path);
 
   const notifications = (await self.localforage.getItem("notifications")) || [];
