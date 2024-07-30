@@ -1,6 +1,7 @@
 import { ActionError } from "@/lib/action-error";
 import { initializeVapid } from "@/lib/initialize-vapid";
 import { padNumber } from "@/lib/pad-number";
+import { ulid } from "ulid";
 import { serverOnly$ } from "vite-env-only/macros";
 import webpush from "web-push";
 import { dbconn } from "./db";
@@ -117,14 +118,20 @@ export const sendNotification = serverOnly$(async function (options: {
   path?: string;
   subscription: any;
 }) {
+  // add timestamp for notification keeping
+  const timestamp = new Date().toISOString();
+  const id = ulid();
+
   try {
     initializeVapid();
     await webpush.sendNotification(
       options.subscription,
       JSON.stringify({
+        id,
         title: options.title,
         description: options.description,
-        path: options.path
+        path: options.path,
+        timestamp
       })
     );
   } catch (err) {
@@ -282,18 +289,12 @@ export const sendNewOrderNotification = serverOnly$(async function (options: {
     sessions.map(async (entry) => {
       const subscription = entry.notification_subscription;
       if (subscription) {
-        try {
-          await webpush.sendNotification(
-            subscription,
-            JSON.stringify({
-              title: "Pesanan baru",
-              description: `Pesanan #${padNumber(temp_count)} dari ${name}`,
-              path: `/admin/${pos_id}/order?orderId=${order_id}`
-            })
-          );
-        } catch (err) {
-          console.log("FAILED SENDING PUSH ", err);
-        }
+        await sendNotification?.({
+          title: "Pesanan baru",
+          description: `Pesanan #${padNumber(temp_count)} dari ${name}`,
+          path: `/admin/${pos_id}/order?orderId=${order_id}`,
+          subscription
+        });
       }
     })
   );

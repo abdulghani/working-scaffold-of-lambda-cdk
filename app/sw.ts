@@ -1,4 +1,9 @@
-declare let self: ServiceWorkerGlobalScope;
+type Self = ServiceWorkerGlobalScope & { localforage: any };
+declare let self: Self;
+
+importScripts(
+  "https://pranaga-images.s3.ap-southeast-1.amazonaws.com/localforage.min.js"
+);
 
 const VERSION = "{{version}}";
 const LOGO =
@@ -24,9 +29,14 @@ async function showNotification(data: any) {
     }
   });
 
+  const notifications = (await self.localforage.getItem("notifications")) || [];
+  notifications.push(data);
+
   if (navigator?.setAppBadge) {
-    await navigator.setAppBadge(data?.badge || 1);
+    await navigator.setAppBadge(notifications.length);
   }
+
+  await self.localforage.setItem("notifications", notifications);
 }
 
 self.addEventListener("push", function (event) {
@@ -34,14 +44,21 @@ self.addEventListener("push", function (event) {
   event.waitUntil(showNotification(data));
 });
 
-async function openNotification(path: any) {
+async function openNotification(data: any) {
+  const path = data?.url || "/admin";
   await self.clients.openWindow(path);
-  if (navigator?.clearAppBadge) {
+
+  const notifications = (await self.localforage.getItem("notifications")) || [];
+  const filtered = notifications.filter((n: any) => n.id !== data.id);
+  if (navigator?.setAppBadge && filtered.length) {
+    await navigator.setAppBadge(filtered.length);
+  } else if (navigator?.clearAppBadge && !filtered.length) {
     await navigator.clearAppBadge();
   }
+  await self.localforage.setItem("notifications", filtered);
 }
 
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
-  event.waitUntil(openNotification(event.notification?.data?.url || "/admin"));
+  event.waitUntil(openNotification(event.notification?.data || {}));
 });

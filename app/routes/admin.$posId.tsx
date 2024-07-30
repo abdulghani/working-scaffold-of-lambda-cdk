@@ -17,6 +17,7 @@ import { verifySessionPOSAccess } from "app/service/auth";
 import { validatePOSId } from "app/service/pos";
 import {
   ClipboardList,
+  HistoryIcon,
   LoaderCircle,
   Menu,
   NotepadText,
@@ -107,6 +108,13 @@ export default function MenuAdmin() {
                 icon: NotepadText,
                 active: sectionId === "menu",
                 to: `/admin/${params.posId}/menu`,
+                disabled: isLoading
+              },
+              {
+                title: "Riwayat aktivitas",
+                icon: HistoryIcon,
+                active: sectionId === "history",
+                to: `/admin/${params.posId}/history`,
                 disabled: isLoading
               },
               {
