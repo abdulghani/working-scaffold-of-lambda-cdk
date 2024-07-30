@@ -5,13 +5,53 @@ importScripts(
   "https://pranaga-images.s3.ap-southeast-1.amazonaws.com/localforage.min.js"
 );
 
+const CLIENT_MANIFEST = ["{{client_manifest}}"];
 const VERSION = "{{version}}";
 const LOGO =
   "https://pranaga-random-bucket.s3.ap-southeast-1.amazonaws.com/pranaga-light-192.png";
+const CLIENT_MANIFEST_MAP = Object.fromEntries(
+  CLIENT_MANIFEST.map((url) => [url, true])
+);
+
+async function precache() {
+  if (caches?.open) {
+    const keys = await caches.keys();
+    if (keys.length) {
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    }
+    const cache = await caches.open(VERSION);
+    await cache.addAll(CLIENT_MANIFEST);
+  }
+}
+
+self.addEventListener("fetch", function (event) {
+  if (
+    event.request.method === "GET" &&
+    CLIENT_MANIFEST_MAP[event.request.url]
+  ) {
+    event.respondWith(
+      caches.match(event.request).then(function (response) {
+        if (response) {
+          return response;
+        }
+        return fetch(event.request).then(function (response) {
+          if (response?.status !== 200) {
+            return response;
+          }
+          const responseToCache = response.clone();
+          caches.open(VERSION).then(function (cache) {
+            cache.put(event.request, responseToCache);
+          });
+          return response;
+        });
+      })
+    );
+  }
+});
 
 self.addEventListener("install", function (event) {
   console.log("Service worker installed (" + VERSION + ")");
-  event.waitUntil(self.skipWaiting());
+  event.waitUntil(Promise.all([precache(), self.skipWaiting()]));
 });
 
 self.addEventListener("activate", function (event) {
@@ -80,6 +120,10 @@ self.addEventListener("notificationclick", function (event) {
 });
 `
   .replaceAll("{{version}}", packageJSON.version)
+  .replaceAll(
+    `["{{client_manifest}}"]`,
+    JSON.stringify((global as any)?.CLIENT_MANIFEST || [])
+  )
   .trim();
 
 export async function loader() {

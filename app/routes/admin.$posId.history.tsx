@@ -14,18 +14,17 @@ export async function clientLoader() {
   const sorted = notifications.sort((a, b) => {
     return b.timestamp?.localeCompare?.(a.timestamp) || 0;
   });
-  const read = sorted.filter((n) => n.read_at);
 
   return {
-    notifications: sorted,
-    read
+    notifications: sorted
   };
 }
 
 export default function AdminPOSHistory() {
-  const { notifications, read } = useLoaderData<typeof clientLoader>();
+  const { notifications } = useLoaderData<typeof clientLoader>();
   const [revalidator] = useRevalidation();
   const [shouldClear, setShouldClear] = useState(false);
+  const [shouldClearRead, setShouldClearRead] = useState(false);
 
   async function handleClick(notification: any) {
     if (!notification.read_at) {
@@ -78,7 +77,7 @@ export default function AdminPOSHistory() {
   }
 
   return (
-    <div className="flex w-full flex-col items-center gap-4">
+    <div className="flex w-full flex-col items-center gap-4 pb-[4rem]">
       <Table>
         <TableBody>
           <TableRow className="text-xs">
@@ -130,41 +129,52 @@ export default function AdminPOSHistory() {
               );
             })
           )}
+          {notifications?.length > 0 && (
+            <>
+              <TableRow>
+                <TableCell
+                  colSpan={2}
+                  className="text-right text-muted-foreground"
+                  onClick={() => setShouldClearRead(true)}
+                >
+                  Hapus terbaca
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell
+                  colSpan={2}
+                  className="text-right text-muted-foreground"
+                  onClick={() => setShouldClear(true)}
+                >
+                  Hapus semua
+                </TableCell>
+              </TableRow>
+            </>
+          )}
         </TableBody>
       </Table>
-      {notifications?.length > 0 && (
-        <div className="flex w-full flex-row gap-2 px-3">
-          <Button
-            variant={"secondary"}
-            className="grow"
-            onClick={() => setShouldClear(true)}
-          >
-            Hapus semua
-          </Button>
-          <Button
-            variant={"secondary"}
-            className="grow"
-            disabled={!read?.length}
-            onClick={() => clearRead()}
-          >
-            Hapus terbaca
-          </Button>
-        </div>
-      )}
-      <AlertDialog open={shouldClear}>
+      <AlertDialog open={shouldClear || shouldClearRead}>
         <AlertDialogContent className="flex w-full flex-col">
           <div className="flex flex-col items-center">
             <span className="text-base font-semibold">Anda yakin?</span>
             <span className="text-sm text-muted-foreground">
-              Semua notifikasi akan dihapus
+              {shouldClearRead
+                ? "Notifikasi yang sudah terbaca akan dihapus"
+                : "Semua notifikasi akan dihapus"}
             </span>
           </div>
           <div className="flex w-full flex-row gap-2">
             <Button
               className="grow"
               onClick={() => {
-                clear();
+                if (shouldClear) {
+                  clear();
+                }
+                if (shouldClearRead) {
+                  clearRead();
+                }
                 setShouldClear(false);
+                setShouldClearRead(false);
               }}
             >
               Ya
@@ -172,7 +182,10 @@ export default function AdminPOSHistory() {
             <Button
               className="grow"
               variant={"secondary"}
-              onClick={() => setShouldClear(false)}
+              onClick={() => {
+                setShouldClear(false);
+                setShouldClearRead(false);
+              }}
             >
               Tidak
             </Button>
