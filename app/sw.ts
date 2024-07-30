@@ -20,7 +20,9 @@ async function precache() {
       await Promise.all(keys.map((key) => caches.delete(key)));
     }
     const cache = await caches.open(VERSION);
-    await cache.addAll(CLIENT_MANIFEST);
+    await cache.addAll(
+      CLIENT_MANIFEST.map((url) => new Request(url, { mode: "no-cors" }))
+    );
   }
 }
 
