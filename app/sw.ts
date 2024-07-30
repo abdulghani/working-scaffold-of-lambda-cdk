@@ -21,7 +21,7 @@ self.addEventListener("activate", function (event) {
 
 function sortNotifications(notifications: any[]) {
   return (notifications || []).sort((a, b) => {
-    return b.timestamp.localeCompare(a.timestamp);
+    return b.timestamp?.localeCompare?.(a.timestamp);
   });
 }
 
