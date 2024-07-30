@@ -14,23 +14,34 @@ self.addEventListener("activate", function (event) {
   event.waitUntil(Promise.all([self.clients.claim()]));
 });
 
+async function showNotification(data: any) {
+  await self.registration.showNotification(data?.title, {
+    body: data?.description,
+    icon: LOGO,
+    badge: LOGO,
+    data: {
+      url: data?.path
+    }
+  });
+
+  if (navigator?.setAppBadge) {
+    await navigator.setAppBadge(data?.badge || 1);
+  }
+}
+
 self.addEventListener("push", function (event) {
   const data = JSON.parse(event.data?.text() || "{}");
-  event.waitUntil(
-    self.registration.showNotification(data?.title, {
-      body: data?.description,
-      icon: LOGO,
-      badge: LOGO,
-      data: {
-        url: data?.path
-      }
-    })
-  );
+  event.waitUntil(showNotification(data));
 });
+
+async function openNotification(path: any) {
+  await self.clients.openWindow(path);
+  if (navigator?.clearAppBadge) {
+    await navigator.clearAppBadge();
+  }
+}
 
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
-  event.waitUntil(
-    self.clients.openWindow(event.notification?.data?.url || "/admin")
-  );
+  event.waitUntil(openNotification(event.notification?.data?.url || "/admin"));
 });
