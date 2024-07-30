@@ -1,4 +1,5 @@
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { useRevalidation } from "@/hooks/use-revalidation";
 import { useLoaderData } from "@remix-run/react";
 import localforage from "localforage";
 import { DateTime } from "luxon";
@@ -6,14 +7,18 @@ import { DateTime } from "luxon";
 export async function clientLoader() {
   const notifications: any[] =
     (await localforage.getItem("notifications")) || [];
+  const sorted = notifications.sort((a, b) => {
+    return b.timestamp.localeCompare(a.timestamp);
+  });
 
   return {
-    notifications
+    notifications: sorted
   };
 }
 
 export default function AdminPOSHistory() {
   const { notifications } = useLoaderData<typeof clientLoader>();
+  useRevalidation();
 
   async function handleClick(notification: any) {
     try {
@@ -72,9 +77,7 @@ export default function AdminPOSHistory() {
                     </div>
                   </TableCell>
                   <TableCell className="text-right text-xs text-muted-foreground">
-                    {DateTime.fromISO(
-                      notification.timestamp || new Date().toISOString()
-                    ).toRelative()}
+                    {DateTime.fromISO(notification.timestamp).toRelative()}
                   </TableCell>
                 </TableRow>
               );

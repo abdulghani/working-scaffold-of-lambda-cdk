@@ -19,6 +19,12 @@ self.addEventListener("activate", function (event) {
   event.waitUntil(Promise.all([self.clients.claim()]));
 });
 
+function sortNotifications(notifications: any[]) {
+  return (notifications || []).sort((a, b) => {
+    return b.timestamp.localeCompare(a.timestamp);
+  });
+}
+
 async function showNotification(data: any) {
   await self.registration.showNotification(data?.title, {
     body: data?.description,
@@ -36,7 +42,10 @@ async function showNotification(data: any) {
     await navigator.setAppBadge(notifications.length);
   }
 
-  await self.localforage.setItem("notifications", notifications);
+  await self.localforage.setItem(
+    "notifications",
+    sortNotifications(notifications)
+  );
 }
 
 self.addEventListener("push", function (event) {
@@ -55,7 +64,7 @@ async function openNotification(data: any) {
   } else if (navigator?.clearAppBadge && !filtered.length) {
     await navigator.clearAppBadge();
   }
-  await self.localforage.setItem("notifications", filtered);
+  await self.localforage.setItem("notifications", sortNotifications(filtered));
 }
 
 self.addEventListener("notificationclick", function (event) {
