@@ -42,8 +42,7 @@ export async function clientLoader({ serverLoader }: ClientLoaderFunctionArgs) {
   const serverData = await serverLoader<typeof loader>();
   const sw = await navigator?.serviceWorker?.ready;
   const sub = await sw?.pushManager?.getSubscription?.();
-  const data = sub?.toJSON();
-  const subP256dh = data?.keys?.p256dh;
+  const subP256dh = sub?.toJSON?.()?.keys?.p256dh;
 
   return {
     ...serverData,
