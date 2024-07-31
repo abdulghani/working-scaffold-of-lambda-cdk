@@ -6,6 +6,7 @@ import { isNotificationSupported } from "@/lib/is-notification-supported";
 import { cn } from "@/lib/utils";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import {
+  ClientLoaderFunctionArgs,
   ShouldRevalidateFunctionArgs,
   useLoaderData,
   useSubmit
@@ -23,7 +24,7 @@ import {
   subscribeTopic,
   SUBSCRIPTION_TOPIC_LABEL
 } from "app/service/push";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import packageJSON from "../../package.json";
 
@@ -35,6 +36,23 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   const applicationServerKey = getVAPIDKey?.();
 
   return { subscriptionKey, notificationSettings, applicationServerKey };
+}
+
+export async function clientLoader({ serverLoader }: ClientLoaderFunctionArgs) {
+  const serverData = await serverLoader<typeof loader>();
+  const sw = await navigator?.serviceWorker?.ready;
+  const sub = await sw?.pushManager?.getSubscription?.();
+  const data = sub?.toJSON();
+  const subP256dh = data?.keys?.p256dh;
+
+  return {
+    ...serverData,
+    subP256dh,
+    isSubscribed:
+      serverData?.subscriptionKey &&
+      subP256dh &&
+      serverData.subscriptionKey === subP256dh
+  };
 }
 
 export async function action({ request }: ActionFunctionArgs) {
@@ -78,34 +96,10 @@ export function shouldRevalidate({
 }
 
 export default function Settings() {
-  const { subscriptionKey, notificationSettings, applicationServerKey } =
+  const { notificationSettings, applicationServerKey, isSubscribed } =
     useLoaderData<any>();
-  const [subP256dh, setSubP256dh] = useState<string | null | undefined>(null);
   const submit = useSubmit();
   const [isLogout, setIsLogout] = useState(false);
-
-  const getSubscription = useCallback(async () => {
-    const sw = await navigator?.serviceWorker?.ready;
-    const sub = await sw?.pushManager?.getSubscription?.();
-    const data = sub?.toJSON();
-    return data?.keys?.p256dh;
-  }, []);
-
-  useEffect(() => {
-    if (!subP256dh) {
-      getSubscription().then((data) => setSubP256dh(data));
-    }
-  }, [subP256dh, getSubscription]);
-
-  const isSubscribed = useMemo(() => {
-    return (
-      isNotificationSupported?.() &&
-      Notification?.permission === "granted" &&
-      !!subP256dh &&
-      !!subscriptionKey &&
-      subscriptionKey === subP256dh
-    );
-  }, [subscriptionKey, subP256dh]);
 
   const subscribeTopic = useCallback(
     async function (topic: string, e: boolean) {
@@ -153,7 +147,6 @@ export default function Settings() {
           applicationServerKey,
           userVisibleOnly: true
         });
-        setSubP256dh(await getSubscription());
         submit(
           JSON.stringify({ _action: "subscribe_push", subscription: newSub }),
           {
@@ -167,7 +160,6 @@ export default function Settings() {
         if (existingSub) {
           await existingSub.unsubscribe();
         }
-        setSubP256dh(null);
         submit(
           JSON.stringify({
             _action: "unsubscribe_push"
@@ -179,7 +171,7 @@ export default function Settings() {
         );
       }
     },
-    [isSubscribed, applicationServerKey, getSubscription, submit]
+    [isSubscribed, applicationServerKey, submit]
   );
 
   return (
