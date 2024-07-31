@@ -1,31 +1,29 @@
-type Self = ServiceWorkerGlobalScope & { localforage: any };
-declare let self: Self;
-
 importScripts(
   "https://pranaga-images.s3.ap-southeast-1.amazonaws.com/localforage.min.js"
 );
 
+const BUNDLE_MANIFEST = ["{{bundleManifest}}"];
 const VERSION = "{{version}}";
 const LOGO =
   "https://pranaga-random-bucket.s3.ap-southeast-1.amazonaws.com/pranaga-light-192.png";
 
 self.addEventListener("install", function (event) {
-  console.log("Service worker installed (" + VERSION + ")");
+  console.log(`Service worker installed (${VERSION})`);
   event.waitUntil(self.skipWaiting());
 });
 
 self.addEventListener("activate", function (event) {
-  console.log("Service worker activated (" + VERSION + ")");
+  console.log(`Service worker activated (${VERSION})`);
   event.waitUntil(Promise.all([self.clients.claim()]));
 });
 
-function sortNotifications(notifications: any[]) {
+function sortNotifications(notifications) {
   return (notifications || []).sort((a, b) => {
     return b.timestamp?.localeCompare?.(a.timestamp) || 0;
   });
 }
 
-async function showNotification(data: any) {
+async function showNotification(data) {
   await self.registration.showNotification(data?.title, {
     body: data?.description,
     icon: LOGO,
@@ -35,7 +33,7 @@ async function showNotification(data: any) {
 
   const notifications = (await self.localforage.getItem("notifications")) || [];
   notifications.push(data);
-  const unread = notifications.filter((n: any) => !n.read_at);
+  const unread = notifications.filter((n) => !n.read_at);
   if (unread.length && navigator?.setAppBadge) {
     await navigator.setAppBadge(unread.length);
   } else if (!unread.length && navigator?.clearAppBadge) {
@@ -53,16 +51,16 @@ self.addEventListener("push", function (event) {
   event.waitUntil(showNotification(data));
 });
 
-async function openNotification(data: any) {
+async function openNotification(data) {
   const path = data?.path || "/admin";
   await self.clients.openWindow(path);
 
   const notifications = (await self.localforage.getItem("notifications")) || [];
-  const id = notifications.findIndex((n: any) => n.id === data.id);
+  const id = notifications.findIndex((n) => n.id === data.id);
   if (id !== -1) {
     notifications[id].read_at = new Date().toISOString();
   }
-  const unread = notifications.filter((n: any) => !n.read_at);
+  const unread = notifications.filter((n) => !n.read_at);
   if (unread.length && navigator?.setAppBadge) {
     await navigator.setAppBadge(unread.length);
   } else if (!unread.length && navigator?.clearAppBadge) {

@@ -9,8 +9,8 @@ import { envOnlyMacros } from "vite-env-only";
 // This installs globals such as "fetch", "Response", "Request" and "Headers".
 installGlobals();
 
-function injectManifest(options: { isBuild: boolean }) {
-  const { isBuild } = options;
+function injectManifest(options: { isBuild: boolean; base: string }) {
+  const { isBuild, base } = options;
   const name = "custom-plugin";
   const filename = ".client-manifest.json";
 
@@ -24,9 +24,7 @@ function injectManifest(options: { isBuild: boolean }) {
     name,
     generateBundle(options: any, bundle: any) {
       if (options.dir.endsWith("client")) {
-        const list = Object.keys(bundle).map(
-          (key) => process.env.VITE_S3_BASE_URL + key
-        );
+        const list = Object.keys(bundle).map((key) => base + key);
         fs.writeFileSync(filename, JSON.stringify(list), {
           encoding: "utf-8"
         });

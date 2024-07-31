@@ -13,6 +13,7 @@ dist-ssr
 *.local
 build
 public/sw.js
+.client-manifest.json
 
 # Editor directories and files
 .vscode/*
