@@ -1,12 +1,16 @@
 import { AlertDialog, AlertDialogContent } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { useRevalidation } from "@/hooks/use-revalidation";
 import { cn } from "@/lib/utils";
-import { useLoaderData } from "@remix-run/react";
+import {
+  ClientActionFunctionArgs,
+  Form,
+  useLoaderData,
+  useNavigation
+} from "@remix-run/react";
 import localforage from "localforage";
 import { DateTime } from "luxon";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export async function clientLoader() {
   const notifications: any[] =
@@ -14,17 +18,49 @@ export async function clientLoader() {
   const sorted = notifications.sort((a, b) => {
     return b.timestamp?.localeCompare?.(a.timestamp) || 0;
   });
+  const read = sorted.filter((n) => n.read_at);
 
   return {
-    notifications: sorted
+    notifications: sorted,
+    read
   };
 }
 
+export async function clientAction({ request }: ClientActionFunctionArgs) {
+  const payload = await request.formData().then(Object.fromEntries);
+
+  if (payload._action === "clear") {
+    await localforage.removeItem("notifications");
+    if (navigator.clearAppBadge) {
+      await navigator.clearAppBadge();
+    }
+
+    return { _action: "clear" };
+  } else if (payload._action === "clearRead") {
+    const notifications: any[] =
+      (await localforage.getItem("notifications")) || [];
+    const filtered = notifications.filter((n) => !n.read_at);
+    await localforage.setItem("notifications", filtered);
+    if (filtered.length && navigator.setAppBadge) {
+      await navigator.setAppBadge(filtered.length);
+    } else if (!filtered.length && navigator.clearAppBadge) {
+      await navigator.clearAppBadge();
+    }
+
+    return { _action: "clearRead" };
+  }
+
+  return {};
+}
+
 export default function AdminPOSHistory() {
-  const { notifications } = useLoaderData<typeof clientLoader>();
-  const [revalidator] = useRevalidation();
+  const { notifications, read } = useLoaderData<typeof clientLoader>();
   const [shouldClear, setShouldClear] = useState(false);
   const [shouldClearRead, setShouldClearRead] = useState(false);
+  const navigation = useNavigation();
+  const isBusy = useMemo(() => {
+    return navigation.state === "loading" || navigation.state === "submitting";
+  }, [navigation.state]);
 
   async function handleClick(notification: any) {
     if (!notification.read_at) {
@@ -47,33 +83,6 @@ export default function AdminPOSHistory() {
       }
     }
     window.location.href = notification.path || "/admin";
-  }
-
-  async function clear() {
-    try {
-      await localforage.removeItem("notifications");
-      if (navigator.clearAppBadge) {
-        await navigator.clearAppBadge();
-      }
-      revalidator.revalidate();
-    } catch (err) {
-      // not doing anything
-    }
-  }
-
-  async function clearRead() {
-    try {
-      const filtered = notifications.filter((n: any) => !n.read_at);
-      await localforage.setItem("notifications", filtered);
-      if (filtered.length && navigator.setAppBadge) {
-        await navigator.setAppBadge(filtered.length);
-      } else if (!filtered.length && navigator.clearAppBadge) {
-        await navigator.clearAppBadge();
-      }
-      revalidator.revalidate();
-    } catch (err) {
-      // not doing anything
-    }
   }
 
   return (
@@ -134,7 +143,10 @@ export default function AdminPOSHistory() {
               <TableCell colSpan={2} className="text-muted-foreground">
                 <div className="flex w-full flex-row justify-between">
                   <div onClick={() => setShouldClear(true)}>Hapus semua</div>
-                  <div onClick={() => setShouldClearRead(true)}>
+                  <div
+                    className={cn(!read?.length && "opacity-50")}
+                    onClick={() => read?.length > 0 && setShouldClearRead(true)}
+                  >
                     Hapus terbaca
                   </div>
                 </div>
@@ -153,25 +165,27 @@ export default function AdminPOSHistory() {
                 : "Semua notifikasi akan dihapus"}
             </span>
           </div>
-          <div className="flex w-full flex-row gap-2">
+          <Form
+            className="flex w-full flex-row gap-2"
+            method="post"
+            onSubmit={() => {
+              setShouldClear(false);
+              setShouldClearRead(false);
+            }}
+          >
             <Button
               className="grow"
-              onClick={() => {
-                if (shouldClear) {
-                  clear();
-                }
-                if (shouldClearRead) {
-                  clearRead();
-                }
-                setShouldClear(false);
-                setShouldClearRead(false);
-              }}
+              type="submit"
+              name="_action"
+              value={shouldClearRead ? "clearRead" : "clear"}
+              disabled={isBusy}
             >
               Ya
             </Button>
             <Button
               className="grow"
               variant={"secondary"}
+              type="button"
               onClick={() => {
                 setShouldClear(false);
                 setShouldClearRead(false);
@@ -179,7 +193,7 @@ export default function AdminPOSHistory() {
             >
               Tidak
             </Button>
-          </div>
+          </Form>
         </AlertDialogContent>
       </AlertDialog>
     </div>
