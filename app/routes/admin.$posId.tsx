@@ -111,7 +111,7 @@ export default function MenuAdmin() {
                 disabled: isLoading
               },
               {
-                title: "Riwayat aktivitas",
+                title: "Riwayat pemberitahuan",
                 icon: HistoryIcon,
                 active: sectionId === "history",
                 to: `/admin/${params.posId}/history`,

@@ -161,8 +161,8 @@ export default function AdminPOSHistory() {
             <span className="text-base font-semibold">Anda yakin?</span>
             <span className="text-sm text-muted-foreground">
               {shouldClearRead
-                ? "Notifikasi yang sudah terbaca akan dihapus"
-                : "Semua notifikasi akan dihapus"}
+                ? `${read.length} Notifikasi yang sudah terbaca akan dihapus`
+                : `Semua notifikasi akan dihapus`}
             </span>
           </div>
           <Form

@@ -18,9 +18,15 @@ self.addEventListener("activate", function (event) {
 });
 
 function sortNotifications(notifications) {
-  return (notifications || []).sort((a, b) => {
+  const result = (notifications || []).sort((a, b) => {
     return b.timestamp?.localeCompare?.(a.timestamp) || 0;
   });
+
+  if (result.length > 100) {
+    result.splice(100, result.length);
+  }
+
+  return result;
 }
 
 async function showNotification(data) {
