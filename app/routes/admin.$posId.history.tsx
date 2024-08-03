@@ -5,8 +5,10 @@ import { cn } from "@/lib/utils";
 import {
   ClientActionFunctionArgs,
   Form,
+  redirect,
   useLoaderData,
-  useNavigation
+  useNavigation,
+  useSubmit
 } from "@remix-run/react";
 import localforage from "localforage";
 import { DateTime } from "luxon";
@@ -34,7 +36,6 @@ export async function clientAction({ request }: ClientActionFunctionArgs) {
     if (navigator.clearAppBadge) {
       await navigator.clearAppBadge();
     }
-
     return { _action: "clear" };
   } else if (payload._action === "clearRead") {
     const notifications: any[] =
@@ -46,8 +47,11 @@ export async function clientAction({ request }: ClientActionFunctionArgs) {
     } else if (!filtered.length && navigator.clearAppBadge) {
       await navigator.clearAppBadge();
     }
-
     return { _action: "clearRead" };
+  } else if (payload._action === "READ_NOTIFICATION") {
+    const sw = await navigator.serviceWorker.ready;
+    sw.active?.postMessage?.(payload);
+    throw redirect(payload.path || "/admin");
   }
 
   return {};
@@ -61,14 +65,15 @@ export default function AdminPOSHistory() {
   const isBusy = useMemo(() => {
     return navigation.state === "loading" || navigation.state === "submitting";
   }, [navigation.state]);
+  const submit = useSubmit();
 
   async function handleClick(notification: any) {
-    const sw = await navigator.serviceWorker.ready;
-    sw.active?.postMessage({
-      _action: "READ_NOTIFICATION",
-      ...notification
+    const form = new FormData();
+    form.append("_action", "READ_NOTIFICATION");
+    Object.entries(notification).forEach(([key, value]: any) => {
+      form.append(key, value);
     });
-    window.location.href = notification.path || "/admin";
+    submit(form, { method: "post" });
   }
 
   return (
