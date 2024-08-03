@@ -63,25 +63,11 @@ export default function AdminPOSHistory() {
   }, [navigation.state]);
 
   async function handleClick(notification: any) {
-    if (!notification.read_at) {
-      try {
-        const id = notifications.findIndex(
-          (n: any) => n.id === notification.id
-        );
-        if (id !== -1) {
-          notifications[id].read_at = DateTime.now().toISO();
-        }
-        const unread = notifications.filter((n: any) => !n.read_at);
-        localforage.setItem("notifications", notifications);
-        if (unread.length && navigator.setAppBadge) {
-          navigator.setAppBadge(unread.length);
-        } else if (!unread.length && navigator.clearAppBadge) {
-          navigator.clearAppBadge();
-        }
-      } catch (err) {
-        // not doing anything
-      }
-    }
+    const sw = await navigator.serviceWorker.ready;
+    sw.active?.postMessage({
+      _action: "READ_NOTIFICATION",
+      ...notification
+    });
     window.location.href = notification.path || "/admin";
   }
 
@@ -162,7 +148,7 @@ export default function AdminPOSHistory() {
             <span className="text-sm text-muted-foreground">
               {shouldClearRead
                 ? `${read.length} Notifikasi yang sudah terbaca akan dihapus`
-                : `Semua notifikasi akan dihapus`}
+                : `${notifications.length} notifikasi akan dihapus`}
             </span>
           </div>
           <Form

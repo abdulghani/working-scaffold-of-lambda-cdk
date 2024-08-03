@@ -2,6 +2,7 @@ importScripts(
   "https://pranaga-images.s3.ap-southeast-1.amazonaws.com/localforage.min.js"
 );
 
+const localforage = self.localforage;
 const BUNDLE_MANIFEST = ["{{bundleManifest}}"];
 const VERSION = "{{version}}";
 const LOGO =
@@ -18,7 +19,7 @@ self.addEventListener("activate", function (event) {
 });
 
 function sortNotifications(notifications) {
-  const result = (notifications || []).sort((a, b) => {
+  const result = structuredClone(notifications || []).sort((a, b) => {
     return b.timestamp?.localeCompare?.(a.timestamp) || 0;
   });
 
@@ -28,6 +29,40 @@ function sortNotifications(notifications) {
 
   return result;
 }
+
+async function readNotification(notification) {
+  if (!notification.read_at) {
+    const notifications = (await localforage.getItem("notifications")) || [];
+    const id = notifications.findIndex((n) => n.id === notification.id);
+    if (id !== -1) {
+      notifications[id].read_at = new Date().toISOString();
+    }
+    const unread = notifications.filter((n) => !n.read_at);
+    localforage.setItem("notifications", sortNotifications(notifications));
+    if (unread.length && navigator?.setAppBadge) {
+      await navigator.setAppBadge(unread.length);
+    } else if (!unread.length && navigator?.clearAppBadge) {
+      await navigator.clearAppBadge();
+    }
+  }
+}
+
+// handle event in postmessage
+self.addEventListener("message", (event) => {
+  event.waitUntil(
+    (async () => {
+      switch (event.data?._action) {
+        case "READ_NOTIFICATION": {
+          await readNotification(event.data);
+          break;
+        }
+        default: {
+          break;
+        }
+      }
+    })()
+  );
+});
 
 async function showNotification(data) {
   await self.registration.showNotification(data?.title, {
@@ -45,11 +80,7 @@ async function showNotification(data) {
   } else if (!unread.length && navigator?.clearAppBadge) {
     await navigator.clearAppBadge();
   }
-
-  await self.localforage.setItem(
-    "notifications",
-    sortNotifications(notifications)
-  );
+  await localforage.setItem("notifications", sortNotifications(notifications));
 }
 
 self.addEventListener("push", function (event) {
@@ -61,7 +92,7 @@ async function openNotification(data) {
   const path = data?.path || "/admin";
   await self.clients.openWindow(path);
 
-  const notifications = (await self.localforage.getItem("notifications")) || [];
+  const notifications = (await localforage.getItem("notifications")) || [];
   const id = notifications.findIndex((n) => n.id === data.id);
   if (id !== -1) {
     notifications[id].read_at = new Date().toISOString();
@@ -72,10 +103,7 @@ async function openNotification(data) {
   } else if (!unread.length && navigator?.clearAppBadge) {
     await navigator.clearAppBadge();
   }
-  await self.localforage.setItem(
-    "notifications",
-    sortNotifications(notifications)
-  );
+  await localforage.setItem("notifications", sortNotifications(notifications));
 }
 
 self.addEventListener("notificationclick", function (event) {
