@@ -4,6 +4,7 @@ import { padNumber } from "@/lib/pad-number";
 import { ulid } from "ulid";
 import { serverOnly$ } from "vite-env-only/macros";
 import webpush from "web-push";
+import { SESSION_CACHE } from "./auth";
 import { dbconn } from "./db";
 
 export const getVAPIDKey = serverOnly$(function () {
@@ -30,12 +31,15 @@ export const SUBSCRIPTION_TOPIC_LABEL = {
 export const removeSubscription = serverOnly$(async function (
   sessionToken: string
 ) {
-  return await dbconn?.("session")
+  const result = await dbconn?.("session")
     .where({ session_id: sessionToken })
     .update({
       notification_subscription: null
     })
     .returning("*");
+  SESSION_CACHE.delete(sessionToken);
+
+  return result;
 });
 
 export const saveSubscription = serverOnly$(async function (options: {
@@ -62,6 +66,7 @@ export const saveSubscription = serverOnly$(async function (options: {
       notification_subscription: JSON.stringify(subscription)
     });
   await transaction?.commit();
+  SESSION_CACHE.delete(sessionToken);
   await sendNotification?.({
     title: "Notifikasi aktif",
     description: "Notifikasi berhasil diaktifkan",

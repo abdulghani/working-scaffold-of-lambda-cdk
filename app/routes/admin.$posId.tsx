@@ -27,11 +27,12 @@ import {
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await verifySessionPOSAccess?.(request, params.posId!);
+  const { subscription } =
+    (await verifySessionPOSAccess?.(request, params.posId!)) || {};
   const { posId } = params;
   const [pos] = await Promise.all([validatePOSId?.(posId!)]);
 
-  return { pos };
+  return { pos, subscription };
 }
 
 export function useDebouncedMenu<T = any>(value: T, delay: number): T {
@@ -56,7 +57,7 @@ export function useDebouncedMenu<T = any>(value: T, delay: number): T {
 }
 
 export default function MenuAdmin() {
-  const { pos } = useLoaderData<typeof loader>();
+  const { pos, subscription } = useLoaderData<typeof loader>();
   const params = useParams();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isHeaderTop = useDebouncedMenu(isMenuOpen, 500);
@@ -88,43 +89,47 @@ export default function MenuAdmin() {
           <Nav
             className="border-t border-zinc-50"
             onClick={() => setTimeout(() => setIsMenuOpen(false), 200)}
-            links={[
-              {
-                title: "Antrian",
-                icon: Users,
-                active: sectionId === "queue",
-                to: `/admin/${params.posId}/queue`,
-                disabled: isLoading
-              },
-              {
-                title: "Pesanan",
-                icon: ClipboardList,
-                active: sectionId === "order",
-                to: `/admin/${params.posId}/order`,
-                disabled: isLoading
-              },
-              {
-                title: "Menu",
-                icon: NotepadText,
-                active: sectionId === "menu",
-                to: `/admin/${params.posId}/menu`,
-                disabled: isLoading
-              },
-              {
-                title: "Riwayat pemberitahuan",
-                icon: HistoryIcon,
-                active: sectionId === "history",
-                to: `/admin/${params.posId}/history`,
-                disabled: isLoading
-              },
-              {
-                title: "Pengaturan",
-                icon: Settings2,
-                active: sectionId === "settings",
-                to: `/admin/${params.posId}/settings`,
-                disabled: isLoading
-              }
-            ]}
+            links={
+              [
+                {
+                  title: "Antrian",
+                  icon: Users,
+                  active: sectionId === "queue",
+                  to: `/admin/${params.posId}/queue`,
+                  disabled: isLoading
+                },
+                {
+                  title: "Pesanan",
+                  icon: ClipboardList,
+                  active: sectionId === "order",
+                  to: `/admin/${params.posId}/order`,
+                  disabled: isLoading
+                },
+                {
+                  title: "Menu",
+                  icon: NotepadText,
+                  active: sectionId === "menu",
+                  to: `/admin/${params.posId}/menu`,
+                  disabled: isLoading
+                },
+                subscription
+                  ? {
+                      title: "Riwayat pemberitahuan",
+                      icon: HistoryIcon,
+                      active: sectionId === "history",
+                      to: `/admin/${params.posId}/history`,
+                      disabled: isLoading
+                    }
+                  : null,
+                {
+                  title: "Pengaturan",
+                  icon: Settings2,
+                  active: sectionId === "settings",
+                  to: `/admin/${params.posId}/settings`,
+                  disabled: isLoading
+                }
+              ].filter(Boolean) as any
+            }
           />
         </SheetContent>
       </Sheet>

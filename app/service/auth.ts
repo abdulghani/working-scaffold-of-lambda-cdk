@@ -38,7 +38,12 @@ export const otpFlowCookie = createCookie("otpFlow", {
   maxAge: 60 * 60 * 1 // 1 hour
 });
 
-const SESSION_CACHE = new LRUCache({
+export const SESSION_CACHE = new LRUCache({
+  ttl: 1000 * 60 * 60, // 1 hour,
+  ttlAutopurge: true
+});
+
+const POS_CACHE = new LRUCache({
   ttl: 1000 * 60 * 60, // 1 hour,
   ttlAutopurge: true
 });
@@ -239,12 +244,17 @@ export const verifySession = serverOnly$(async (request: Request) => {
     });
   }
 
-  return session.user_id;
+  return session;
 });
 
 export const verifySessionPOSAccess = serverOnly$(
   async (request: Request, posId: string) => {
-    const userId = await verifySession?.(request);
+    const session = await verifySession?.(request);
+    const userId = session.user_id;
+    const cacheKey = `${userId}:${posId}`;
+    if (POS_CACHE.has(cacheKey)) {
+      return { posId, userId, subscription: session.notification_subscription };
+    }
     const connection = await dbconn?.("user_pos")
       .where({ user_id: userId, pos_id: posId })
       .first();
@@ -255,15 +265,16 @@ export const verifySessionPOSAccess = serverOnly$(
         status: 403
       });
     }
+    POS_CACHE.set(cacheKey, connection);
 
-    return { posId, userId };
+    return { posId, userId, subscription: session.notification_subscription };
   }
 );
 
 export const getSessionPOS = serverOnly$(async (request: Request) => {
-  const userId = await verifySession?.(request);
+  const session = await verifySession?.(request);
   const connections = await dbconn?.("user_pos")
-    .where({ user_id: userId })
+    .where({ user_id: session.user_id })
     .first();
 
   if (!connections) {

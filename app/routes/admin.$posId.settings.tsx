@@ -55,7 +55,8 @@ export async function clientLoader({ serverLoader }: ClientLoaderFunctionArgs) {
 }
 
 export async function action({ request }: ActionFunctionArgs) {
-  const userId = await verifySession?.(request);
+  const session = await verifySession?.(request);
+  const userId = session.user_id;
   const body = await request.json();
   const sessionToken = await sessionCookie.parse(request.headers.get("Cookie"));
 
