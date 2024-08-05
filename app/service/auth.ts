@@ -1,7 +1,6 @@
 import { ActionError } from "@/lib/action-error";
 import { createCookie, redirect } from "@remix-run/node";
 import { INTERNAL_EVENT } from "app/routes/api.internal-action";
-import { LRUCache } from "lru-cache";
 import { DateTime } from "luxon";
 import { ulid } from "ulid";
 import { serverOnly$ } from "vite-env-only/macros";
@@ -36,16 +35,6 @@ export const otpFlowCookie = createCookie("otpFlow", {
   secrets: [COOKIE_SECRET],
   secure: process.env.NODE_ENV === "production",
   maxAge: 60 * 60 * 1 // 1 hour
-});
-
-export const SESSION_CACHE = new LRUCache({
-  ttl: 1000 * 60 * 60, // 1 hour,
-  ttlAutopurge: true
-});
-
-const POS_CACHE = new LRUCache({
-  ttl: 1000 * 60 * 60, // 1 hour,
-  ttlAutopurge: true
 });
 
 export async function sendOTP(email: string) {
@@ -165,7 +154,6 @@ export async function verifyOTP(options: {
     notification_subscription: options.push_subscription || null
   });
   await transaction?.commit();
-  SESSION_CACHE.delete(sessionToken);
 
   if (options.push_subscription) {
     const parsed = JSON.parse(options.push_subscription);
@@ -220,22 +208,12 @@ export const verifySession = serverOnly$(async (request: Request) => {
       ]
     });
   }
-  const session = await (async () => {
-    if (SESSION_CACHE.has(sessionToken)) {
-      return SESSION_CACHE.get(sessionToken);
-    }
-    const _session = await dbconn?.("session")
-      .where({ session_id: sessionToken })
-      .first();
-    if (_session) {
-      SESSION_CACHE.set(sessionToken, _session);
-    }
-    return _session;
-  })();
+  const session = await dbconn?.("session")
+    .where({ session_id: sessionToken })
+    .first();
 
   // expres_at already in DateTime type (weird)
   if (!session || session.expires_at < DateTime.now()) {
-    SESSION_CACHE.delete(sessionToken);
     throw redirect("/login", {
       headers: [
         ["Set-Cookie", await sessionCookie.serialize("", { maxAge: 0 })],
@@ -251,10 +229,7 @@ export const verifySessionPOSAccess = serverOnly$(
   async (request: Request, posId: string) => {
     const session = await verifySession?.(request);
     const userId = session.user_id;
-    const cacheKey = `${userId}:${posId}`;
-    if (POS_CACHE.has(cacheKey)) {
-      return { posId, userId, subscription: session.notification_subscription };
-    }
+
     const connection = await dbconn?.("user_pos")
       .where({ user_id: userId, pos_id: posId })
       .first();
@@ -265,7 +240,6 @@ export const verifySessionPOSAccess = serverOnly$(
         status: 403
       });
     }
-    POS_CACHE.set(cacheKey, connection);
 
     return { posId, userId, subscription: session.notification_subscription };
   }
@@ -285,7 +259,6 @@ export const getSessionPOS = serverOnly$(async (request: Request) => {
 });
 
 export const cleanupSession = serverOnly$(async () => {
-  SESSION_CACHE.clear();
   await dbconn?.("session")
     .where("expires_at", "<", new Date().toISOString())
     .delete();
