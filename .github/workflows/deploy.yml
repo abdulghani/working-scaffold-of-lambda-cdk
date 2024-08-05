@@ -110,14 +110,14 @@ jobs:
         if: github.ref_name == 'alpha'
         run: |
           BARE_VERSION=$(jq -r '.version' package.json | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')
-          IS_ALPHA=$(jq -r '.version' package.json | grep -E '[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+')
+          IS_ALPHA=$(jq -r '.version' package.json | grep -E '[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+' || true)
           [ -n "$IS_ALPHA" ] && npm version prerelease -m "[skip ci] Release %s" --allow-same-version || npm version "$BARE_VERSION-alpha.0" -m "[skip ci] Release %s" --allow-same-version
           git push
       - name: Bump prerelease beta
         if: github.ref_name == 'beta'
         run: |
           BARE_VERSION=$(jq -r '.version' package.json | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')
-          IS_BETA=$(jq -r '.version' package.json | grep -E '[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+')
+          IS_BETA=$(jq -r '.version' package.json | grep -E '[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+' || true)
           [ -n "$IS_BETA" ] && npm version prerelease -m "[skip ci] Release %s" --allow-same-version || npm version "$BARE_VERSION-beta.0" -m "[skip ci] Release %s" --allow-same-version
           git push
       - name: Bump release
