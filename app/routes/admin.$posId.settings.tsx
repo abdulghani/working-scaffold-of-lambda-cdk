@@ -48,8 +48,10 @@ export async function clientLoader({ serverLoader }: ClientLoaderFunctionArgs) {
     ...serverData,
     subP256dh,
     isSubscribed:
-      serverData?.subscriptionKey &&
-      subP256dh &&
+      serverData?.subscriptionKey !== null &&
+      serverData?.subscriptionKey !== undefined &&
+      subP256dh !== null &&
+      subP256dh !== undefined &&
       serverData.subscriptionKey === subP256dh
   };
 }
