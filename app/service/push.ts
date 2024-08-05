@@ -30,12 +30,15 @@ export const SUBSCRIPTION_TOPIC_LABEL = {
 export const removeSubscription = serverOnly$(async function (
   sessionToken: string
 ) {
-  const result = await dbconn?.("session")
+  // use transaction to avoid race condition fetching session subscription
+  const transaction = await dbconn?.transaction();
+  const result = await transaction?.("session")
     .where({ session_id: sessionToken })
     .update({
       notification_subscription: null
     })
     .returning("*");
+  await transaction?.commit();
 
   return result;
 });
@@ -57,6 +60,7 @@ export const saveSubscription = serverOnly$(async function (options: {
     });
   }
 
+  // use transaction to avoid race condition fetching session subscription
   const transaction = await dbconn?.transaction();
   await transaction?.("session")
     .where({ session_id: sessionToken })
