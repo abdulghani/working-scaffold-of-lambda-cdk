@@ -10,7 +10,6 @@ jobs:
   bump:
     name: Bump
     runs-on: ubuntu-latest
-    if: github.event.action == 'published'
     permissions:
       contents: write
     steps:
