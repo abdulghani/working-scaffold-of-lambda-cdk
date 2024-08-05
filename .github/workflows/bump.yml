@@ -1,5 +1,5 @@
 name: Bump
-run-name: Bump ${{ github.event.pull_request.head.ref }}, by ${{ github.actor }}
+run-name: Bump ${{ github.ref_name }}, by ${{ github.actor }}
 on:
   release:
     branches:
@@ -10,7 +10,7 @@ jobs:
   bump:
     name: Bump
     runs-on: ubuntu-latest
-    if: github.event.action == 'published' && github.ref_name == 'stable'
+    if: github.event.action == 'published'
     permissions:
       contents: write
     steps:
@@ -29,6 +29,7 @@ jobs:
           git pull origin ${{ github.event.pull_request.head.ref }}
       - name: Bump version
         run: |
+          echo "Branch ${{ github.ref_name }}"
           echo "Bumping version to ${{ github.event.release.tag_name }}"
           npm version "${{ github.event.release.tag_name }}" -m "[skip ci] Release %s" --allow-same-version
       - name: Verify version
