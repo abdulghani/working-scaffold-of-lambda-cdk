@@ -6,7 +6,6 @@ import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigation } from "@remix-run/react";
-import { verifySessionPOSAccess } from "app/service/auth";
 import {
   Menu,
   getAdminMenuByPOS,
@@ -37,7 +36,6 @@ export async function loader({ params }: LoaderFunctionArgs) {
 }
 
 export async function action({ params, request }: LoaderFunctionArgs) {
-  await verifySessionPOSAccess?.(request, params.posId!);
   const payload = await request.formData().then(Object.fromEntries);
 
   if (payload._action === "toggleAddon") {
@@ -56,7 +54,7 @@ export async function action({ params, request }: LoaderFunctionArgs) {
 }
 
 export default function AdminMenu() {
-  const { pos, menus, menuCategories } = useLoaderData<typeof loader>();
+  const { menus, menuCategories } = useLoaderData<typeof loader>();
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const categorized = useMemo((): Menu[] => {

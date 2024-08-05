@@ -11,11 +11,7 @@ import {
   useLoaderData,
   useSubmit
 } from "@remix-run/react";
-import {
-  sessionCookie,
-  verifySession,
-  verifySessionPOSAccess
-} from "app/service/auth";
+import { sessionCookie, verifySession } from "app/service/auth";
 import {
   getSubscription,
   getVAPIDKey,
@@ -28,8 +24,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import packageJSON from "../../package.json";
 
-export async function loader({ request, params }: LoaderFunctionArgs) {
-  await verifySessionPOSAccess?.(request, params.posId!);
+export async function loader({ request }: LoaderFunctionArgs) {
   const sessionToken = await sessionCookie.parse(request.headers.get("Cookie"));
   const { subscriptionKey, notificationSettings } =
     (await getSubscription?.(sessionToken)) || {};

@@ -102,8 +102,6 @@ Terima kasih.
 `.trim();
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await verifySessionPOSAccess?.(request, params.posId!);
-
   const searchParams = getRequestSearchParams(request);
   const [orders, accepted, history, menus, tax, selectedOrder] =
     await Promise.all([
