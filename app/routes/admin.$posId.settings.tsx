@@ -91,7 +91,7 @@ export function shouldRevalidate({
   actionResult,
   defaultShouldRevalidate
 }: ShouldRevalidateFunctionArgs) {
-  if (actionResult?.ok) {
+  if (actionResult?.ok === true) {
     return true;
   }
   return defaultShouldRevalidate;
