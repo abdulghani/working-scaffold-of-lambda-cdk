@@ -6,15 +6,12 @@ import { isNotificationSupported } from "@/lib/is-notification-supported";
 import { cn } from "@/lib/utils";
 import { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import {
+  ClientLoaderFunctionArgs,
   ShouldRevalidateFunctionArgs,
   useLoaderData,
   useSubmit
 } from "@remix-run/react";
-import {
-  sessionCookie,
-  verifySession,
-  verifySessionPOSAccess
-} from "app/service/auth";
+import { sessionCookie, verifySession } from "app/service/auth";
 import {
   getSubscription,
   getVAPIDKey,
@@ -23,12 +20,11 @@ import {
   subscribeTopic,
   SUBSCRIPTION_TOPIC_LABEL
 } from "app/service/push";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { toast } from "sonner";
 import packageJSON from "../../package.json";
 
-export async function loader({ request, params }: LoaderFunctionArgs) {
-  await verifySessionPOSAccess?.(request, params.posId!);
+export async function loader({ request }: LoaderFunctionArgs) {
   const sessionToken = await sessionCookie.parse(request.headers.get("Cookie"));
   const { subscriptionKey, notificationSettings } =
     (await getSubscription?.(sessionToken)) || {};
@@ -37,8 +33,27 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   return { subscriptionKey, notificationSettings, applicationServerKey };
 }
 
+export async function clientLoader({ serverLoader }: ClientLoaderFunctionArgs) {
+  const serverData = await serverLoader<typeof loader>();
+  const sw = await navigator?.serviceWorker?.ready;
+  const sub = await sw?.pushManager?.getSubscription?.();
+  const subP256dh = sub?.toJSON?.()?.keys?.p256dh;
+
+  return {
+    ...serverData,
+    subP256dh,
+    isSubscribed:
+      serverData?.subscriptionKey !== null &&
+      serverData?.subscriptionKey !== undefined &&
+      subP256dh !== null &&
+      subP256dh !== undefined &&
+      serverData.subscriptionKey === subP256dh
+  };
+}
+
 export async function action({ request }: ActionFunctionArgs) {
-  const userId = await verifySession?.(request);
+  const session = await verifySession?.(request);
+  const userId = session.user_id;
   const body = await request.json();
   const sessionToken = await sessionCookie.parse(request.headers.get("Cookie"));
 
@@ -71,41 +86,17 @@ export function shouldRevalidate({
   actionResult,
   defaultShouldRevalidate
 }: ShouldRevalidateFunctionArgs) {
-  if (actionResult?.ok) {
+  if (actionResult?.ok === true) {
     return true;
   }
   return defaultShouldRevalidate;
 }
 
 export default function Settings() {
-  const { subscriptionKey, notificationSettings, applicationServerKey } =
+  const { notificationSettings, applicationServerKey, isSubscribed } =
     useLoaderData<any>();
-  const [subP256dh, setSubP256dh] = useState<string | null | undefined>(null);
   const submit = useSubmit();
   const [isLogout, setIsLogout] = useState(false);
-
-  const getSubscription = useCallback(async () => {
-    const sw = await navigator?.serviceWorker?.ready;
-    const sub = await sw?.pushManager?.getSubscription?.();
-    const data = sub?.toJSON();
-    return data?.keys?.p256dh;
-  }, []);
-
-  useEffect(() => {
-    if (!subP256dh) {
-      getSubscription().then((data) => setSubP256dh(data));
-    }
-  }, [subP256dh, getSubscription]);
-
-  const isSubscribed = useMemo(() => {
-    return (
-      isNotificationSupported?.() &&
-      Notification?.permission === "granted" &&
-      !!subP256dh &&
-      !!subscriptionKey &&
-      subscriptionKey === subP256dh
-    );
-  }, [subscriptionKey, subP256dh]);
 
   const subscribeTopic = useCallback(
     async function (topic: string, e: boolean) {
@@ -153,7 +144,6 @@ export default function Settings() {
           applicationServerKey,
           userVisibleOnly: true
         });
-        setSubP256dh(await getSubscription());
         submit(
           JSON.stringify({ _action: "subscribe_push", subscription: newSub }),
           {
@@ -167,7 +157,6 @@ export default function Settings() {
         if (existingSub) {
           await existingSub.unsubscribe();
         }
-        setSubP256dh(null);
         submit(
           JSON.stringify({
             _action: "unsubscribe_push"
@@ -179,7 +168,7 @@ export default function Settings() {
         );
       }
     },
-    [isSubscribed, applicationServerKey, getSubscription, submit]
+    [isSubscribed, applicationServerKey, submit]
   );
 
   return (

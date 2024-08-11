@@ -92,8 +92,8 @@ import { toast } from "sonner";
 import {
   orderDraftReducer,
   OrderDraftShape
-} from "./menu.$posId/order-draft-reducer";
-import { createInstanceId } from "./menu.$posId/order-helper";
+} from "./$posId.menu/order-draft-reducer";
+import { createInstanceId } from "./$posId.menu/order-helper";
 
 const TEXT_TEMPLATE = `
 Halo {name}, pesanan #{order_number} {pos} sudah siap.
@@ -102,8 +102,6 @@ Terima kasih.
 `.trim();
 
 export async function loader({ request, params }: LoaderFunctionArgs) {
-  await verifySessionPOSAccess?.(request, params.posId!);
-
   const searchParams = getRequestSearchParams(request);
   const [orders, accepted, history, menus, tax, selectedOrder] =
     await Promise.all([

@@ -21,4 +21,6 @@ export function useRevalidation() {
       window.removeEventListener("visibilitychange", revalidate);
     };
   }, [revalidate]);
+
+  return [revalidator];
 }

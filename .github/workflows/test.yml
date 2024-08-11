@@ -81,3 +81,42 @@ jobs:
           TEST_DB_USER: postgres
           TEST_DB_NAME: postgres
         run: npm run test
+  run_npm_audit:
+    name: NPM audit
+    needs:
+      - run_lint
+      - run_unit_test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    if: github.event.pull_request.draft == false && github.event.pull_request.state == 'open'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/iron
+      - name: Setup git
+        run: |
+          git config user.name "${{ github.actor }}"
+          git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
+          echo "Branch ${{ github.event.pull_request.head.ref }}"
+          git fetch origin ${{ github.event.pull_request.head.ref }}
+          git checkout ${{ github.event.pull_request.head.ref }}
+          git pull origin ${{ github.event.pull_request.head.ref }}
+      - name: Audit dependencies
+        run: |
+          npm audit fix || true
+          PACKAGE_FILES=$(git status -s | grep -E 'package(-lock)?.json$' | sed s/^...//)
+          echo "PACKAGE_FILES=$PACKAGE_FILES" >> $GITHUB_ENV
+      - name: Push updates
+        env:
+          PACKAGE_FILES: ${{ env.PACKAGE_FILES }}
+        run: |
+          if [ -n "$PACKAGE_FILES" ]; then
+            git add $PACKAGE_FILES
+            git commit -m "fix: update dependencies"
+            git push origin ${{ github.event.pull_request.head.ref }}
+          else
+            echo "No changes to package files"
+            echo "$PACKAGE_FILES"
+          fi

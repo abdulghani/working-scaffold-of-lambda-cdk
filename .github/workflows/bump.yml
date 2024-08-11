@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      BRANCH: stable
     steps:
       - uses: actions/checkout@v4
       - uses: dcarbone/install-jq-action@v2.1.0
@@ -19,8 +21,6 @@ jobs:
         with:
           node-version: lts/iron
       - name: Setup git
-        env:
-          BRANCH: stable
         run: |
           git config user.name "${{ github.actor }}"
           git config user.email "${{ github.actor_id }}+${{ github.actor }}@users.noreply.github.com"
@@ -34,6 +34,4 @@ jobs:
       - name: Verify version
         run: jq -r '.version' package.json
       - name: Push changes
-        env:
-          BRANCH: stable
         run: git push origin $BRANCH

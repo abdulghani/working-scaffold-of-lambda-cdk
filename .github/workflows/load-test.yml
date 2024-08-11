@@ -35,7 +35,7 @@ jobs:
       - name: Load test stable
         if: ${{ inputs.environment == 'stable' }}
         env:
-          TARGET: "https://queue-dev.pranaga.com"
+          TARGET: "https://kiosk.pranaga.com"
           TARGET_PATH: "/gokana-lippo/menu"
         run: |
           artillery run ./test/load-test.yml --record --key ${{ secrets.ARTILLERY_KEY }} --insecure

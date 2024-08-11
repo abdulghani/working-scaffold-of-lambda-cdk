@@ -26,6 +26,12 @@ export const dbconn = serverOnly$(
         password: process.env.DB_PASSWORD,
         database: process.env.DB_NAME
       };
-    })()
+    })(),
+    pool: {
+      // optimize for lambda, reasonable limit for scale on concurrent connection
+      // default is min: 2, max: 10 for knex pg
+      min: 1,
+      max: 3
+    }
   })
 );

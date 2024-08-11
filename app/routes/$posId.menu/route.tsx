@@ -67,12 +67,9 @@ import { Ban, CircleCheck, ShoppingCart, Timer, Utensils } from "lucide-react";
 import { DateTime } from "luxon";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useDebouncedMenu } from "./admin.$posId";
-import {
-  orderDraftReducer,
-  OrderDraftShape
-} from "./menu.$posId/order-draft-reducer";
-import { createInstanceId, parseInstanceId } from "./menu.$posId/order-helper";
+import { useDebouncedMenu } from "../admin.$posId";
+import { orderDraftReducer, OrderDraftShape } from "./order-draft-reducer";
+import { createInstanceId, parseInstanceId } from "./order-helper";
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const { posId } = params;

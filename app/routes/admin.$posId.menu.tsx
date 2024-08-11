@@ -6,7 +6,6 @@ import { formatPrice } from "@/lib/format-price";
 import { cn } from "@/lib/utils";
 import { LoaderFunctionArgs } from "@remix-run/node";
 import { useFetcher, useLoaderData, useNavigation } from "@remix-run/react";
-import { verifySessionPOSAccess } from "app/service/auth";
 import {
   Menu,
   getAdminMenuByPOS,
@@ -37,7 +36,6 @@ export async function loader({ params }: LoaderFunctionArgs) {
 }
 
 export async function action({ params, request }: LoaderFunctionArgs) {
-  await verifySessionPOSAccess?.(request, params.posId!);
   const payload = await request.formData().then(Object.fromEntries);
 
   if (payload._action === "toggleAddon") {
@@ -56,7 +54,7 @@ export async function action({ params, request }: LoaderFunctionArgs) {
 }
 
 export default function AdminMenu() {
-  const { pos, menus, menuCategories } = useLoaderData<typeof loader>();
+  const { menus, menuCategories } = useLoaderData<typeof loader>();
   const [filter, setFilter] = useState("all");
   const [query, setQuery] = useState("");
   const categorized = useMemo((): Menu[] => {
@@ -186,7 +184,7 @@ export default function AdminMenu() {
             <div className="mr-2 flex flex-col items-center">
               {/* <Checkbox checked={i.active} disabled/> */}
               {i.active ? (
-                <CircleCheck className="h-5 w-5 text-green-600" />
+                <CircleCheck className="h-5 w-5 text-muted-foreground opacity-50" />
               ) : (
                 <CircleX className="h-5 w-5 text-red-500" />
               )}
@@ -221,7 +219,7 @@ export default function AdminMenu() {
                 </span>
               </div>
               <Switch
-                className="mr-1 data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-700"
+                className="mr-1"
                 checked={debouncedSelectedMenu?.active}
                 onCheckedChange={() => toggleMenu(currentSelectedMenu)}
                 disabled={isLoading}
@@ -240,7 +238,7 @@ export default function AdminMenu() {
                     key={j.id}
                     addon={j}
                     menu={debouncedSelectedMenu}
-                    className="data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-red-700"
+                    className=""
                     disabled={isLoading}
                   />
                 ))}

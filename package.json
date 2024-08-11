@@ -7,7 +7,7 @@
     "dev": "vite --port 3000 --host",
     "build": "npx remix vite:build",
     "lint": "./node_modules/.bin/eslint . --ext js,ts,tsx --no-inline-config --report-unused-disable-directives",
-    "preview": "vite preview --port 3000 --host",
+    "preview": "npx remix-serve ./build/server/index.js --port 3000 --host",
     "prepare": "npm run prepare:husky && npm run env && npm run prepare:adminer",
     "format": "prettier --config ./.prettierrc.json --write --ignore-unknown",
     "env": "[ -f .env ] || [ \"$CI\" != \"true\" ] && cp .env.example .env || true",

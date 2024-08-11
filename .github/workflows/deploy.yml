@@ -109,19 +109,21 @@ jobs:
       - name: Bump prerelease alpha
         if: github.ref_name == 'alpha'
         run: |
-          BARE_VERSION="$(jq -r .version package.json | grep -E '\d+\.\d+\.\d+-(alpha|beta)\.\d+' | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')"
-          jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-alpha\.\d+' && npm version prerelease -m "[skip ci] Release %s" || npm version "$BARE_VERSION-alpha.0" -m "[skip ci] Release %s" --allow-same-version
+          BARE_VERSION=$(jq -r '.version' package.json | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')
+          IS_ALPHA=$(jq -r '.version' package.json | grep -E '[0-9]+\.[0-9]+\.[0-9]+-alpha\.[0-9]+' || true)
+          [ -n "$IS_ALPHA" ] && npm version prerelease -m "[skip ci] Release %s" --allow-same-version || npm version "$BARE_VERSION-alpha.0" -m "[skip ci] Release %s" --allow-same-version
           git push
       - name: Bump prerelease beta
         if: github.ref_name == 'beta'
         run: |
-          BARE_VERSION="$(jq -r .version package.json | grep -E '\d+\.\d+\.\d+-(alpha|beta)\.\d+' | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')"
-          jq -r '.version' package.json | grep -E '\d+\.\d+\.\d+-beta\.\d+' && npm version prerelease -m "[skip ci] Release %s" || npm version "$BARE_VERSION-alpha.0" -m "[skip ci] Release %s" --allow-same-version
+          BARE_VERSION=$(jq -r '.version' package.json | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')
+          IS_BETA=$(jq -r '.version' package.json | grep -E '[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+' || true)
+          [ -n "$IS_BETA" ] && npm version prerelease -m "[skip ci] Release %s" --allow-same-version || npm version "$BARE_VERSION-beta.0" -m "[skip ci] Release %s" --allow-same-version
           git push
       - name: Bump release
         if: github.ref_name == 'stable'
         run: |
-          BARE_VERSION="$(jq -r .version package.json | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')"
+          BARE_VERSION=$(jq -r '.version' package.json | sed -E 's/-(alpha|beta)\.[[:digit:]]+//')
           npm version "$BARE_VERSION" -m "[skip ci] Release %s" --allow-same-version
           git push
       # has to be after the bump and versioning pushed, stash will be dirty
@@ -151,11 +153,11 @@ jobs:
         env:
           LAMBDA_SIZE: "384"
           COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_USER: ${{ secrets.DB_USER }}
+          DB_HOST: ${{ secrets.TEST_DB_HOST }}
+          DB_NAME: ${{ secrets.TEST_DB_NAME }}
+          DB_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+          DB_PORT: ${{ secrets.TEST_DB_PORT }}
+          DB_USER: ${{ secrets.TEST_DB_USER }}
           NODE_ENV: production
           S3_CORS_ALLOWED_ORIGIN: https://queue-dev.pranaga.com
           S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET }}
@@ -168,6 +170,7 @@ jobs:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VITE_S3_BASE_URL: ${{ secrets.VITE_S3_BASE_URL }}
           INTERNAL_API_KEY: ${{ env.INTERNAL_API_KEY }}
+          PRANAGA_ENV: alpha
         run: |
           ./node_modules/.bin/cdk deploy
       - name: Deploy to beta
@@ -175,11 +178,11 @@ jobs:
         env:
           LAMBDA_SIZE: "768"
           COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_USER: ${{ secrets.DB_USER }}
+          DB_HOST: ${{ secrets.TEST_DB_HOST }}
+          DB_NAME: ${{ secrets.TEST_DB_NAME }}
+          DB_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+          DB_PORT: ${{ secrets.TEST_DB_PORT }}
+          DB_USER: ${{ secrets.TEST_DB_USER }}
           NODE_ENV: production
           S3_CORS_ALLOWED_ORIGIN: https://queue-dev.pranaga.com
           S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET }}
@@ -191,6 +194,7 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VITE_S3_BASE_URL: ${{ secrets.VITE_S3_BASE_URL }}
+          PRANAGA_ENV: beta
         run: |
           ./node_modules/.bin/cdk deploy
       - name: Deploy to prod
@@ -214,6 +218,7 @@ jobs:
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VITE_S3_BASE_URL: ${{ secrets.VITE_S3_BASE_URL_PROD }}
+          PRANAGA_ENV: stable
         run: |
           ./node_modules/.bin/cdk deploy
       - name: Notify deployment dev
