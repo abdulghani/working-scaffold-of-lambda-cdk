@@ -153,11 +153,11 @@ jobs:
         env:
           LAMBDA_SIZE: "384"
           COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_USER: ${{ secrets.DB_USER }}
+          DB_HOST: ${{ secrets.TEST_DB_HOST }}
+          DB_NAME: ${{ secrets.TEST_DB_NAME }}
+          DB_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+          DB_PORT: ${{ secrets.TEST_DB_PORT }}
+          DB_USER: ${{ secrets.TEST_DB_USER }}
           NODE_ENV: production
           S3_CORS_ALLOWED_ORIGIN: https://queue-dev.pranaga.com
           S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET }}
@@ -178,11 +178,11 @@ jobs:
         env:
           LAMBDA_SIZE: "768"
           COOKIE_SECRET: ${{ secrets.COOKIE_SECRET }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_USER: ${{ secrets.DB_USER }}
+          DB_HOST: ${{ secrets.TEST_DB_HOST }}
+          DB_NAME: ${{ secrets.TEST_DB_NAME }}
+          DB_PASSWORD: ${{ secrets.TEST_DB_PASSWORD }}
+          DB_PORT: ${{ secrets.TEST_DB_PORT }}
+          DB_USER: ${{ secrets.TEST_DB_USER }}
           NODE_ENV: production
           S3_CORS_ALLOWED_ORIGIN: https://queue-dev.pranaga.com
           S3_IMAGE_BUCKET: ${{ secrets.S3_IMAGE_BUCKET }}
