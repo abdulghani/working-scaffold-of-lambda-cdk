@@ -162,7 +162,7 @@ export default function AdminMenu() {
           >
             <img
               src={i.imgs?.[0]}
-              className="h-12 w-12 rounded-md object-cover"
+              className="aspect-square h-12 w-12 rounded-md object-cover"
             />
             <div className="ml-3 flex flex-grow flex-col justify-between overflow-hidden pr-5">
               <div className="flex flex-col">
@@ -205,7 +205,7 @@ export default function AdminMenu() {
             <div className="flex w-full flex-row items-center px-3 py-2 transition-colors hover:bg-zinc-50">
               <img
                 src={debouncedSelectedMenu?.imgs?.[0]}
-                className="h-12 w-12 rounded-sm object-cover"
+                className="aspect-square h-12 w-12 rounded-sm object-cover"
               />
               <div className="ml-3 flex flex-col overflow-hidden pr-6">
                 <span className="truncate whitespace-nowrap text-sm font-semibold">
