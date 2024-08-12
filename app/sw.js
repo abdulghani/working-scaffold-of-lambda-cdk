@@ -6,7 +6,7 @@ const localforage = self.localforage;
 const BUNDLE_MANIFEST = ["{{bundleManifest}}"];
 const VERSION = "{{version}}";
 const LOGO =
-  "https://pranaga-random-bucket.s3.ap-southeast-1.amazonaws.com/pranaga-light-192.png";
+  "https://pranaga-images.s3.ap-southeast-1.amazonaws.com/kios-light-192.png";
 
 self.addEventListener("install", function (event) {
   console.log(`Service worker installed (${VERSION})`);
